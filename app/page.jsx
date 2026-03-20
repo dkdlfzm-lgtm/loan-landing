@@ -1,4 +1,13 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
 export default function LoanLandingPage() {
+  const [loanAmount, setLoanAmount] = useState("30000000");
+  const [interestRate, setInterestRate] = useState("5.5");
+  const [repaymentType, setRepaymentType] = useState("원리금균등");
+  const [loanMonths, setLoanMonths] = useState("36");
+
   const faq = [
     {
       q: "상담 신청 후 얼마나 빨리 연락이 오나요?",
@@ -36,12 +45,60 @@ export default function LoanLandingPage() {
     },
   ];
 
-  const steps = [
-    "상담 신청",
-    "담당자 확인",
-    "개별 연락",
-    "상담 진행",
-  ];
+  const steps = ["상담 신청", "담당자 확인", "개별 연락", "상담 진행"];
+  const calcTabs = ["시세 조회", "한도 조회", "이율 계산기"];
+
+  const formatNumber = (value) => {
+    if (!Number.isFinite(value)) return "0";
+    return Math.round(value).toLocaleString("ko-KR");
+  };
+
+  const calcResult = useMemo(() => {
+    const principal = Number(String(loanAmount).replace(/,/g, ""));
+    const annualRate = Number(interestRate);
+    const months = Number(loanMonths);
+
+    if (!principal || !annualRate || !months || months <= 0) {
+      return {
+        monthlyPayment: 0,
+        totalInterest: 0,
+        totalPayment: 0,
+      };
+    }
+
+    const monthlyRate = annualRate / 100 / 12;
+    let monthlyPayment = 0;
+    let totalPayment = 0;
+    let totalInterest = 0;
+
+    if (repaymentType === "원리금균등") {
+      if (monthlyRate === 0) {
+        monthlyPayment = principal / months;
+      } else {
+        monthlyPayment =
+          (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) /
+          (Math.pow(1 + monthlyRate, months) - 1);
+      }
+      totalPayment = monthlyPayment * months;
+      totalInterest = totalPayment - principal;
+    } else if (repaymentType === "원금균등") {
+      const monthlyPrincipal = principal / months;
+      const avgMonthlyInterest = ((principal * monthlyRate) + (monthlyPrincipal * monthlyRate)) / 2;
+      monthlyPayment = monthlyPrincipal + avgMonthlyInterest;
+      totalInterest = (principal * monthlyRate * (months + 1)) / 2;
+      totalPayment = principal + totalInterest;
+    } else {
+      monthlyPayment = principal * monthlyRate;
+      totalInterest = monthlyPayment * months;
+      totalPayment = principal + totalInterest;
+    }
+
+    return {
+      monthlyPayment,
+      totalInterest,
+      totalPayment,
+    };
+  }, [loanAmount, interestRate, repaymentType, loanMonths]);
 
   return (
     <div className="page">
@@ -60,7 +117,9 @@ export default function LoanLandingPage() {
             <a href="#products">상품안내</a>
             <a href="#process">진행절차</a>
             <a href="#faq">FAQ</a>
-            <a href="#contact" className="nav-btn">상담 신청</a>
+            <a href="#contact" className="nav-btn">
+              상담 신청
+            </a>
           </nav>
         </div>
       </header>
@@ -89,8 +148,12 @@ export default function LoanLandingPage() {
               </p>
 
               <div className="hero-actions">
-                <a href="#contact" className="btn btn-white">무료 상담 신청</a>
-                <a href="#products" className="btn btn-outline">상품 안내 보기</a>
+                <a href="#contact" className="btn btn-white">
+                  무료 상담 신청
+                </a>
+                <a href="#products" className="btn btn-outline">
+                  상품 안내 보기
+                </a>
               </div>
 
               <div className="hero-stats">
@@ -195,6 +258,254 @@ export default function LoanLandingPage() {
           </div>
         </section>
 
+        <section className="section">
+          <div className="container">
+            <div className="form-card" style={{ boxShadow: "0 18px 50px rgba(15,23,42,0.08)" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "space-between", alignItems: "flex-end" }}>
+                <div>
+                  <div className="section-mini">간편 조회 서비스</div>
+                  <h2 style={{ marginTop: 10, marginBottom: 0, fontSize: 44, fontWeight: 900 }}>
+                    시세 조회 · 한도 조회 · 이율 계산기
+                  </h2>
+                  <p style={{ marginTop: 16, color: "#64748b", lineHeight: 1.8, maxWidth: 760 }}>
+                    참고 사이트처럼 상담 신청 외에도 조회형 기능이 있는 것처럼 보이게
+                    구성한 예시 영역입니다. 실제 자동 연동 전에는 접수형 또는 계산형으로
+                    먼저 운영할 수 있습니다.
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  {calcTabs.map((tab, idx) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      style={{
+                        borderRadius: 999,
+                        padding: "10px 18px",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        border: idx === 0 ? "none" : "1px solid #cbd5e1",
+                        background: idx === 0 ? "#1d4ed8" : "#fff",
+                        color: idx === 0 ? "#fff" : "#334155",
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 32,
+                  display: "grid",
+                  gap: 24,
+                  gridTemplateColumns: "1.05fr 0.95fr",
+                }}
+              >
+                <div
+                  style={{
+                    borderRadius: 30,
+                    padding: 32,
+                    color: "#fff",
+                    background: "linear-gradient(135deg,#0e49b5 0%,#0d63de 100%)",
+                    boxShadow: "0 18px 50px rgba(13,99,222,0.24)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "inline-block",
+                      borderRadius: 999,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      background: "rgba(255,255,255,0.15)",
+                    }}
+                  >
+                    시세 조회 예시
+                  </div>
+                  <h3 style={{ marginTop: 16, fontSize: 34, fontWeight: 900, lineHeight: 1.3 }}>
+                    주소 또는 아파트명으로
+                    <br />
+                    간편하게 조회 접수
+                  </h3>
+                  <p style={{ marginTop: 16, color: "#dbeafe", lineHeight: 1.8 }}>
+                    고객이 기본 정보를 남기면 담당자가 확인 후 안내하는 방식으로 먼저
+                    운영할 수 있도록 만든 시안입니다.
+                  </p>
+
+                  <div className="grid-2" style={{ marginTop: 24 }}>
+                    <input type="text" placeholder="아파트명 또는 지역 입력" />
+                    <input type="text" placeholder="연락처 입력" />
+                  </div>
+
+                  <div className="grid-2" style={{ marginTop: 16 }}>
+                    <select defaultValue="담보 종류 선택">
+                      <option>담보 종류 선택</option>
+                      <option>아파트</option>
+                      <option>빌라</option>
+                      <option>오피스텔</option>
+                    </select>
+                    <button type="button" className="dark-btn" style={{ marginTop: 0 }}>
+                      시세 조회 신청
+                    </button>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 20,
+                      borderRadius: 18,
+                      padding: 16,
+                      background: "rgba(255,255,255,0.1)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#e0f2fe",
+                      fontSize: 14,
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    실제 운영 시에는 공공데이터 또는 내부 상담 프로세스와 연결해
+                    조회 결과를 안내하는 구조로 확장할 수 있습니다.
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 24 }}>
+                  <div className="step-card" style={{ textAlign: "left", background: "#f8fbff" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center" }}>
+                      <div>
+                        <div className="section-mini">한도 조회</div>
+                        <h3 style={{ marginTop: 8 }}>간편 한도 체크</h3>
+                      </div>
+                      <div className="product-badge">접수형</div>
+                    </div>
+
+                    <div className="grid-2" style={{ marginTop: 20 }}>
+                      <input type="text" placeholder="성함" />
+                      <input type="text" placeholder="연락처" />
+                    </div>
+
+                    <div className="grid-2" style={{ marginTop: 16 }}>
+                      <select defaultValue="소득 구분">
+                        <option>소득 구분</option>
+                        <option>직장인</option>
+                        <option>사업자</option>
+                        <option>프리랜서</option>
+                      </select>
+                      <select defaultValue="희망 상품">
+                        <option>희망 상품</option>
+                        <option>아파트 담보대출</option>
+                        <option>주택 · 빌라 담보대출</option>
+                        <option>오피스텔 담보대출</option>
+                      </select>
+                    </div>
+
+                    <button type="button" className="submit-btn" style={{ marginTop: 20 }}>
+                      한도 조회 접수하기
+                    </button>
+                  </div>
+
+                  <div className="product-card">
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center" }}>
+                      <div>
+                        <div className="section-mini">이율 계산기</div>
+                        <h3 style={{ marginTop: 8 }}>예상 상환 금액 계산</h3>
+                      </div>
+                      <div className="product-badge" style={{ background: "#ecfdf5", color: "#047857" }}>
+                        계산형
+                      </div>
+                    </div>
+
+                    <div className="grid-2" style={{ marginTop: 20 }}>
+                      <input
+                        type="text"
+                        placeholder="대출 금액"
+                        value={loanAmount}
+                        onChange={(e) => setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                      />
+                      <input
+                        type="text"
+                        placeholder="연 이율(%)"
+                        value={interestRate}
+                        onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
+                      />
+                    </div>
+
+                    <div className="grid-2" style={{ marginTop: 16 }}>
+                      <select
+                        value={repaymentType}
+                        onChange={(e) => setRepaymentType(e.target.value)}
+                      >
+                        <option>원리금균등</option>
+                        <option>원금균등</option>
+                        <option>만기일시상환</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="기간(개월)"
+                        value={loanMonths}
+                        onChange={(e) => setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 20,
+                        borderRadius: 18,
+                        background: "#0f172a",
+                        color: "#fff",
+                        padding: 20,
+                      }}
+                    >
+                      <div style={{ fontSize: 14, color: "#cbd5e1" }}>예상 월 상환액</div>
+                      <div style={{ marginTop: 8, fontSize: 34, fontWeight: 900 }}>
+                        {formatNumber(calcResult.monthlyPayment)}원
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 16,
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            borderRadius: 14,
+                            background: "rgba(255,255,255,0.05)",
+                            padding: 12,
+                          }}
+                        >
+                          <div style={{ fontSize: 12, color: "#94a3b8" }}>총 예상 이자</div>
+                          <div style={{ marginTop: 4, fontWeight: 800 }}>
+                            {formatNumber(calcResult.totalInterest)}원
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            borderRadius: 14,
+                            background: "rgba(255,255,255,0.05)",
+                            padding: 12,
+                          }}
+                        >
+                          <div style={{ fontSize: 12, color: "#94a3b8" }}>총 상환 예상액</div>
+                          <div style={{ marginTop: 4, fontWeight: 800 }}>
+                            {formatNumber(calcResult.totalPayment)}원
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 12, fontSize: 12, lineHeight: 1.7, color: "#94a3b8" }}>
+                        입력값에 따라 예시 계산 결과가 즉시 변경됩니다. 실제 상품별 조건은
+                        상담을 통해 달라질 수 있습니다.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="products" className="section">
           <div className="container">
             <div className="section-head">
@@ -266,7 +577,9 @@ export default function LoanLandingPage() {
                   유도할 수 있도록 만든 영역입니다.
                 </p>
               </div>
-              <a href="#contact" className="btn btn-white">상담 신청하러 가기</a>
+              <a href="#contact" className="btn btn-white">
+                상담 신청하러 가기
+              </a>
             </div>
           </div>
         </section>
