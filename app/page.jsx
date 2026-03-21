@@ -73,22 +73,19 @@ export default function LoanLandingPage() {
 
   useEffect(() => {
     const nextDistricts = Object.keys(propertyData[selectedCity] || {});
-    const nextDistrict = nextDistricts[0] || "";
-    setSelectedDistrict(nextDistrict);
+    setSelectedDistrict(nextDistricts[0] || "");
   }, [selectedCity]);
 
   useEffect(() => {
     const nextTowns = Object.keys(propertyData[selectedCity]?.[selectedDistrict] || {});
-    const nextTown = nextTowns[0] || "";
-    setSelectedTown(nextTown);
+    setSelectedTown(nextTowns[0] || "");
   }, [selectedCity, selectedDistrict]);
 
   useEffect(() => {
     const nextApartments = Object.keys(
       propertyData[selectedCity]?.[selectedDistrict]?.[selectedTown] || {}
     );
-    const nextApartment = nextApartments[0] || "";
-    setSelectedApartment(nextApartment);
+    setSelectedApartment(nextApartments[0] || "");
   }, [selectedCity, selectedDistrict, selectedTown]);
 
   useEffect(() => {
@@ -100,19 +97,17 @@ export default function LoanLandingPage() {
   const selectedSummary = `${selectedCity} ${selectedDistrict} ${selectedTown} ${selectedApartment}`;
 
   const priceResult = useMemo(() => {
-    const title = selectedApartment || "선택 단지";
-    const area = selectedArea || "84.96㎡";
     return {
-      title,
+      title: selectedApartment || "선택 단지",
       address: `${selectedCity} ${selectedDistrict} ${selectedTown}`,
-      area,
+      area: selectedArea || "84.96㎡",
       floor: "101동 12층",
       tradeDate: "2026.03.18",
       latestPrice: "8억 7,500만원",
       range: "8억 3,000만원 ~ 8억 9,000만원",
       estimateLimit: "최대 6억 1,000만원 가능",
       description:
-        "최근 실거래 기준 예시 결과입니다. 실제 운영 시에는 국토교통부 실거래가 API 및 단지/면적 마스터 데이터를 연결해 자동 조회되도록 확장할 수 있습니다.",
+        "최근 실거래 기준 예시 결과입니다. 실제 운영 시에는 국토교통부 실거래가 API와 단지/면적 데이터 연결로 자동 조회되도록 확장할 수 있습니다.",
     };
   }, [selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
@@ -122,11 +117,7 @@ export default function LoanLandingPage() {
     const months = Number(loanMonths);
 
     if (!principal || !annualRate || !months || months <= 0) {
-      return {
-        monthlyPayment: 0,
-        totalInterest: 0,
-        totalPayment: 0,
-      };
+      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0 };
     }
 
     const monthlyRate = annualRate / 100 / 12;
@@ -157,56 +148,41 @@ export default function LoanLandingPage() {
       totalPayment = principal + totalInterest;
     }
 
-    return {
-      monthlyPayment,
-      totalInterest,
-      totalPayment,
-    };
+    return { monthlyPayment, totalInterest, totalPayment };
   }, [loanAmount, interestRate, repaymentType, loanMonths]);
 
   const faq = [
     {
       q: "시세조회 후 바로 대출 상담도 가능한가요?",
-      a: "네. 조회 결과 하단 또는 별도 상담 신청 영역에서 바로 접수할 수 있게 구성했습니다.",
+      a: "네. 조회 결과 영역 옆과 아래에 바로 상담 신청란을 배치했습니다.",
     },
     {
       q: "조회 결과는 실제와 완전히 동일한가요?",
-      a: "현재는 시안 기준이며, 실제 운영 시 공공 API와 내부 심사 기준을 반영해 구체화할 수 있습니다.",
+      a: "현재는 시안용 예시입니다. 실제 운영 시 공공 API와 내부 기준을 연결해 구체화할 수 있습니다.",
     },
     {
       q: "이율 계산기는 실시간으로 바뀌나요?",
-      a: "네. 입력값에 따라 예상 상환액, 총이자, 총상환액이 즉시 변경됩니다.",
+      a: "네. 입력값을 바꾸면 예상 월 상환액과 총 예상 이자가 즉시 변경됩니다.",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-[#f6f8fb] text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-700 text-lg font-bold text-white shadow-md">
-              대
-            </div>
+    <div className="site-wrap">
+      <header className="header">
+        <div className="container header-inner">
+          <div className="brand">
+            <div className="brand-icon">대</div>
             <div>
-              <div className="text-lg font-extrabold tracking-tight">대출상담 브랜드명</div>
-              <div className="text-xs text-slate-500">빠른 상담 접수 랜딩페이지</div>
+              <div className="brand-title">대출상담 브랜드명</div>
+              <div className="brand-sub">빠른 상담 접수 랜딩페이지</div>
             </div>
           </div>
 
-          <nav className="hidden items-center gap-7 text-sm font-medium text-slate-700 md:flex">
-            <a href="#intro" className="transition hover:text-blue-700">
-              홈
-            </a>
-            <a href="#quick-search" className="transition hover:text-blue-700">
-              시세조회
-            </a>
-            <a href="#calculator" className="transition hover:text-blue-700">
-              이율계산기
-            </a>
-            <a
-              href="#contact"
-              className="rounded-full bg-blue-700 px-5 py-2.5 text-white shadow-sm transition hover:bg-blue-800"
-            >
+          <nav className="nav">
+            <a href="#intro">홈</a>
+            <a href="#quick-search">시세조회</a>
+            <a href="#calculator">이율계산기</a>
+            <a href="#contact" className="nav-btn">
               상담 신청
             </a>
           </nav>
@@ -214,22 +190,15 @@ export default function LoanLandingPage() {
       </header>
 
       <main>
-        <section
-          id="intro"
-          className="relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.14),_transparent_35%),linear-gradient(135deg,#0f2f75_0%,#0e58c7_55%,#0b74f0_100%)] text-white"
-        >
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute left-[-120px] top-[-80px] h-72 w-72 rounded-full bg-white blur-3xl" />
-            <div className="absolute bottom-[-120px] right-[-80px] h-80 w-80 rounded-full bg-cyan-300 blur-3xl" />
-          </div>
+        <section id="intro" className="hero">
+          <div className="hero-glow hero-glow-1" />
+          <div className="hero-glow hero-glow-2" />
 
-          <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-24">
-            <div>
-              <div className="inline-flex rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-sm font-medium backdrop-blur">
-                선택형 시세조회 · 빠른 상담 연결
-              </div>
+          <div className="container hero-grid">
+            <div className="hero-left">
+              <div className="hero-pill">선택형 시세조회 · 빠른 상담 연결</div>
 
-              <h1 className="mt-6 max-w-3xl text-4xl font-extrabold leading-tight md:text-6xl">
+              <h1 className="hero-title">
                 아파트 시세조회부터
                 <br />
                 대출 상담 신청까지
@@ -237,55 +206,38 @@ export default function LoanLandingPage() {
                 한 번에 연결되는 구조
               </h1>
 
-              <p className="mt-6 max-w-2xl text-base leading-7 text-blue-50 md:text-lg">
+              <p className="hero-text">
                 지역, 단지명, 면적을 차례대로 선택하고 조회를 누르면 결과형 페이지처럼
                 설명 영역과 상담 신청란이 이어지는 구조로 만든 시안입니다.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-4">
-                <a
-                  href="#quick-search"
-                  className="rounded-full bg-white px-7 py-3.5 text-sm font-bold text-blue-800 shadow-xl transition hover:scale-[1.02]"
-                >
+              <div className="hero-actions">
+                <a href="#quick-search" className="btn btn-white">
                   빠른 시세조회
                 </a>
-                <a
-                  href="#contact"
-                  className="rounded-full border border-white/30 bg-white/10 px-7 py-3.5 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20"
-                >
+                <a href="#contact" className="btn btn-outline">
                   무료 상담 신청
                 </a>
               </div>
             </div>
 
-            <div className="rounded-[30px] bg-white p-7 text-slate-900 shadow-[0_30px_80px_rgba(0,0,0,0.25)] md:p-8">
-              <div className="text-sm font-bold text-blue-700">빠른 상담 신청</div>
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight">간편 접수</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
+            <div className="hero-card">
+              <div className="section-mini">빠른 상담 신청</div>
+              <h2 className="card-title">간편 접수</h2>
+              <p className="card-desc">
                 성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
               </p>
 
-              <form className="mt-6 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">성함</label>
-                  <input
-                    type="text"
-                    placeholder="성함을 입력하세요"
-                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 outline-none transition focus:border-blue-500 focus:bg-white"
-                  />
+              <form className="form-stack">
+                <div className="field">
+                  <label>성함</label>
+                  <input type="text" placeholder="성함을 입력하세요" />
                 </div>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">연락처</label>
-                  <input
-                    type="text"
-                    placeholder="연락처를 입력하세요"
-                    className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 outline-none transition focus:border-blue-500 focus:bg-white"
-                  />
+                <div className="field">
+                  <label>연락처</label>
+                  <input type="text" placeholder="연락처를 입력하세요" />
                 </div>
-                <button
-                  type="button"
-                  className="w-full rounded-2xl bg-blue-700 px-5 py-4 text-base font-extrabold text-white shadow-lg transition hover:bg-blue-800"
-                >
+                <button type="button" className="primary-btn">
                   상담 신청하기
                 </button>
               </form>
@@ -293,241 +245,170 @@ export default function LoanLandingPage() {
           </div>
         </section>
 
-        <section id="quick-search" className="mx-auto max-w-7xl px-6 py-16 md:py-20">
-          <div className="rounded-[34px] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-8">
-            <div className="text-center">
-              <div className="text-sm font-bold text-blue-700">빠른 시세조회</div>
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-                오늘의 아파트 대출이 궁금하세요?
-              </h2>
-            </div>
-
-            <div className="mt-8 rounded-[28px] bg-[linear-gradient(135deg,#0e49b5_0%,#0d63de_100%)] p-5 text-white md:p-7">
-              <div className="grid gap-3 md:grid-cols-3">
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="rounded-2xl border border-white/30 bg-white/10 px-4 py-4 text-sm font-bold text-white outline-none backdrop-blur"
-                >
-                  {cities.map((city) => (
-                    <option key={city} value={city} className="text-slate-900">
-                      {city}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedDistrict}
-                  onChange={(e) => setSelectedDistrict(e.target.value)}
-                  className="rounded-2xl border border-white/30 bg-white/10 px-4 py-4 text-sm font-bold text-white outline-none backdrop-blur"
-                >
-                  {districts.map((district) => (
-                    <option key={district} value={district} className="text-slate-900">
-                      {district}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedTown}
-                  onChange={(e) => setSelectedTown(e.target.value)}
-                  className="rounded-2xl border border-white/30 bg-white/10 px-4 py-4 text-sm font-bold text-white outline-none backdrop-blur"
-                >
-                  {towns.map((town) => (
-                    <option key={town} value={town} className="text-slate-900">
-                      {town}
-                    </option>
-                  ))}
-                </select>
+        <section id="quick-search" className="section">
+          <div className="container">
+            <div className="white-panel">
+              <div className="section-center">
+                <div className="section-mini">빠른 시세조회</div>
+                <h2 className="section-title">오늘의 아파트 대출이 궁금하세요?</h2>
               </div>
 
-              <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_160px]">
-                <select
-                  value={selectedApartment}
-                  onChange={(e) => setSelectedApartment(e.target.value)}
-                  className="rounded-2xl border border-white/30 bg-white/10 px-4 py-4 text-sm font-bold text-white outline-none backdrop-blur"
-                >
-                  {apartments.map((apartment) => (
-                    <option key={apartment} value={apartment} className="text-slate-900">
-                      {apartment}
-                    </option>
-                  ))}
-                </select>
+              <div className="quick-search-box">
+                <div className="select-grid select-grid-3">
+                  <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
+                    {cities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
 
-                <select
-                  value={selectedArea}
-                  onChange={(e) => setSelectedArea(e.target.value)}
-                  className="rounded-2xl border border-white/30 bg-white/10 px-4 py-4 text-sm font-bold text-white outline-none backdrop-blur"
-                >
-                  {areas.map((area) => (
-                    <option key={area} value={area} className="text-slate-900">
-                      {area}
-                    </option>
-                  ))}
-                </select>
+                  <select
+                    value={selectedDistrict}
+                    onChange={(e) => setSelectedDistrict(e.target.value)}
+                  >
+                    {districts.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
 
-                <button
-                  type="button"
-                  onClick={() => setShowPricePage(true)}
-                  className="rounded-2xl bg-white px-5 py-4 text-sm font-extrabold text-blue-800 transition hover:opacity-95"
-                >
-                  실시간 조회
-                </button>
-              </div>
+                  <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
+                    {towns.map((town) => (
+                      <option key={town} value={town}>
+                        {town}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="mt-4 text-sm text-blue-50">
-                선택 중: <span className="font-extrabold">{selectedSummary}</span> /{" "}
-                <span className="font-extrabold">{selectedArea}</span>
+                <div className="select-grid select-grid-main">
+                  <select
+                    value={selectedApartment}
+                    onChange={(e) => setSelectedApartment(e.target.value)}
+                  >
+                    {apartments.map((apartment) => (
+                      <option key={apartment} value={apartment}>
+                        {apartment}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
+                    {areas.map((area) => (
+                      <option key={area} value={area}>
+                        {area}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    className="search-btn"
+                    onClick={() => setShowPricePage(true)}
+                  >
+                    실시간 조회
+                  </button>
+                </div>
+
+                <div className="selected-text">
+                  선택 중: <strong>{selectedSummary}</strong> / <strong>{selectedArea}</strong>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {showPricePage && (
-          <section className="bg-white py-16 md:py-20">
-            <div className="mx-auto max-w-7xl px-6">
-              <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-[30px] border border-slate-200 bg-slate-50 p-6 shadow-sm md:p-8">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+          <section className="result-section">
+            <div className="container">
+              <div className="result-grid">
+                <div className="result-left">
+                  <div className="result-top">
                     <div>
-                      <div className="text-sm font-bold text-blue-700">조회 결과</div>
-                      <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-                        {priceResult.title}
-                      </h2>
-                      <p className="mt-3 text-sm leading-7 text-slate-600 md:text-base">
+                      <div className="section-mini">조회 결과</div>
+                      <h2 className="result-title">{priceResult.title}</h2>
+                      <p className="result-sub">
                         {priceResult.address} · {priceResult.area} · {priceResult.floor}
                       </p>
                     </div>
-                    <a
-                      href="#contact"
-                      className="rounded-full bg-blue-700 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-blue-800"
-                    >
+                    <a href="#contact" className="nav-btn">
                       상담 신청
                     </a>
                   </div>
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl bg-white p-4 shadow-sm">
-                      <div className="text-xs font-medium text-slate-500">최근 실거래가</div>
-                      <div className="mt-2 text-xl font-extrabold text-slate-900">
-                        {priceResult.latestPrice}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        기준일 {priceResult.tradeDate}
-                      </div>
+                  <div className="info-grid">
+                    <div className="info-card">
+                      <div className="info-label">최근 실거래가</div>
+                      <div className="info-value">{priceResult.latestPrice}</div>
+                      <div className="info-sub">기준일 {priceResult.tradeDate}</div>
                     </div>
-                    <div className="rounded-2xl bg-white p-4 shadow-sm">
-                      <div className="text-xs font-medium text-slate-500">최근 거래 범위</div>
-                      <div className="mt-2 text-xl font-extrabold text-slate-900">
-                        {priceResult.range}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">최근 조회 기준</div>
+                    <div className="info-card">
+                      <div className="info-label">최근 거래 범위</div>
+                      <div className="info-value">{priceResult.range}</div>
+                      <div className="info-sub">최근 조회 기준</div>
                     </div>
-                    <div className="rounded-2xl bg-white p-4 shadow-sm">
-                      <div className="text-xs font-medium text-slate-500">전용면적 / 층</div>
-                      <div className="mt-2 text-xl font-extrabold text-slate-900">
-                        {priceResult.area}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">{priceResult.floor}</div>
+                    <div className="info-card">
+                      <div className="info-label">전용면적 / 층</div>
+                      <div className="info-value">{priceResult.area}</div>
+                      <div className="info-sub">{priceResult.floor}</div>
                     </div>
-                    <div className="rounded-2xl bg-white p-4 shadow-sm">
-                      <div className="text-xs font-medium text-slate-500">예상 가능 한도</div>
-                      <div className="mt-2 text-xl font-extrabold text-slate-900">
-                        {priceResult.estimateLimit}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">상담 후 세부조건 반영</div>
+                    <div className="info-card">
+                      <div className="info-label">예상 가능 한도</div>
+                      <div className="info-value">{priceResult.estimateLimit}</div>
+                      <div className="info-sub">상담 후 세부조건 반영</div>
                     </div>
                   </div>
 
-                  <div className="mt-6 rounded-[26px] bg-white p-6 shadow-sm">
-                    <div className="text-sm font-bold text-blue-700">설명 영역</div>
-                    <h3 className="mt-2 text-2xl font-extrabold tracking-tight">
+                  <div className="desc-card">
+                    <div className="section-mini">설명 영역</div>
+                    <h3 className="desc-title">
                       선택하신 단지를 기준으로 대출 상담을 도와드립니다.
                     </h3>
-                    <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
-                      {priceResult.description}
-                    </p>
-                    <div className="mt-5 flex flex-wrap gap-3">
-                      <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
-                        {selectedCity}
-                      </span>
-                      <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
-                        {selectedDistrict}
-                      </span>
-                      <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
-                        {selectedTown}
-                      </span>
-                      <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
-                        {selectedApartment}
-                      </span>
-                      <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700">
-                        {selectedArea}
-                      </span>
+                    <p className="desc-text">{priceResult.description}</p>
+
+                    <div className="tag-wrap">
+                      <span>{selectedCity}</span>
+                      <span>{selectedDistrict}</span>
+                      <span>{selectedTown}</span>
+                      <span>{selectedApartment}</span>
+                      <span>{selectedArea}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <div
-                    id="contact"
-                    className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm md:p-8"
-                  >
-                    <div className="text-sm font-bold text-blue-700">대출 신청 작성란</div>
-                    <h3 className="mt-2 text-3xl font-extrabold tracking-tight">
-                      지금 바로 상담 신청
-                    </h3>
-                    <p className="mt-3 text-sm leading-7 text-slate-600 md:text-base">
+                <div className="result-right">
+                  <div id="contact" className="side-card">
+                    <div className="section-mini">대출 신청 작성란</div>
+                    <h3 className="card-title">지금 바로 상담 신청</h3>
+                    <p className="card-desc">
                       조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록
                       작성란을 함께 배치한 구조입니다.
                     </p>
 
-                    <form className="mt-6 space-y-4">
-                      <input
-                        type="text"
-                        placeholder="성함"
-                        className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 outline-none"
-                      />
-                      <input
-                        type="text"
-                        placeholder="연락처"
-                        className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={`${selectedApartment} / ${selectedArea}`}
-                        readOnly
-                        className="w-full rounded-2xl border border-slate-300 bg-slate-100 px-4 py-3.5 outline-none"
-                      />
-                      <select className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 outline-none">
+                    <form className="form-stack">
+                      <input type="text" placeholder="성함" />
+                      <input type="text" placeholder="연락처" />
+                      <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
+                      <select defaultValue="희망 상품 선택">
                         <option>희망 상품 선택</option>
                         <option>아파트 담보대출</option>
                         <option>생활안정자금</option>
                         <option>대환대출</option>
                       </select>
-                      <textarea
-                        rows={4}
-                        placeholder="상담 내용을 입력하세요"
-                        className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3.5 outline-none"
-                      />
-                      <button
-                        type="button"
-                        className="w-full rounded-2xl bg-blue-700 px-5 py-4 text-base font-extrabold text-white transition hover:bg-blue-800"
-                      >
+                      <textarea rows={4} placeholder="상담 내용을 입력하세요" />
+                      <button type="button" className="primary-btn">
                         대출 신청 접수하기
                       </button>
                     </form>
                   </div>
 
-                  <div
-                    id="calculator"
-                    className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm md:p-8"
-                  >
-                    <div className="text-sm font-bold text-blue-700">이율 계산기</div>
-                    <h3 className="mt-2 text-2xl font-extrabold tracking-tight">
-                      예상 상환 금액 계산
-                    </h3>
+                  <div id="calculator" className="side-card">
+                    <div className="section-mini">이율 계산기</div>
+                    <h3 className="card-title">예상 상환 금액 계산</h3>
 
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <div className="two-col">
                       <input
                         type="text"
                         placeholder="대출 금액"
@@ -535,7 +416,6 @@ export default function LoanLandingPage() {
                         onChange={(e) =>
                           setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))
                         }
-                        className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none"
                       />
                       <input
                         type="text"
@@ -544,15 +424,13 @@ export default function LoanLandingPage() {
                         onChange={(e) =>
                           setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))
                         }
-                        className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none"
                       />
                     </div>
 
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="two-col">
                       <select
                         value={repaymentType}
                         onChange={(e) => setRepaymentType(e.target.value)}
-                        className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none"
                       >
                         <option>원리금균등</option>
                         <option>원금균등</option>
@@ -565,35 +443,30 @@ export default function LoanLandingPage() {
                         onChange={(e) =>
                           setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))
                         }
-                        className="rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 outline-none"
                       />
                     </div>
 
-                    <div className="mt-5 rounded-2xl bg-slate-900 p-5 text-white">
-                      <div className="text-sm text-slate-300">예상 월 상환액</div>
-                      <div className="mt-2 text-3xl font-extrabold tracking-tight">
-                        {formatNumber(calcResult.monthlyPayment)}원
-                      </div>
-                      <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
-                        <div className="rounded-xl bg-white/5 p-3">
-                          <div className="text-xs text-slate-400">총 예상 이자</div>
-                          <div className="mt-1 text-base font-bold text-white">
+                    <div className="calc-box">
+                      <div className="calc-label">예상 월 상환액</div>
+                      <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
+
+                      <div className="calc-grid">
+                        <div className="calc-mini">
+                          <div className="calc-mini-label">총 예상 이자</div>
+                          <div className="calc-mini-value">
                             {formatNumber(calcResult.totalInterest)}원
                           </div>
                         </div>
-                        <div className="rounded-xl bg-white/5 p-3">
-                          <div className="text-xs text-slate-400">총 상환 예상액</div>
-                          <div className="mt-1 text-base font-bold text-white">
+                        <div className="calc-mini">
+                          <div className="calc-mini-label">총 상환 예상액</div>
+                          <div className="calc-mini-value">
                             {formatNumber(calcResult.totalPayment)}원
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <a
-                      href="#contact"
-                      className="mt-4 flex items-center justify-center rounded-2xl bg-blue-700 px-5 py-3.5 text-sm font-extrabold text-white transition hover:bg-blue-800"
-                    >
+                    <a href="#contact" className="primary-link-btn">
                       계산 후 상담 신청
                     </a>
                   </div>
@@ -603,40 +476,35 @@ export default function LoanLandingPage() {
           </section>
         )}
 
-        <section id="faq" className="mx-auto max-w-5xl px-6 py-16 md:py-24">
-          <div className="text-center">
-            <div className="text-sm font-bold text-blue-700">FAQ</div>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-              자주 묻는 질문
-            </h2>
-          </div>
+        <section id="faq" className="section faq-section">
+          <div className="container faq-wrap">
+            <div className="section-center">
+              <div className="section-mini">FAQ</div>
+              <h2 className="section-title">자주 묻는 질문</h2>
+            </div>
 
-          <div className="mt-10 space-y-4">
-            {faq.map((item) => (
-              <details
-                key={item.q}
-                className="rounded-[26px] border border-slate-200 bg-white p-6 shadow-[0_10px_25px_rgba(15,23,42,0.05)]"
-              >
-                <summary className="cursor-pointer list-none text-lg font-bold tracking-tight">
-                  {item.q}
-                </summary>
-                <p className="mt-4 text-sm leading-6 text-slate-600">{item.a}</p>
-              </details>
-            ))}
+            <div className="faq-list">
+              {faq.map((item) => (
+                <details key={item.q} className="faq-item">
+                  <summary>{item.q}</summary>
+                  <p>{item.a}</p>
+                </details>
+              ))}
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-[#0b1220] text-slate-300">
-        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.1fr_0.9fr]">
+      <footer className="footer">
+        <div className="container footer-grid">
           <div>
-            <div className="text-lg font-extrabold text-white">회사명 또는 브랜드명</div>
-            <p className="mt-4 text-sm leading-7 text-slate-400">
+            <div className="footer-title">회사명 또는 브랜드명</div>
+            <p>
               이 영역은 실제 운영 시 사업자 정보, 업체 설명, 안내 문구를 정리해서 넣는
               공간입니다.
             </p>
           </div>
-          <div className="grid gap-2 text-sm leading-7 text-slate-400">
+          <div className="footer-info">
             <div>대표번호: 010-0000-0000</div>
             <div>운영시간: 평일 09:00 - 18:00</div>
             <div>주소: 서울시 예시 주소 입력</div>
