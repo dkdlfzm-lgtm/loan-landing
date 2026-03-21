@@ -69,7 +69,7 @@ export default function LoanLandingPage() {
     propertyData[selectedCity]?.[selectedDistrict]?.[selectedTown]?.[selectedApartment] || [];
   const [selectedArea, setSelectedArea] = useState(areas[0] || "");
 
-  const [showPricePage, setShowPricePage] = useState(false);
+  const [currentView, setCurrentView] = useState("home");
 
   useEffect(() => {
     const nextDistricts = Object.keys(propertyData[selectedCity] || {});
@@ -107,7 +107,7 @@ export default function LoanLandingPage() {
       range: "8억 3,000만원 ~ 8억 9,000만원",
       estimateLimit: "최대 6억 1,000만원 가능",
       description:
-        "최근 실거래 기준 예시 결과입니다. 실제 운영 시에는 국토교통부 실거래가 API와 단지/면적 데이터 연결로 자동 조회되도록 확장할 수 있습니다.",
+        "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다. 실제 운영 시에는 공공 API, 단지/면적 데이터, 내부 심사 기준을 연결해 더 정확하게 고도화할 수 있습니다.",
     };
   }, [selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
@@ -154,15 +154,15 @@ export default function LoanLandingPage() {
   const faq = [
     {
       q: "시세조회 후 바로 대출 상담도 가능한가요?",
-      a: "네. 조회 결과 영역 옆과 아래에 바로 상담 신청란을 배치했습니다.",
+      a: "네. 결과 페이지 오른쪽에 상담 신청란을 함께 배치해 바로 접수할 수 있습니다.",
     },
     {
-      q: "조회 결과는 실제와 완전히 동일한가요?",
-      a: "현재는 시안용 예시입니다. 실제 운영 시 공공 API와 내부 기준을 연결해 구체화할 수 있습니다.",
+      q: "조건 안내는 확정 조건인가요?",
+      a: "아니요. 현재는 예시 조건이며 실제 가능 여부와 금리는 상담 후 달라질 수 있습니다.",
     },
     {
       q: "이율 계산기는 실시간으로 바뀌나요?",
-      a: "네. 입력값을 바꾸면 예상 월 상환액과 총 예상 이자가 즉시 변경됩니다.",
+      a: "네. 입력값을 바꾸면 예상 월 상환액과 총 상환 예상액이 즉시 변경됩니다.",
     },
   ];
 
@@ -190,155 +190,169 @@ export default function LoanLandingPage() {
       </header>
 
       <main>
-        <section id="intro" className="hero">
-          <div className="hero-glow hero-glow-1" />
-          <div className="hero-glow hero-glow-2" />
+        {currentView === "home" && (
+          <>
+            <section id="intro" className="hero">
+              <div className="hero-glow hero-glow-1" />
+              <div className="hero-glow hero-glow-2" />
 
-          <div className="container hero-grid">
-            <div className="hero-left">
-              <div className="hero-pill">선택형 시세조회 · 빠른 상담 연결</div>
+              <div className="container hero-grid">
+                <div className="hero-left">
+                  <div className="hero-pill">선택형 시세조회 · 빠른 상담 연결</div>
 
-              <h1 className="hero-title">
-                아파트 시세조회부터
-                <br />
-                대출 상담 신청까지
-                <br />
-                한 번에 연결되는 구조
-              </h1>
+                  <h1 className="hero-title">
+                    아파트 시세조회부터
+                    <br />
+                    대출 상담 신청까지
+                    <br />
+                    한 번에 연결되는 구조
+                  </h1>
 
-              <p className="hero-text">
-                지역, 단지명, 면적을 차례대로 선택하고 조회를 누르면 결과형 페이지처럼
-                설명 영역과 상담 신청란이 이어지는 구조로 만든 시안입니다.
-              </p>
+                  <p className="hero-text">
+                    지역, 단지명, 면적을 차례대로 선택하고 조회를 누르면 결과형 페이지처럼
+                    설명 영역과 상담 신청란이 이어지는 구조로 만든 시안입니다.
+                  </p>
 
-              <div className="hero-actions">
-                <a href="#quick-search" className="btn btn-white">
-                  빠른 시세조회
-                </a>
-                <a href="#contact" className="btn btn-outline">
-                  무료 상담 신청
-                </a>
-              </div>
-            </div>
-
-            <div className="hero-card">
-              <div className="section-mini">빠른 상담 신청</div>
-              <h2 className="card-title">간편 접수</h2>
-              <p className="card-desc">
-                성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
-              </p>
-
-              <form className="form-stack">
-                <div className="field">
-                  <label>성함</label>
-                  <input type="text" placeholder="성함을 입력하세요" />
-                </div>
-                <div className="field">
-                  <label>연락처</label>
-                  <input type="text" placeholder="연락처를 입력하세요" />
-                </div>
-                <button type="button" className="primary-btn">
-                  상담 신청하기
-                </button>
-              </form>
-            </div>
-          </div>
-        </section>
-
-        <section id="quick-search" className="section">
-          <div className="container">
-            <div className="white-panel">
-              <div className="section-center">
-                <div className="section-mini">빠른 시세조회</div>
-                <h2 className="section-title">오늘의 아파트 대출이 궁금하세요?</h2>
-              </div>
-
-              <div className="quick-search-box">
-                <div className="select-grid select-grid-3">
-                  <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
-                    {cities.map((city) => (
-                      <option key={city} value={city}>
-                        {city}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={selectedDistrict}
-                    onChange={(e) => setSelectedDistrict(e.target.value)}
-                  >
-                    {districts.map((district) => (
-                      <option key={district} value={district}>
-                        {district}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
-                    {towns.map((town) => (
-                      <option key={town} value={town}>
-                        {town}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="select-grid select-grid-main">
-                  <select
-                    value={selectedApartment}
-                    onChange={(e) => setSelectedApartment(e.target.value)}
-                  >
-                    {apartments.map((apartment) => (
-                      <option key={apartment} value={apartment}>
-                        {apartment}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
-                    {areas.map((area) => (
-                      <option key={area} value={area}>
-                        {area}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    type="button"
-                    className="search-btn"
-                    onClick={() => setShowPricePage(true)}
-                  >
-                    실시간 조회
-                  </button>
-                </div>
-
-                <div className="selected-text">
-                  선택 중: <strong>{selectedSummary}</strong> / <strong>{selectedArea}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {showPricePage && (
-          <section className="result-section">
-            <div className="container">
-              <div className="result-grid">
-                <div className="result-left">
-                  <div className="result-top">
-                    <div>
-                      <div className="section-mini">조회 결과</div>
-                      <h2 className="result-title">{priceResult.title}</h2>
-                      <p className="result-sub">
-                        {priceResult.address} · {priceResult.area} · {priceResult.floor}
-                      </p>
-                    </div>
-                    <a href="#contact" className="nav-btn">
-                      상담 신청
+                  <div className="hero-actions">
+                    <a href="#quick-search" className="btn btn-white">
+                      빠른 시세조회
+                    </a>
+                    <a href="#contact" className="btn btn-outline">
+                      무료 상담 신청
                     </a>
                   </div>
+                </div>
 
-                  <div className="info-grid">
+                <div className="hero-card">
+                  <div className="section-mini">빠른 상담 신청</div>
+                  <h2 className="card-title">간편 접수</h2>
+                  <p className="card-desc">
+                    성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
+                  </p>
+
+                  <form className="form-stack">
+                    <div className="field">
+                      <label>성함</label>
+                      <input type="text" placeholder="성함을 입력하세요" />
+                    </div>
+                    <div className="field">
+                      <label>연락처</label>
+                      <input type="text" placeholder="연락처를 입력하세요" />
+                    </div>
+                    <button type="button" className="primary-btn">
+                      상담 신청하기
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </section>
+
+            <section id="quick-search" className="section">
+              <div className="container">
+                <div className="white-panel">
+                  <div className="section-center">
+                    <div className="section-mini">빠른 시세조회</div>
+                    <h2 className="section-title">오늘의 아파트 대출이 궁금하세요?</h2>
+                  </div>
+
+                  <div className="quick-search-box">
+                    <div className="select-grid select-grid-3">
+                      <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
+                        {cities.map((city) => (
+                          <option key={city} value={city}>
+                            {city}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={selectedDistrict}
+                        onChange={(e) => setSelectedDistrict(e.target.value)}
+                      >
+                        {districts.map((district) => (
+                          <option key={district} value={district}>
+                            {district}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
+                        {towns.map((town) => (
+                          <option key={town} value={town}>
+                            {town}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="select-grid select-grid-main">
+                      <select
+                        value={selectedApartment}
+                        onChange={(e) => setSelectedApartment(e.target.value)}
+                      >
+                        {apartments.map((apartment) => (
+                          <option key={apartment} value={apartment}>
+                            {apartment}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
+                        {areas.map((area) => (
+                          <option key={area} value={area}>
+                            {area}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        className="search-btn"
+                        onClick={() => setCurrentView("price-result")}
+                      >
+                        실시간 조회
+                      </button>
+                    </div>
+
+                    <div className="selected-text">
+                      선택 중: <strong>{selectedSummary}</strong> / <strong>{selectedArea}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {currentView === "price-result" && (
+          <section className="result-page-section">
+            <div className="container">
+              <div className="result-page-topbar">
+                <button
+                  type="button"
+                  className="back-btn"
+                  onClick={() => setCurrentView("home")}
+                >
+                  ← 시세조회로 돌아가기
+                </button>
+              </div>
+
+              <div className="result-page-hero">
+                <div>
+                  <div className="section-mini light-mini">시세조회 결과</div>
+                  <h2 className="result-page-title">{priceResult.title}</h2>
+                  <p className="result-page-sub">
+                    {priceResult.address} · {priceResult.area} · {priceResult.floor}
+                  </p>
+                </div>
+                <a href="#contact" className="white-pill-btn">
+                  상담 신청
+                </a>
+              </div>
+
+              <div className="result-page-grid">
+                <div className="result-main-card">
+                  <div className="info-grid result-info-grid">
                     <div className="info-card">
                       <div className="info-label">최근 실거래가</div>
                       <div className="info-value">{priceResult.latestPrice}</div>
@@ -361,6 +375,37 @@ export default function LoanLandingPage() {
                     </div>
                   </div>
 
+                  <div className="condition-card">
+                    <div className="section-mini">조건 안내</div>
+                    <h3 className="desc-title">시세 정보 기준 추천 조건</h3>
+
+                    <div className="condition-list">
+                      <div className="condition-item">
+                        <div className="condition-left">
+                          <div className="condition-name">1금융</div>
+                          <div className="condition-desc">시세 80% 금리 4.5%~</div>
+                        </div>
+                        <div className="condition-badge condition-blue">안정형</div>
+                      </div>
+
+                      <div className="condition-item">
+                        <div className="condition-left">
+                          <div className="condition-name">저축은행 캐피탈</div>
+                          <div className="condition-desc">시세 90% 금리 5.9%~</div>
+                        </div>
+                        <div className="condition-badge condition-indigo">확장형</div>
+                      </div>
+
+                      <div className="condition-item">
+                        <div className="condition-left">
+                          <div className="condition-name">대부, P2P</div>
+                          <div className="condition-desc">시세 95% 금리 7.9%~</div>
+                        </div>
+                        <div className="condition-badge condition-purple">고한도형</div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="desc-card">
                     <div className="section-mini">설명 영역</div>
                     <h3 className="desc-title">
@@ -378,7 +423,7 @@ export default function LoanLandingPage() {
                   </div>
                 </div>
 
-                <div className="result-right">
+                <div className="result-side-col">
                   <div id="contact" className="side-card">
                     <div className="section-mini">대출 신청 작성란</div>
                     <h3 className="card-title">지금 바로 상담 신청</h3>
