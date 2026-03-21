@@ -23,6 +23,7 @@ const propertyData = {
         수택동: {
           LG원앙: ["59.97㎡", "84.96㎡", "107.28㎡"],
           금호어울림: ["59.88㎡", "84.72㎡"],
+          나래아파트: ["84.91㎡"],
         },
       },
     },
@@ -47,9 +48,59 @@ const propertyData = {
   },
 };
 
+const statSlides = [
+  {
+    message: "서울 아파트 전세시장은 56주 연속 상승했습니다.",
+    items: [
+      { label: "주간 매매지수", nation: "91.7", nationDiff: "+0.09%", seoul: "107.6", seoulDiff: "+0.31%" },
+      { label: "주간 전세지수", nation: "92.7", nationDiff: "+0.10%", seoul: "97.3", seoulDiff: "+0.20%" },
+      { label: "주간 매매가격", nation: "5.68억", nationDiff: "+0.17%", seoul: "15.54억", seoulDiff: "+0.24%" },
+      { label: "주간 전세가격", nation: "3.22억", nationDiff: "+0.14%", seoul: "6.77억", seoulDiff: "+0.16%" },
+    ],
+  },
+  {
+    message: "수도권 매매가격은 완만한 흐름을 유지하고 있습니다.",
+    items: [
+      { label: "주간 매매지수", nation: "92.1", nationDiff: "+0.05%", seoul: "108.2", seoulDiff: "+0.18%" },
+      { label: "주간 전세지수", nation: "93.0", nationDiff: "+0.08%", seoul: "97.9", seoulDiff: "+0.14%" },
+      { label: "주간 매매가격", nation: "5.72억", nationDiff: "+0.11%", seoul: "15.72억", seoulDiff: "+0.19%" },
+      { label: "주간 전세가격", nation: "3.28억", nationDiff: "+0.09%", seoul: "6.83억", seoulDiff: "+0.12%" },
+    ],
+  },
+  {
+    message: "아파트 실거래량은 전월 대비 소폭 회복세를 보였습니다.",
+    items: [
+      { label: "주간 매매지수", nation: "91.9", nationDiff: "+0.07%", seoul: "108.0", seoulDiff: "+0.22%" },
+      { label: "주간 전세지수", nation: "92.8", nationDiff: "+0.06%", seoul: "97.7", seoulDiff: "+0.13%" },
+      { label: "주간 매매가격", nation: "5.70억", nationDiff: "+0.15%", seoul: "15.61억", seoulDiff: "+0.20%" },
+      { label: "주간 전세가격", nation: "3.24억", nationDiff: "+0.11%", seoul: "6.80억", seoulDiff: "+0.15%" },
+    ],
+  },
+];
+
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
   return Math.round(value).toLocaleString("ko-KR");
+}
+
+function getCities(propertyType) {
+  return Object.keys(propertyData[propertyType] || {});
+}
+
+function getDistricts(propertyType, city) {
+  return Object.keys(propertyData[propertyType]?.[city] || {});
+}
+
+function getTowns(propertyType, city, district) {
+  return Object.keys(propertyData[propertyType]?.[city]?.[district] || {});
+}
+
+function getApartments(propertyType, city, district, town) {
+  return Object.keys(propertyData[propertyType]?.[city]?.[district]?.[town] || {});
+}
+
+function getAreas(propertyType, city, district, town, apartment) {
+  return propertyData[propertyType]?.[city]?.[district]?.[town]?.[apartment] || [];
 }
 
 export default function LoanLandingPage() {
@@ -65,61 +116,64 @@ export default function LoanLandingPage() {
     monthly: true,
   });
 
-  const cities = Object.keys(propertyData[propertyType] || {});
+  const [currentView, setCurrentView] = useState("home");
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  const cities = getCities(propertyType);
   const [selectedCity, setSelectedCity] = useState(cities[0] || "");
 
-  const districts = Object.keys(propertyData[propertyType]?.[selectedCity] || {});
+  const districts = getDistricts(propertyType, selectedCity);
   const [selectedDistrict, setSelectedDistrict] = useState(districts[0] || "");
 
-  const towns = Object.keys(
-    propertyData[propertyType]?.[selectedCity]?.[selectedDistrict] || {}
-  );
+  const towns = getTowns(propertyType, selectedCity, selectedDistrict);
   const [selectedTown, setSelectedTown] = useState(towns[0] || "");
 
-  const apartments = Object.keys(
-    propertyData[propertyType]?.[selectedCity]?.[selectedDistrict]?.[selectedTown] || {}
-  );
+  const apartments = getApartments(propertyType, selectedCity, selectedDistrict, selectedTown);
   const [selectedApartment, setSelectedApartment] = useState(apartments[0] || "");
+  const [apartmentQuery, setApartmentQuery] = useState(apartments[0] || "");
+  const [showApartmentList, setShowApartmentList] = useState(false);
 
-  const areas =
-    propertyData[propertyType]?.[selectedCity]?.[selectedDistrict]?.[selectedTown]?.[
-      selectedApartment
-    ] || [];
+  const areas = getAreas(propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment);
   const [selectedArea, setSelectedArea] = useState(areas[0] || "");
 
-  const [currentView, setCurrentView] = useState("home");
-
   useEffect(() => {
-    const nextCities = Object.keys(propertyData[propertyType] || {});
+    const nextCities = getCities(propertyType);
     setSelectedCity(nextCities[0] || "");
   }, [propertyType]);
 
   useEffect(() => {
-    const nextDistricts = Object.keys(propertyData[propertyType]?.[selectedCity] || {});
+    const nextDistricts = getDistricts(propertyType, selectedCity);
     setSelectedDistrict(nextDistricts[0] || "");
   }, [propertyType, selectedCity]);
 
   useEffect(() => {
-    const nextTowns = Object.keys(
-      propertyData[propertyType]?.[selectedCity]?.[selectedDistrict] || {}
-    );
+    const nextTowns = getTowns(propertyType, selectedCity, selectedDistrict);
     setSelectedTown(nextTowns[0] || "");
   }, [propertyType, selectedCity, selectedDistrict]);
 
   useEffect(() => {
-    const nextApartments = Object.keys(
-      propertyData[propertyType]?.[selectedCity]?.[selectedDistrict]?.[selectedTown] || {}
-    );
-    setSelectedApartment(nextApartments[0] || "");
+    const nextApartments = getApartments(propertyType, selectedCity, selectedDistrict, selectedTown);
+    const firstApartment = nextApartments[0] || "";
+    setSelectedApartment(firstApartment);
+    setApartmentQuery(firstApartment);
   }, [propertyType, selectedCity, selectedDistrict, selectedTown]);
 
   useEffect(() => {
-    const nextAreas =
-      propertyData[propertyType]?.[selectedCity]?.[selectedDistrict]?.[selectedTown]?.[
-        selectedApartment
-      ] || [];
+    const nextAreas = getAreas(propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment);
     setSelectedArea(nextAreas[0] || "");
   }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment]);
+
+  useEffect(() => {
+    if (currentView !== "price-result") return;
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % statSlides.length);
+    }, 3200);
+    return () => clearInterval(timer);
+  }, [currentView]);
+
+  const filteredApartments = apartments.filter((name) =>
+    name.toLowerCase().includes(apartmentQuery.toLowerCase())
+  );
 
   const selectedSummary = `${selectedCity} ${selectedDistrict} ${selectedTown} ${selectedApartment}`;
 
@@ -263,139 +317,50 @@ export default function LoanLandingPage() {
                     <h2 className="section-title">오늘의 아파트 대출이 궁금하세요?</h2>
                   </div>
 
-                  <div className="kb-stats-wrap">
-                    <div className="kb-stats-head">
-                      <div className="kb-stats-title">KB통계 <span>2026.03.16 기준</span></div>
-                      <a href="#">아파트 통계 더보기 〉</a>
-                    </div>
-
-                    <div className="kb-stats-banner">
-                      <span className="kb-stats-icon">↗</span>
-                      <span>서울 아파트 전세시장은 56주 연속 상승했습니다.</span>
-                      <strong>2/4</strong>
-                    </div>
-
-                    <div className="kb-stats-grid">
-                      <div className="kb-stat-box">
-                        <div className="kb-stat-label">주간 매매지수</div>
-                        <div className="kb-stat-row"><span>전국</span><strong>91.7</strong><em>+0.09%</em></div>
-                        <div className="kb-stat-row"><span>서울</span><strong>107.6</strong><em>+0.31%</em></div>
-                      </div>
-                      <div className="kb-stat-box">
-                        <div className="kb-stat-label">주간 전세지수</div>
-                        <div className="kb-stat-row"><span>전국</span><strong>92.7</strong><em>+0.10%</em></div>
-                        <div className="kb-stat-row"><span>서울</span><strong>97.3</strong><em>+0.20%</em></div>
-                      </div>
-                      <div className="kb-stat-box">
-                        <div className="kb-stat-label">주간 매매가격</div>
-                        <div className="kb-stat-row"><span>전국</span><strong>5.68억</strong><em>+0.17%</em></div>
-                        <div className="kb-stat-row"><span>서울</span><strong>15.54억</strong><em>+0.24%</em></div>
-                      </div>
-                      <div className="kb-stat-box">
-                        <div className="kb-stat-label">주간 전세가격</div>
-                        <div className="kb-stat-row"><span>전국</span><strong>3.22억</strong><em>+0.14%</em></div>
-                        <div className="kb-stat-row"><span>서울</span><strong>6.77억</strong><em>+0.16%</em></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="kb-search-wrap">
-                    <div className="kb-row">
-                      <div className="kb-row-label">물건 유형</div>
-                      <div className="kb-type-tabs">
-                        {["아파트", "오피스텔", "빌라(연립/다세대)"].map((type) => (
-                          <button
-                            key={type}
-                            type="button"
-                            className={`kb-type-tab ${propertyType === type ? "active" : ""}`}
-                            onClick={() => setPropertyType(type)}
-                          >
-                            {type}
-                            {type === "빌라(연립/다세대)" && <span className="kb-new-badge">NEW</span>}
-                          </button>
+                  <div className="quick-search-box">
+                    <div className="select-grid select-grid-3">
+                      <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
+                        {cities.map((city) => (
+                          <option key={city} value={city}>{city}</option>
                         ))}
-                      </div>
+                      </select>
+
+                      <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)}>
+                        {districts.map((district) => (
+                          <option key={district} value={district}>{district}</option>
+                        ))}
+                      </select>
+
+                      <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
+                        {towns.map((town) => (
+                          <option key={town} value={town}>{town}</option>
+                        ))}
+                      </select>
                     </div>
 
-                    <div className="kb-row">
-                      <div className="kb-row-label">지역 선택</div>
-                      <div className="kb-form-grid kb-form-grid-3">
-                        <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
-                          {cities.map((city) => (
-                            <option key={city} value={city}>{city}</option>
-                          ))}
-                        </select>
+                    <div className="select-grid select-grid-main">
+                      <input
+                        type="text"
+                        value={selectedApartment}
+                        readOnly
+                        placeholder="단지 선택"
+                      />
+                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
+                        {areas.map((area) => (
+                          <option key={area} value={area}>{area}</option>
+                        ))}
+                      </select>
 
-                        <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)}>
-                          {districts.map((district) => (
-                            <option key={district} value={district}>{district}</option>
-                          ))}
-                        </select>
-
-                        <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
-                          {towns.map((town) => (
-                            <option key={town} value={town}>{town}</option>
-                          ))}
-                        </select>
-                      </div>
+                      <button
+                        type="button"
+                        className="search-btn"
+                        onClick={() => setCurrentView("price-result")}
+                      >
+                        실시간 조회
+                      </button>
                     </div>
 
-                    <div className="kb-row">
-                      <div className="kb-row-label">단지 선택</div>
-                      <div className="kb-form-grid kb-form-grid-3">
-                        <select value={selectedApartment} onChange={(e) => setSelectedApartment(e.target.value)}>
-                          {apartments.map((apartment) => (
-                            <option key={apartment} value={apartment}>{apartment}</option>
-                          ))}
-                        </select>
-
-                        <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
-                          {areas.map((area) => (
-                            <option key={area} value={area}>{area}</option>
-                          ))}
-                        </select>
-
-                        <button
-                          type="button"
-                          className="search-btn kb-search-btn"
-                          onClick={() => setCurrentView("price-result")}
-                        >
-                          실시간 조회
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="kb-row trade-row">
-                      <div className="kb-row-label">거래 유형</div>
-                      <div className="trade-checks">
-                        <label className="trade-check">
-                          <input
-                            type="checkbox"
-                            checked={tradeTypes.sale}
-                            onChange={() => toggleTradeType("sale")}
-                          />
-                          <span>매매</span>
-                        </label>
-                        <label className="trade-check">
-                          <input
-                            type="checkbox"
-                            checked={tradeTypes.jeonse}
-                            onChange={() => toggleTradeType("jeonse")}
-                          />
-                          <span>전세</span>
-                        </label>
-                        <label className="trade-check">
-                          <input
-                            type="checkbox"
-                            checked={tradeTypes.monthly}
-                            onChange={() => toggleTradeType("monthly")}
-                          />
-                          <span>월세</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="selected-text selected-text-dark">
+                    <div className="selected-text">
                       선택 중: <strong>{selectedSummary}</strong> / <strong>{selectedArea}</strong>
                     </div>
                   </div>
@@ -477,13 +442,166 @@ export default function LoanLandingPage() {
           <section className="result-page-section">
             <div className="container">
               <div className="result-page-topbar">
-                <button
-                  type="button"
-                  className="back-btn"
-                  onClick={() => setCurrentView("home")}
-                >
+                <button type="button" className="back-btn" onClick={() => setCurrentView("home")}>
                   ← 시세조회로 돌아가기
                 </button>
+              </div>
+
+              <div className="result-page-search-shell">
+                <div className="result-stat-wrap">
+                  <div className="result-stat-head">
+                    <div className="result-stat-title">시장 통계 <span>2026.03.16 기준</span></div>
+                    <a href="#">통계 더보기 〉</a>
+                  </div>
+
+                  <div className="result-stat-banner">
+                    <span className="result-stat-icon">↗</span>
+                    <span>{statSlides[activeSlide].message}</span>
+                    <strong>{activeSlide + 1}/{statSlides.length}</strong>
+                  </div>
+
+                  <div className="result-stat-grid">
+                    {statSlides[activeSlide].items.map((item) => (
+                      <div key={item.label} className="result-stat-box">
+                        <div className="result-stat-label">{item.label}</div>
+                        <div className="result-stat-row">
+                          <span>전국</span>
+                          <strong>{item.nation}</strong>
+                          <em>{item.nationDiff}</em>
+                        </div>
+                        <div className="result-stat-row">
+                          <span>서울</span>
+                          <strong>{item.seoul}</strong>
+                          <em>{item.seoulDiff}</em>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="result-stat-dots">
+                    {statSlides.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`result-dot ${activeSlide === idx ? "active" : ""}`}
+                        onClick={() => setActiveSlide(idx)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="result-search-panel">
+                  <div className="result-search-row">
+                    <div className="result-search-label">물건 유형</div>
+                    <div className="result-type-tabs">
+                      {["아파트", "오피스텔", "빌라(연립/다세대)"].map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          className={`result-type-tab ${propertyType === type ? "active" : ""}`}
+                          onClick={() => setPropertyType(type)}
+                        >
+                          {type}
+                          {type === "빌라(연립/다세대)" && <span className="result-new-badge">NEW</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="result-search-row">
+                    <div className="result-search-label">지역 선택</div>
+                    <div className="result-form-grid result-form-grid-3">
+                      <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
+                        {cities.map((city) => (
+                          <option key={city} value={city}>{city}</option>
+                        ))}
+                      </select>
+                      <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)}>
+                        {districts.map((district) => (
+                          <option key={district} value={district}>{district}</option>
+                        ))}
+                      </select>
+                      <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
+                        {towns.map((town) => (
+                          <option key={town} value={town}>{town}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="result-search-row">
+                    <div className="result-search-label">단지 선택</div>
+                    <div className="result-form-grid result-form-grid-complex">
+                      <div className="apartment-picker">
+                        <input
+                          type="text"
+                          value={apartmentQuery}
+                          placeholder="단지명을 입력하거나 선택하세요"
+                          onChange={(e) => {
+                            setApartmentQuery(e.target.value);
+                            setShowApartmentList(true);
+                          }}
+                          onFocus={() => setShowApartmentList(true)}
+                        />
+                        {showApartmentList && filteredApartments.length > 0 && (
+                          <div className="apartment-dropdown">
+                            {filteredApartments.map((name) => (
+                              <button
+                                key={name}
+                                type="button"
+                                className={`apartment-option ${selectedApartment === name ? "active" : ""}`}
+                                onClick={() => {
+                                  setSelectedApartment(name);
+                                  setApartmentQuery(name);
+                                  setShowApartmentList(false);
+                                }}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
+                        {areas.map((area) => (
+                          <option key={area} value={area}>{area}</option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        className="primary-btn result-query-btn"
+                        onClick={() => {
+                          if (!filteredApartments.includes(apartmentQuery) && filteredApartments[0]) {
+                            setSelectedApartment(filteredApartments[0]);
+                            setApartmentQuery(filteredApartments[0]);
+                          }
+                        }}
+                      >
+                        다시 조회
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="result-search-row trade-row">
+                    <div className="result-search-label">거래 유형</div>
+                    <div className="trade-checks">
+                      <label className="trade-check">
+                        <input type="checkbox" checked={tradeTypes.sale} onChange={() => toggleTradeType("sale")} />
+                        <span>매매</span>
+                      </label>
+                      <label className="trade-check">
+                        <input type="checkbox" checked={tradeTypes.jeonse} onChange={() => toggleTradeType("jeonse")} />
+                        <span>전세</span>
+                      </label>
+                      <label className="trade-check">
+                        <input type="checkbox" checked={tradeTypes.monthly} onChange={() => toggleTradeType("monthly")} />
+                        <span>월세</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="result-page-hero">
@@ -573,8 +691,7 @@ export default function LoanLandingPage() {
                     <div className="section-mini">대출 신청 작성란</div>
                     <h3 className="card-title">지금 바로 상담 신청</h3>
                     <p className="card-desc">
-                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록
-                      작성란을 함께 배치한 구조입니다.
+                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
                     </p>
 
                     <form className="form-stack">
