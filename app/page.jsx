@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useMemo, useState } from "react";
 
 const propertyData = {
@@ -305,14 +307,10 @@ export default function LoanLandingPage() {
                   ))}
                 </select>
 
-                <button
-                  type="button"
-                  onClick={() => {
+                <button type="button" onClick={() => {
                     setShowPricePage(true);
                     setCurrentView("price-result");
-                  }}
-                  className="rounded-2xl bg-white px-5 py-4 text-sm font-extrabold text-blue-800 transition hover:opacity-95"
-                >
+                  }} className="rounded-2xl bg-white px-5 py-4 text-sm font-extrabold text-blue-800 transition hover:opacity-95">
                   실시간 조회
                 </button>
               </div>
@@ -387,6 +385,32 @@ export default function LoanLandingPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-[#4b4b4b] py-14 text-[#d8d0c4] md:py-16">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="space-y-4 text-[18px] leading-[1.8] md:text-[22px]">
+              <div>이자율 : 연6% ~ 연20%이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용없음)</div>
+              <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
+              <div>과도한 빚, 고통의 시작입니다. 대출시 귀하의 신용등급이 하락할 수 있습니다.</div>
+              <div>이 사이트에서 광고되는 상품들의 상환 기간은 모두 60일 이상이며 (최저 2개월, 최대 5년), 최대 연 이자율은 20%입니다.</div>
+              <div>대부이자율 (연 이자율) 및 연체이자율은 연 20%를 초과할 수 없습니다. (조기상환 조건없음)</div>
+            </div>
+
+            <div className="mt-10 flex flex-wrap gap-x-10 gap-y-4 text-sm font-medium text-[#d8d0c4] md:text-[18px]">
+              <span>상호명 : 서준컨설팅대부</span>
+              <span>사업자등록번호 306-08-26433</span>
+              <span>사업장소재지 : 경기도의정부시 신흥로258번길 25, 헤테프라자 8층 A05호</span>
+              <span>대표자명 : 최성미</span>
+              <span>광고등록번호 : 0000-0000 / 000-0000-0000</span>
+              <span>대부업등록기관 : 경기도 의정부시 기업경제과 031-828-2917</span>
+              <span>대부업번호 : 2022-경기의정부-0075-대부</span>
+            </div>
+
+            <div className="mt-10 text-sm text-[#d8d0c4] md:text-[18px]">
+              © 서준컨설팅대부. All Rights Reserved. Hosting by AD COMMUNICATION.
             </div>
           </div>
         </section>
@@ -561,33 +585,25 @@ export default function LoanLandingPage() {
             ))}
           </div>
         </section>
-
-        <section className="bg-[#4b4b4b] py-14 text-[#d8d0c4] md:py-16">
-          <div className="mx-auto max-w-7xl px-6">
-            <div className="space-y-4 text-[18px] leading-[1.8] md:text-[22px]">
-              <div>이자율 : 연6% ~ 연20%이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용없음)</div>
-              <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
-              <div>과도한 빚, 고통의 시작입니다. 대출시 귀하의 신용등급이 하락할 수 있습니다.</div>
-              <div>이 사이트에서 광고되는 상품들의 상환 기간은 모두 60일 이상이며 (최저 2개월, 최대 5년), 최대 연 이자율은 20%입니다.</div>
-              <div>대부이자율 (연 이자율) 및 연체이자율은 연 20%를 초과할 수 없습니다. (조기상환 조건없음)</div>
-            </div>
-
-            <div className="mt-10 flex flex-wrap gap-x-10 gap-y-4 text-sm font-medium text-[#d8d0c4] md:text-[18px]">
-              <span>상호명 : 시안용 입력칸</span>
-              <span>사업자등록번호 : 000-00-00000</span>
-              <span>사업장소재지 : 주소 입력칸</span>
-              <span>대표자명 : 대표자 입력칸</span>
-              <span>광고등록번호 : 0000-0000 / 000-0000-0000</span>
-              <span>대부업등록기관 : 등록기관 입력칸</span>
-              <span>대부업번호 : 등록번호 입력칸</span>
-            </div>
-
-            <div className="mt-10 text-sm text-[#d8d0c4] md:text-[18px]">
-              © 시안용 업체명. All Rights Reserved.
-            </div>
-          </div>
-        </section>
       </main>
+
+      <footer className="bg-[#0b1220] text-slate-300">
+        <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 md:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <div className="text-lg font-extrabold text-white">회사명 또는 브랜드명</div>
+            <p className="mt-4 text-sm leading-7 text-slate-400">
+              이 영역은 실제 운영 시 사업자 정보, 업체 설명, 안내 문구를 정리해서 넣는 공간입니다.
+            </p>
+          </div>
+          <div className="grid gap-2 text-sm leading-7 text-slate-400">
+            <div>대표번호: 010-0000-0000</div>
+            <div>운영시간: 평일 09:00 - 18:00</div>
+            <div>주소: 서울시 예시 주소 입력</div>
+            <div>사업자등록번호: 000-00-00000</div>
+            <div>개인정보처리방침 | 이용약관</div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
