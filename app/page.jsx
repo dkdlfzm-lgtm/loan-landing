@@ -304,9 +304,9 @@ export default function LoanLandingPage() {
                       <input type="text" placeholder="연락처를 입력하세요" />
                     </div>
                     <div className="field">
-                      <label>물건 유형</label>
+                      <label>대출 유형</label>
                       <select defaultValue="">
-                        <option value="" disabled>물건 유형을 선택하세요</option>
+                        <option value="" disabled>대출 유형을 선택하세요</option>
                         <option>아파트</option>
                         <option>빌라/다세대</option>
                         <option>오피스텔</option>
@@ -507,7 +507,7 @@ export default function LoanLandingPage() {
 
                 <div className="result-search-panel">
                   <div className="result-search-row">
-                    <div className="result-search-label">물건 유형</div>
+                    <div className="result-search-label">대출 유형</div>
                     <div className="result-type-tabs">
                       {["아파트", "오피스텔", "빌라(연립/다세대)"].map((type) => (
                         <button
@@ -713,7 +713,7 @@ export default function LoanLandingPage() {
                       <input type="text" placeholder="성함" />
                       <input type="text" placeholder="연락처" />
                       <select defaultValue="">
-                        <option value="" disabled>물건 유형 선택</option>
+                        <option value="" disabled>대출 유형 선택</option>
                         <option>아파트</option>
                         <option>빌라/다세대</option>
                         <option>오피스텔</option>
