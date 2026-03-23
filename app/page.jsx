@@ -303,6 +303,21 @@ export default function LoanLandingPage() {
                       <label>연락처</label>
                       <input type="text" placeholder="연락처를 입력하세요" />
                     </div>
+                    <div className="field">
+                      <label>물건 유형</label>
+                      <select defaultValue="">
+                        <option value="" disabled>물건 유형을 선택하세요</option>
+                        <option>아파트</option>
+                        <option>빌라/다세대</option>
+                        <option>오피스텔</option>
+                        <option>상가/통건물</option>
+                        <option>단독주택/토지</option>
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label>주소</label>
+                      <input type="text" placeholder="주소를 입력하세요" />
+                    </div>
                     <button type="button" className="primary-btn">상담 신청하기</button>
                   </form>
                 </div>
@@ -697,6 +712,15 @@ export default function LoanLandingPage() {
                     <form className="form-stack">
                       <input type="text" placeholder="성함" />
                       <input type="text" placeholder="연락처" />
+                      <select defaultValue="">
+                        <option value="" disabled>물건 유형 선택</option>
+                        <option>아파트</option>
+                        <option>빌라/다세대</option>
+                        <option>오피스텔</option>
+                        <option>상가/통건물</option>
+                        <option>단독주택/토지</option>
+                      </select>
+                      <input type="text" placeholder="주소를 입력하세요" />
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
                       <select defaultValue="희망 상품 선택">
                         <option>희망 상품 선택</option>
