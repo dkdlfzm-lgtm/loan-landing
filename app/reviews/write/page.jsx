@@ -1,0 +1,105 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+
+export default function ReviewWritePage() {
+  const [form, setForm] = useState({ name: "", password: "", email: "", title: "", content: "" });
+  const [error, setError] = useState("");
+  const [savedReviewId, setSavedReviewId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name || !form.password || !form.email || !form.title || !form.content) {
+      setError("모든 항목을 입력해주세요.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json();
+      if (!response.ok || data?.ok === false) throw new Error(data?.message || "이용후기를 등록하지 못했습니다.");
+      setSavedReviewId(data.review?.id || "");
+      setForm({ name: "", password: "", email: "", title: "", content: "" });
+    } catch (err) {
+      setError(err.message || "이용후기를 등록하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="site-wrap reviews-page-wrap">
+      <header className="header">
+        <div className="container header-inner">
+          <div className="brand">
+            <div className="brand-icon">대</div>
+            <div>
+              <div className="brand-title">대출상담 브랜드명</div>
+              <div className="brand-sub">이용후기 작성</div>
+            </div>
+          </div>
+          <nav className="nav">
+            <Link href="/">홈</Link>
+            <Link href="/reviews">이용후기</Link>
+            <Link href="/admin">관리자</Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="section reviews-main-section">
+        <div className="container reviews-shell">
+          <div className="review-write-card">
+            <div className="section-mini">이용후기 작성</div>
+            <h1 className="section-title reviews-page-title">후기 내용을 남겨주세요</h1>
+            <p className="card-desc">작성된 후기는 첫 화면 이용후기 영역과 후기 게시판에 함께 표시됩니다.</p>
+
+            <form className="form-stack" onSubmit={handleSubmit}>
+              <div className="two-col compact-two-col">
+                <div className="field">
+                  <label>이름</label>
+                  <input value={form.name} onChange={(e) => handleChange("name", e.target.value)} placeholder="이름 입력" />
+                </div>
+                <div className="field">
+                  <label>비밀번호</label>
+                  <input type="password" value={form.password} onChange={(e) => handleChange("password", e.target.value)} placeholder="비밀번호 입력" />
+                </div>
+              </div>
+
+              <div className="field">
+                <label>이메일</label>
+                <input type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="이메일 입력" />
+              </div>
+
+              <div className="field">
+                <label>제목</label>
+                <input value={form.title} onChange={(e) => handleChange("title", e.target.value)} placeholder="제목 입력" />
+              </div>
+
+              <div className="field">
+                <label>내용</label>
+                <textarea rows={8} value={form.content} onChange={(e) => handleChange("content", e.target.value)} placeholder="이용후기 내용을 입력해주세요" />
+              </div>
+
+              {error && <div className="api-status error">{error}</div>}
+              {savedReviewId && <div className="api-status success">이용후기가 등록되었습니다. <Link href={`/reviews/${savedReviewId}`}>방금 작성한 글 보기</Link></div>}
+
+              <button type="submit" className="primary-btn" disabled={saving}>
+                {saving ? "등록 중..." : "이용후기 등록하기"}
+              </button>
+            </form>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
