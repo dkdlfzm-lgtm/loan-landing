@@ -1,62 +1,45 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { loadPropertyMaster, resolvePropertyOptions } from "../../lib-property-master";
 
-const DATA_GO_KR_KEY = process.env.DATA_GO_KR_KEY || "";
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const query = {
+    propertyType: searchParams.get("propertyType") || "아파트",
+    city: searchParams.get("city") || "",
+    district: searchParams.get("district") || "",
+    town: searchParams.get("town") || "",
+    apartment: searchParams.get("apartment") || "",
+    apartmentQuery: searchParams.get("apartmentQuery") || "",
+    area: searchParams.get("area") || "",
+  };
 
-const fallbackCatalog = {
-  아파트: {
-    서울시: [
-      {
-        district: "강남구",
-        town: "역삼동",
-        apartment: "개나리래미안",
-        areas: ["59.96㎡", "84.93㎡"],
-      },
-    ],
-  },
-  오피스텔: {},
-  "빌라(연립/다세대)": {},
-};
-
-async function readLocalMaster() {
   try {
-    const filePath = path.join(process.cwd(), "public", "property-master.json");
-    const text = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-export async function GET() {
-  try {
-    const localMaster = await readLocalMaster();
-
-    if (localMaster) {
-      return NextResponse.json({
-        ok: true,
-        source: "property-master.json",
-        hasDataGoKrKey: Boolean(DATA_GO_KR_KEY),
-        catalog: localMaster,
-      });
-    }
-
+    const { master, source } = await loadPropertyMaster();
+    const result = resolvePropertyOptions(master, query);
     return NextResponse.json({
       ok: true,
-      source: "fallback",
-      hasDataGoKrKey: Boolean(DATA_GO_KR_KEY),
-      catalog: fallbackCatalog,
-      message:
-        "property-master.json 파일이 없어 fallback 데이터를 반환했습니다. DATA_GO_KR_KEY는 설정되어 있어도 아직 목록 생성 스크립트를 실행해야 전국 단위 목록이 반영됩니다.",
+      source,
+      query: {
+        city: result.city,
+        district: result.district,
+        town: result.town,
+        apartment: result.apartment,
+        area: result.area,
+      },
+      options: {
+        cities: result.cities,
+        districts: result.districts,
+        towns: result.towns,
+        apartments: result.apartments,
+        areas: result.areas,
+      },
+      counts: result.counts,
+      note:
+        source === "fallback" || source === "fallback-cache"
+          ? "현재는 내장 샘플 목록입니다. PROPERTY_MASTER_URL을 연결하면 전국 단지 마스터 기준으로 바뀝니다."
+          : "외부 단지 마스터 기준으로 동작 중입니다.",
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error.message || "목록 조회 중 오류가 발생했습니다.",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, message: error?.message || "단지 목록을 불러오지 못했습니다." }, { status: 500 });
   }
 }
