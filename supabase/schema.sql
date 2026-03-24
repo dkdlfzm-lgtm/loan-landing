@@ -15,7 +15,8 @@ create table if not exists public.inquiries (
   apartment text,
   area text,
   status text not null default 'new' check (status in ('new', 'contacted', 'closed')),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.reviews (
@@ -38,22 +39,33 @@ create table if not exists public.review_comments (
   created_at timestamptz not null default now()
 );
 
-
 alter table public.inquiries add column if not exists email text;
 alter table public.inquiries add column if not exists job_type text;
 alter table public.inquiries add column if not exists assignee text default '미배정';
 alter table public.inquiries add column if not exists call_summary text default '';
 alter table public.inquiries add column if not exists internal_memo text default '';
+alter table public.inquiries add column if not exists updated_at timestamptz not null default now();
+
+create table if not exists public.inquiry_notes (
+  id uuid primary key default gen_random_uuid(),
+  inquiry_id uuid not null references public.inquiries(id) on delete cascade,
+  author text not null,
+  content text not null,
+  created_at timestamptz not null default now()
+);
 
 create index if not exists inquiries_created_at_idx on public.inquiries(created_at desc);
 create index if not exists inquiries_status_idx on public.inquiries(status);
+create index if not exists inquiries_updated_at_idx on public.inquiries(updated_at desc);
 create index if not exists reviews_created_at_idx on public.reviews(created_at desc);
 create index if not exists reviews_status_idx on public.reviews(status);
 create index if not exists review_comments_review_id_idx on public.review_comments(review_id, created_at asc);
+create index if not exists inquiry_notes_inquiry_id_idx on public.inquiry_notes(inquiry_id, created_at desc);
 
 alter table public.inquiries disable row level security;
 alter table public.reviews disable row level security;
 alter table public.review_comments disable row level security;
+alter table public.inquiry_notes disable row level security;
 
 insert into public.reviews (name, email, password_hash, title, content, status, view_count)
 values

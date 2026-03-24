@@ -973,6 +973,22 @@ export default function LoanLandingPage() {
           </div>
         </section>
       </main>
+      <div className="floating-consult-widget" aria-label="빠른 상담 연결">
+        <a href="tel:070-8018-7437" className="floating-consult-btn phone">
+          <span className="floating-consult-icon">☎</span>
+          <span className="floating-consult-text">
+            <strong>대표번호</strong>
+            <small>070-8018-7437</small>
+          </span>
+        </a>
+        <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-consult-btn kakao">
+          <span className="floating-consult-icon kakao-badge">TALK</span>
+          <span className="floating-consult-text">
+            <strong>카카오상담</strong>
+            <small>클릭 시 자동으로 연결됩니다.</small>
+          </span>
+        </a>
+      </div>
     </div>
   );
 }

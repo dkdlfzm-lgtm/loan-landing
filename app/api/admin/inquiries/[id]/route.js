@@ -19,6 +19,7 @@ export async function PATCH(request, { params }) {
       call_summary: String(body.call_summary || "").trim(),
       internal_memo: String(body.internal_memo || "").trim(),
       email: String(body.email || "").trim(),
+      updated_at: new Date().toISOString(),
     };
 
     const updated = await supabaseRest(`/inquiries?id=eq.${params.id}`, {
