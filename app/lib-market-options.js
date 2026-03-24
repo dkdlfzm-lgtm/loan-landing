@@ -1,9 +1,8 @@
-export const propertyCatalog = {
+const propertyCatalog = {
   아파트: {
     서울시: {
       강남구: {
-        대치동: {
-          은마아파트: ["76.79㎡", "84.43㎡"],
+        삼성동: {
           래미안대치팰리스: ["84.97㎡", "114.15㎡"],
         },
         역삼동: {
@@ -235,22 +234,73 @@ export const propertyCatalog = {
   },
 };
 
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function collectEntries(node, path = [], out = []) {
+  if (!node || typeof node !== "object") return out;
+
+  for (const [key, value] of Object.entries(node)) {
+    if (Array.isArray(value)) {
+      const fullPath = [...path, key];
+      const apartment = fullPath[fullPath.length - 1] || "";
+      const locationParts = fullPath.slice(0, -1);
+      const town = locationParts[locationParts.length - 1] || "기타";
+      const districtParts = locationParts.slice(0, -1);
+      const district = districtParts.length ? districtParts.join(" ") : "기타";
+
+      out.push({ district, town, apartment, areas: value });
+      continue;
+    }
+
+    collectEntries(value, [...path, key], out);
+  }
+
+  return out;
+}
+
+const normalizedCatalog = Object.fromEntries(
+  Object.entries(propertyCatalog).map(([propertyType, cityMap]) => [
+    propertyType,
+    Object.fromEntries(
+      Object.entries(cityMap).map(([city, node]) => [city, collectEntries(node)])
+    ),
+  ])
+);
+
+function getEntries(propertyType, city) {
+  return normalizedCatalog[propertyType]?.[city] || [];
+}
+
 export function getCities(propertyType) {
-  return Object.keys(propertyCatalog[propertyType] || {});
+  return Object.keys(normalizedCatalog[propertyType] || {});
 }
 
 export function getDistricts(propertyType, city) {
-  return Object.keys(propertyCatalog[propertyType]?.[city] || {});
+  return unique(getEntries(propertyType, city).map((entry) => entry.district));
 }
 
 export function getTowns(propertyType, city, district) {
-  return Object.keys(propertyCatalog[propertyType]?.[city]?.[district] || {});
+  return unique(
+    getEntries(propertyType, city)
+      .filter((entry) => entry.district === district)
+      .map((entry) => entry.town)
+  );
 }
 
 export function getApartments(propertyType, city, district, town) {
-  return Object.keys(propertyCatalog[propertyType]?.[city]?.[district]?.[town] || {});
+  return unique(
+    getEntries(propertyType, city)
+      .filter((entry) => entry.district === district && entry.town === town)
+      .map((entry) => entry.apartment)
+  );
 }
 
 export function getAreas(propertyType, city, district, town, apartment) {
-  return propertyCatalog[propertyType]?.[city]?.[district]?.[town]?.[apartment] || [];
+  const matched = getEntries(propertyType, city).find(
+    (entry) =>
+      entry.district === district && entry.town === town && entry.apartment === apartment
+  );
+  return matched?.areas || [];
 }
