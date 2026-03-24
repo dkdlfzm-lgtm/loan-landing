@@ -8,7 +8,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { name, phone, address, loanType, memo, sourcePage, propertyType, city, district, town, apartment, area } = body || {};
+    const { name, phone, email, address, loanType, memo, sourcePage, propertyType, city, district, town, apartment, area, jobType } = body || {};
 
     if (!String(name || "").trim() || !String(phone || "").trim()) {
       return NextResponse.json({ ok: false, message: "성함과 연락처를 입력해주세요." }, { status: 400 });
@@ -21,6 +21,7 @@ export async function POST(request) {
         name: String(name).trim(),
         phone: String(phone).trim(),
         address: String(address || "").trim(),
+        email: String(email || "").trim(),
         loan_type: String(loanType || "").trim(),
         memo: String(memo || "").trim(),
         source_page: String(sourcePage || "home").trim(),
@@ -30,6 +31,10 @@ export async function POST(request) {
         town: String(town || "").trim(),
         apartment: String(apartment || "").trim(),
         area: String(area || "").trim(),
+        job_type: String(jobType || "").trim(),
+        assignee: "미배정",
+        call_summary: "",
+        internal_memo: "",
       }],
     });
 

@@ -1431,3 +1431,33 @@ textarea {
 @media (max-width: 1080px) {
   .admin-stats-grid, .admin-board-grid { grid-template-columns: 1fr; }
 }
+
+.crm-board-panel { display: grid; gap: 22px; }
+.crm-table-wrap { overflow: auto; border: 1px solid #dbe4ef; border-radius: 20px; background: #fff; }
+.crm-table { width: 100%; border-collapse: collapse; min-width: 920px; }
+.crm-table th, .crm-table td { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 14px; }
+.crm-table thead th { background: #f8fafc; color: #334155; font-size: 13px; font-weight: 800; }
+.crm-table tbody tr { cursor: pointer; }
+.crm-table tbody tr:hover { background: #f8fbff; }
+.crm-table tbody tr.is-active { background: #eef6ff; }
+.crm-ellipsis { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crm-empty-cell { text-align: center; color: #64748b; }
+.crm-detail-shell { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 20px; }
+.crm-panel { border: 1px solid #dbe4ef; border-radius: 22px; background: #f8fafc; padding: 20px; }
+.crm-panel-title { color: #0f172a; font-weight: 800; font-size: 18px; margin-bottom: 16px; }
+.crm-info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.crm-info-row { border: 1px solid #e2e8f0; background: #fff; border-radius: 16px; padding: 14px; }
+.crm-info-row span { display: block; font-size: 12px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
+.crm-info-row strong { line-height: 1.6; color: #0f172a; }
+.crm-info-row-wide { grid-column: 1 / -1; }
+.crm-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.crm-field { display: grid; gap: 8px; }
+.crm-field span { font-size: 12px; color: #475569; font-weight: 800; }
+.crm-field input, .crm-field select, .crm-field textarea { width: 100%; border-radius: 14px; border: 1px solid #cbd5e1; background: #fff; padding: 12px 14px; font-size: 14px; color: #0f172a; }
+.crm-field textarea { resize: vertical; }
+.crm-field-wide { grid-column: 1 / -1; }
+.crm-action-row { display: flex; justify-content: flex-end; margin-top: 16px; }
+.crm-empty-panel { border: 1px dashed #cbd5e1; background: #f8fafc; border-radius: 20px; padding: 28px; color: #64748b; }
+@media (max-width: 960px) {
+  .crm-detail-shell, .crm-info-grid, .crm-form-grid { grid-template-columns: 1fr; }
+}

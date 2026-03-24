@@ -11,14 +11,23 @@ export async function PATCH(request, { params }) {
   }
 
   try {
-    const { status } = await request.json();
+    const body = await request.json();
+    const payload = {
+      status: String(body.status || "new").trim(),
+      job_type: String(body.job_type || "").trim(),
+      assignee: String(body.assignee || "미배정").trim(),
+      call_summary: String(body.call_summary || "").trim(),
+      internal_memo: String(body.internal_memo || "").trim(),
+      email: String(body.email || "").trim(),
+    };
+
     const updated = await supabaseRest(`/inquiries?id=eq.${params.id}`, {
       method: "PATCH",
       prefer: "return=representation",
-      body: { status },
+      body: payload,
     });
     return NextResponse.json({ ok: true, inquiry: Array.isArray(updated) ? updated[0] : null });
   } catch (error) {
-    return NextResponse.json({ ok: false, message: error.message || "상태를 수정하지 못했습니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, message: error.message || "상담 정보를 수정하지 못했습니다." }, { status: 500 });
   }
 }
