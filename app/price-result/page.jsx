@@ -34,7 +34,7 @@ export default function PriceResultPage() {
     range: "8억 3,000만원 ~ 8억 9,000만원",
     estimateLimit: "최대 6억 1,000만원 가능",
     description:
-      "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다.",
+      "선택하신 단지와 면적을 기준으로 최근 시세 흐름을 확인하고 상담 가능한 방향을 안내해드립니다.",
   };
 
   const calcResult = useMemo(() => {
@@ -159,8 +159,8 @@ export default function PriceResultPage() {
               </div>
 
               <div className="desc-card">
-                <div className="section-mini">설명 영역</div>
-                <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
+                <div className="section-mini">상담 안내</div>
+                <h3 className="desc-title">선택하신 단지와 조건을 바탕으로 상담을 도와드립니다.</h3>
                 <p className="desc-text">{priceResult.description}</p>
 
                 <div className="tag-wrap">
@@ -175,10 +175,10 @@ export default function PriceResultPage() {
 
             <div className="result-side-col">
               <div id="contact" className="side-card">
-                <div className="section-mini">대출 신청 작성란</div>
+                <div className="section-mini">맞춤 상담 접수</div>
                 <h3 className="card-title">지금 바로 상담 신청</h3>
                 <p className="card-desc">
-                  조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
+                  조회하신 단지 정보가 함께 전달되어 보다 빠르게 상담을 진행하실 수 있습니다.
                 </p>
 
                 <form className="form-stack">
@@ -187,9 +187,13 @@ export default function PriceResultPage() {
                   <input type="text" value={`${apartment} / ${area}`} readOnly />
                   <select defaultValue="희망 상품 선택">
                     <option>희망 상품 선택</option>
-                    <option>아파트 담보대출</option>
-                    <option>생활안정자금</option>
+                    <option>주택담보대출</option>
+                    <option>전세퇴거자금</option>
+                    <option>경매취하자금</option>
+                    <option>사업자대출</option>
                     <option>대환대출</option>
+                    <option>매매자금대출</option>
+                    <option>기타</option>
                   </select>
                   <textarea rows={4} placeholder="상담 내용을 입력하세요" />
                   <button type="button" className="primary-btn">대출 신청 접수하기</button>
