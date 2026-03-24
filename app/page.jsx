@@ -1,13 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  getApartments,
-  getAreas,
-  getCities,
-  getDistricts,
-  getTowns,
-} from "./lib-market-options";
 
 const statSlides = [
   {
@@ -55,49 +48,75 @@ export default function LoanLandingPage() {
   const [currentView, setCurrentView] = useState("home");
   const [activeSlide, setActiveSlide] = useState(0);
 
-  const cities = getCities(propertyType);
-  const [selectedCity, setSelectedCity] = useState(cities[0] || "");
-  const districts = getDistricts(propertyType, selectedCity);
-  const [selectedDistrict, setSelectedDistrict] = useState(districts[0] || "");
-  const towns = getTowns(propertyType, selectedCity, selectedDistrict);
-  const [selectedTown, setSelectedTown] = useState(towns[0] || "");
-  const apartments = getApartments(propertyType, selectedCity, selectedDistrict, selectedTown);
-  const [selectedApartment, setSelectedApartment] = useState(apartments[0] || "");
-  const [apartmentQuery, setApartmentQuery] = useState(apartments[0] || "");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [selectedTown, setSelectedTown] = useState("");
+  const [selectedApartment, setSelectedApartment] = useState("");
+  const [apartmentQuery, setApartmentQuery] = useState("");
   const [showApartmentList, setShowApartmentList] = useState(false);
-  const areas = getAreas(propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment);
-  const [selectedArea, setSelectedArea] = useState(areas[0] || "");
+  const [selectedArea, setSelectedArea] = useState("");
+  const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
+  const [catalogSource, setCatalogSource] = useState("");
+  const [catalogNote, setCatalogNote] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(false);
 
   const [marketResult, setMarketResult] = useState(null);
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState("");
 
-  useEffect(() => {
-    const nextCities = getCities(propertyType);
-    setSelectedCity(nextCities[0] || "");
-  }, [propertyType]);
+  const cities = catalogOptions.cities;
+  const districts = catalogOptions.districts;
+  const towns = catalogOptions.towns;
+  const apartments = catalogOptions.apartments;
+  const areas = catalogOptions.areas;
 
   useEffect(() => {
-    const nextDistricts = getDistricts(propertyType, selectedCity);
-    setSelectedDistrict(nextDistricts[0] || "");
-  }, [propertyType, selectedCity]);
+    let cancelled = false;
 
-  useEffect(() => {
-    const nextTowns = getTowns(propertyType, selectedCity, selectedDistrict);
-    setSelectedTown(nextTowns[0] || "");
-  }, [propertyType, selectedCity, selectedDistrict]);
+    async function loadCatalog() {
+      setCatalogLoading(true);
+      setMarketError("");
+      try {
+        const query = new URLSearchParams({
+          propertyType,
+          city: selectedCity,
+          district: selectedDistrict,
+          town: selectedTown,
+          apartment: selectedApartment,
+          apartmentQuery,
+          area: selectedArea,
+        });
 
-  useEffect(() => {
-    const nextApartments = getApartments(propertyType, selectedCity, selectedDistrict, selectedTown);
-    const firstApartment = nextApartments[0] || "";
-    setSelectedApartment(firstApartment);
-    setApartmentQuery(firstApartment);
-  }, [propertyType, selectedCity, selectedDistrict, selectedTown]);
+        const response = await fetch(`/api/property-catalog?${query.toString()}`, { cache: "no-store" });
+        const data = await response.json();
 
-  useEffect(() => {
-    const nextAreas = getAreas(propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment);
-    setSelectedArea(nextAreas[0] || "");
-  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment]);
+        if (!response.ok || data?.ok === false) {
+          throw new Error(data?.message || "단지 목록을 불러오지 못했습니다.");
+        }
+
+        if (cancelled) return;
+        setCatalogOptions(data.options);
+        setCatalogSource(data.source || "");
+        setCatalogNote(data.note || "");
+        setSelectedCity(data.query.city || "");
+        setSelectedDistrict(data.query.district || "");
+        setSelectedTown(data.query.town || "");
+        setSelectedApartment(data.query.apartment || "");
+        setSelectedArea(data.query.area || "");
+      } catch (error) {
+        if (!cancelled) {
+          setMarketError(error?.message || "단지 목록을 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    }
+
+    loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, apartmentQuery, selectedArea]);
 
   useEffect(() => {
     if (currentView !== "price-result") return;
@@ -107,9 +126,7 @@ export default function LoanLandingPage() {
     return () => clearInterval(timer);
   }, [currentView]);
 
-  const filteredApartments = apartments.filter((name) =>
-    name.toLowerCase().includes(apartmentQuery.toLowerCase())
-  );
+  const filteredApartments = apartments;
 
   const selectedSummary = `${selectedCity} ${selectedDistrict} ${selectedTown} ${selectedApartment}`;
   const marketSummary = marketResult?.summary;
@@ -324,20 +341,24 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="quick-search-box">
+                    <div className="quick-search-meta">
+                      <span>{catalogLoading ? "전국 단지 마스터 불러오는 중..." : `목록 소스: ${catalogSource || "미확인"}`}</span>
+                      <span>{catalogNote}</span>
+                    </div>
                     <div className="select-grid select-grid-3">
-                      <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
+                      <select value={propertyType} onChange={(e) => { setPropertyType(e.target.value); setSelectedCity(""); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); }}>
                         <option>아파트</option>
                         <option>오피스텔</option>
                         <option>빌라(연립/다세대)</option>
                       </select>
 
-                      <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
                         {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
 
-                      <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)}>
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
                         {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
@@ -345,7 +366,7 @@ export default function LoanLandingPage() {
                     </div>
 
                     <div className="select-grid select-grid-main">
-                      <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
                         {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
                         ))}
@@ -357,6 +378,8 @@ export default function LoanLandingPage() {
                         placeholder="단지 선택"
                         onChange={(e) => {
                           setApartmentQuery(e.target.value);
+                          setSelectedApartment("");
+                          setSelectedArea("");
                           setShowApartmentList(true);
                         }}
                         onFocus={() => setShowApartmentList(true)}
@@ -382,6 +405,7 @@ export default function LoanLandingPage() {
                             onClick={() => {
                               setSelectedApartment(name);
                               setApartmentQuery(name);
+                              setSelectedArea("");
                               setShowApartmentList(false);
                             }}
                           >
@@ -583,17 +607,17 @@ export default function LoanLandingPage() {
                   <div className="result-search-row">
                     <div className="result-search-label">지역 선택</div>
                     <div className="result-form-grid result-form-grid-3">
-                      <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
                         {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
-                      <select value={selectedDistrict} onChange={(e) => setSelectedDistrict(e.target.value)}>
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
                         {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
-                      <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
                         {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
                         ))}

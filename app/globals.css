@@ -1378,3 +1378,5 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+.quick-search-meta{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px;color:#64748b;}
