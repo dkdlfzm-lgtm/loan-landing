@@ -1384,6 +1384,29 @@ textarea {
   cursor: wait;
 }
 
+
+.apartment-picker-select select {
+  width: 100%;
+}
+
+.auto-select-help {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(14, 116, 144, 0.08);
+  color: #0f3a57;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.result-auto-select-help {
+  margin-top: 8px;
+  border-radius: 0;
+  background: #f8fbff;
+  border: 1px solid #d6dfeb;
+  color: #1e293b;
+}
+
 .apartment-dropdown-home {
   position: relative;
   top: auto;

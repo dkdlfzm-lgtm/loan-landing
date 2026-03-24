@@ -248,9 +248,7 @@ export default function LoanLandingPage() {
   };
 
   const handleMarketSearch = async () => {
-    const finalApartment = filteredApartments.includes(apartmentQuery)
-      ? apartmentQuery
-      : filteredApartments[0] || selectedApartment;
+    const finalApartment = selectedApartment || filteredApartments[0] || "";
 
     if (finalApartment && finalApartment !== selectedApartment) {
       setSelectedApartment(finalApartment);
@@ -451,7 +449,7 @@ export default function LoanLandingPage() {
                   <div className="quick-search-box">
                     <div className="quick-search-meta">
                       <span>{catalogLoading ? "선택 지역의 단지 정보를 불러오는 중입니다." : "광역시/도부터 단지명까지 순서대로 선택하면 보다 정확한 시세 조회가 가능합니다."}</span>
-                      <span>{catalogNote || "단지명이 많을 경우 아파트명 일부만 입력해도 자동으로 검색됩니다."}</span>
+                      <span>{catalogNote || "선택하신 읍·면·동 기준으로 아파트명이 자동 표시되며 목록에서 바로 선택하실 수 있습니다."}</span>
                     </div>
 
                     <div className="catalog-count-strip">
@@ -487,18 +485,20 @@ export default function LoanLandingPage() {
                         ))}
                       </select>
 
-                      <input
-                        type="text"
-                        value={apartmentQuery}
-                        placeholder="아파트명 일부를 입력하면 자동으로 검색됩니다"
+                      <select
+                        aria-label="아파트명"
+                        value={selectedApartment}
                         onChange={(e) => {
+                          setSelectedApartment(e.target.value);
                           setApartmentQuery(e.target.value);
-                          setSelectedApartment("");
                           setSelectedArea("");
-                          setShowApartmentList(true);
                         }}
-                        onFocus={() => setShowApartmentList(true)}
-                      />
+                      >
+                        <option value="">아파트명 자동 선택</option>
+                        {filteredApartments.slice(0, 400).map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
 
                       <button
                         type="button"
@@ -510,27 +510,11 @@ export default function LoanLandingPage() {
                       </button>
                     </div>
 
-                    {showApartmentList && (
-                      <div className="apartment-dropdown apartment-dropdown-home">
-                        <div className="apartment-dropdown-head">단지 검색 결과 {filteredApartments.length.toLocaleString("ko-KR")}건</div>
-                        {filteredApartments.length === 0 && <div className="apartment-empty">선택하신 읍/면/동 안에서 조건에 맞는 단지를 찾지 못했습니다.</div>}
-                        {filteredApartments.slice(0, 200).map((name) => (
-                          <button
-                            key={name}
-                            type="button"
-                            className={`apartment-option ${selectedApartment === name ? "active" : ""}`}
-                            onClick={() => {
-                              setSelectedApartment(name);
-                              setApartmentQuery(name);
-                              setSelectedArea("");
-                              setShowApartmentList(false);
-                            }}
-                          >
-                            {name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    <div className="auto-select-help">
+                      {filteredApartments.length === 0
+                        ? "선택하신 읍·면·동 안에서 조회 가능한 단지를 찾지 못했습니다."
+                        : `선택 가능한 아파트 ${filteredApartments.length.toLocaleString("ko-KR")}개가 자동으로 준비되었습니다.`}
+                    </div>
 
                     <div className="select-grid select-grid-main select-grid-bottom">
                       <select aria-label="면적" value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}><option value="">면적</option>
@@ -748,37 +732,26 @@ export default function LoanLandingPage() {
                   <div className="result-search-row">
                     <div className="result-search-label">단지 선택</div>
                     <div className="result-form-grid result-form-grid-complex">
-                      <div className="apartment-picker">
-                        <input
-                          type="text"
-                          value={apartmentQuery}
-                          placeholder="아파트명 일부를 입력하면 자동으로 검색됩니다"
+                      <div className="apartment-picker apartment-picker-select">
+                        <select
+                          aria-label="아파트명"
+                          value={selectedApartment}
                           onChange={(e) => {
+                            setSelectedApartment(e.target.value);
                             setApartmentQuery(e.target.value);
-                            setShowApartmentList(true);
+                            setSelectedArea("");
                           }}
-                          onFocus={() => setShowApartmentList(true)}
-                        />
-                        {showApartmentList && (
-                          <div className="apartment-dropdown">
-                            <div className="apartment-dropdown-head">단지 검색 결과 {filteredApartments.length.toLocaleString("ko-KR")}건</div>
-                            {filteredApartments.length === 0 && <div className="apartment-empty">선택하신 읍/면/동 안에서 조건에 맞는 단지를 찾지 못했습니다.</div>}
-                            {filteredApartments.slice(0, 250).map((name) => (
-                              <button
-                                key={name}
-                                type="button"
-                                className={`apartment-option ${selectedApartment === name ? "active" : ""}`}
-                                onClick={() => {
-                                  setSelectedApartment(name);
-                                  setApartmentQuery(name);
-                                  setShowApartmentList(false);
-                                }}
-                              >
-                                {name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                        >
+                          <option value="">아파트명 자동 선택</option>
+                          {filteredApartments.slice(0, 500).map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                        <div className="auto-select-help result-auto-select-help">
+                          {filteredApartments.length === 0
+                            ? "선택하신 읍·면·동 기준으로 표시할 단지가 없습니다."
+                            : `단지명 ${filteredApartments.length.toLocaleString("ko-KR")}개가 자동으로 표시됩니다.`}
+                        </div>
                       </div>
 
                       <select aria-label="면적" value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}><option value="">면적</option>
