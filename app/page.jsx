@@ -1,52 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-const propertyData = {
-  아파트: {
-    서울시: {
-      강남구: {
-        대치동: {
-          은마아파트: ["76.79㎡", "84.43㎡"],
-          래미안대치팰리스: ["84.97㎡", "114.15㎡"],
-        },
-      },
-      송파구: {
-        잠실동: {
-          잠실엘스: ["84.88㎡", "119.96㎡"],
-          리센츠: ["84.99㎡", "124.22㎡"],
-        },
-      },
-    },
-    경기도: {
-      구리시: {
-        수택동: {
-          LG원앙: ["59.97㎡", "84.96㎡", "107.28㎡"],
-          금호어울림: ["59.88㎡", "84.72㎡"],
-          나래아파트: ["84.91㎡"],
-        },
-      },
-    },
-  },
-  오피스텔: {
-    서울시: {
-      강남구: {
-        역삼동: {
-          역삼오피스텔A: ["29.84㎡", "59.12㎡"],
-        },
-      },
-    },
-  },
-  "빌라(연립/다세대)": {
-    서울시: {
-      강서구: {
-        화곡동: {
-          화곡빌라A: ["42.11㎡", "59.02㎡"],
-        },
-      },
-    },
-  },
-};
+import {
+  getApartments,
+  getAreas,
+  getCities,
+  getDistricts,
+  getTowns,
+} from "./lib-market-options";
 
 const statSlides = [
   {
@@ -83,26 +44,6 @@ function formatNumber(value) {
   return Math.round(value).toLocaleString("ko-KR");
 }
 
-function getCities(propertyType) {
-  return Object.keys(propertyData[propertyType] || {});
-}
-
-function getDistricts(propertyType, city) {
-  return Object.keys(propertyData[propertyType]?.[city] || {});
-}
-
-function getTowns(propertyType, city, district) {
-  return Object.keys(propertyData[propertyType]?.[city]?.[district] || {});
-}
-
-function getApartments(propertyType, city, district, town) {
-  return Object.keys(propertyData[propertyType]?.[city]?.[district]?.[town] || {});
-}
-
-function getAreas(propertyType, city, district, town, apartment) {
-  return propertyData[propertyType]?.[city]?.[district]?.[town]?.[apartment] || [];
-}
-
 export default function LoanLandingPage() {
   const [loanAmount, setLoanAmount] = useState("30000000");
   const [interestRate, setInterestRate] = useState("5.5");
@@ -110,31 +51,26 @@ export default function LoanLandingPage() {
   const [loanMonths, setLoanMonths] = useState("36");
 
   const [propertyType, setPropertyType] = useState("아파트");
-  const [tradeTypes, setTradeTypes] = useState({
-    sale: true,
-    jeonse: true,
-    monthly: true,
-  });
-
+  const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
   const [currentView, setCurrentView] = useState("home");
   const [activeSlide, setActiveSlide] = useState(0);
 
   const cities = getCities(propertyType);
   const [selectedCity, setSelectedCity] = useState(cities[0] || "");
-
   const districts = getDistricts(propertyType, selectedCity);
   const [selectedDistrict, setSelectedDistrict] = useState(districts[0] || "");
-
   const towns = getTowns(propertyType, selectedCity, selectedDistrict);
   const [selectedTown, setSelectedTown] = useState(towns[0] || "");
-
   const apartments = getApartments(propertyType, selectedCity, selectedDistrict, selectedTown);
   const [selectedApartment, setSelectedApartment] = useState(apartments[0] || "");
   const [apartmentQuery, setApartmentQuery] = useState(apartments[0] || "");
   const [showApartmentList, setShowApartmentList] = useState(false);
-
   const areas = getAreas(propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment);
   const [selectedArea, setSelectedArea] = useState(areas[0] || "");
+
+  const [marketResult, setMarketResult] = useState(null);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState("");
 
   useEffect(() => {
     const nextCities = getCities(propertyType);
@@ -176,8 +112,25 @@ export default function LoanLandingPage() {
   );
 
   const selectedSummary = `${selectedCity} ${selectedDistrict} ${selectedTown} ${selectedApartment}`;
+  const marketSummary = marketResult?.summary;
 
   const priceResult = useMemo(() => {
+    if (marketSummary) {
+      return {
+        title: marketSummary.title || selectedApartment || "선택 단지",
+        address: marketSummary.address || `${selectedCity} ${selectedDistrict} ${selectedTown}`,
+        area: marketSummary.area || selectedArea || "84.96㎡",
+        floor: "선택 조건 기준",
+        tradeDate: marketSummary.tradeDate || "최신 기준",
+        latestPrice: marketSummary.latestPrice || "조회값 없음",
+        range: marketSummary.range || "조회값 없음",
+        estimateLimit: marketSummary.estimateLimit || "상담 후 산정",
+        description:
+          marketSummary.description ||
+          "한국부동산원 API 기준으로 조회한 값을 기반으로 예상 조건과 상담 연결 흐름을 보여주는 화면입니다.",
+      };
+    }
+
     return {
       title: selectedApartment || "선택 단지",
       address: `${selectedCity} ${selectedDistrict} ${selectedTown}`,
@@ -190,7 +143,7 @@ export default function LoanLandingPage() {
       description:
         "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다.",
     };
-  }, [selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
+  }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
   const calcResult = useMemo(() => {
     const principal = Number(String(loanAmount).replace(/,/g, ""));
@@ -234,6 +187,46 @@ export default function LoanLandingPage() {
 
   const toggleTradeType = (key) => {
     setTradeTypes((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleMarketSearch = async () => {
+    const finalApartment = filteredApartments.includes(apartmentQuery)
+      ? apartmentQuery
+      : filteredApartments[0] || selectedApartment;
+
+    if (finalApartment && finalApartment !== selectedApartment) {
+      setSelectedApartment(finalApartment);
+      setApartmentQuery(finalApartment);
+    }
+
+    setMarketLoading(true);
+    setMarketError("");
+
+    try {
+      const query = new URLSearchParams({
+        propertyType,
+        city: selectedCity,
+        district: selectedDistrict,
+        town: selectedTown,
+        apartment: finalApartment,
+        area: selectedArea,
+      });
+
+      const response = await fetch(`/api/reb-market?${query.toString()}`, { cache: "no-store" });
+      const data = await response.json();
+
+      if (!response.ok || data?.ok === false) {
+        throw new Error(data?.message || "시세 정보를 불러오지 못했습니다.");
+      }
+
+      setMarketResult(data);
+      setCurrentView("price-result");
+    } catch (error) {
+      setMarketError(error?.message || "시세 정보를 불러오지 못했습니다.");
+      setCurrentView("price-result");
+    } finally {
+      setMarketLoading(false);
+    }
   };
 
   return (
@@ -304,19 +297,17 @@ export default function LoanLandingPage() {
                       <input type="text" placeholder="연락처를 입력하세요" />
                     </div>
                     <div className="field">
-                      <label>대출 유형</label>
-                      <select defaultValue="">
-                        <option value="" disabled>대출 유형을 선택하세요</option>
-                        <option>아파트</option>
-                        <option>빌라/다세대</option>
-                        <option>오피스텔</option>
-                        <option>상가/통건물</option>
-                        <option>단독주택/토지</option>
-                      </select>
+                      <label>주소 입력</label>
+                      <input type="text" placeholder="주소를 입력하세요" />
                     </div>
                     <div className="field">
-                      <label>주소</label>
-                      <input type="text" placeholder="주소를 입력하세요" />
+                      <label>대출유형</label>
+                      <select defaultValue="아파트 담보대출">
+                        <option>아파트 담보대출</option>
+                        <option>생활안정자금</option>
+                        <option>대환대출</option>
+                        <option>사업자대출</option>
+                      </select>
                     </div>
                     <button type="button" className="primary-btn">상담 신청하기</button>
                   </form>
@@ -329,11 +320,17 @@ export default function LoanLandingPage() {
                 <div className="white-panel">
                   <div className="section-center">
                     <div className="section-mini">빠른 시세조회</div>
-                    <h2 className="section-title">오늘의 아파트 대출이 궁금하세요?</h2>
+                    <h2 className="section-title">오늘의 부동산 시세와 예상 한도가 궁금하세요?</h2>
                   </div>
 
                   <div className="quick-search-box">
                     <div className="select-grid select-grid-3">
+                      <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
+                        <option>아파트</option>
+                        <option>오피스텔</option>
+                        <option>빌라(연립/다세대)</option>
+                      </select>
+
                       <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
                         {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
@@ -345,39 +342,80 @@ export default function LoanLandingPage() {
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
+                    </div>
 
+                    <div className="select-grid select-grid-main">
                       <select value={selectedTown} onChange={(e) => setSelectedTown(e.target.value)}>
                         {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
                         ))}
                       </select>
-                    </div>
 
-                    <div className="select-grid select-grid-main">
                       <input
                         type="text"
-                        value={selectedApartment}
-                        readOnly
+                        value={apartmentQuery}
                         placeholder="단지 선택"
+                        onChange={(e) => {
+                          setApartmentQuery(e.target.value);
+                          setShowApartmentList(true);
+                        }}
+                        onFocus={() => setShowApartmentList(true)}
                       />
+
+                      <button
+                        type="button"
+                        className="search-btn"
+                        onClick={handleMarketSearch}
+                        disabled={marketLoading}
+                      >
+                        {marketLoading ? "조회 중..." : "실시간 조회"}
+                      </button>
+                    </div>
+
+                    {showApartmentList && filteredApartments.length > 0 && (
+                      <div className="apartment-dropdown apartment-dropdown-home">
+                        {filteredApartments.slice(0, 8).map((name) => (
+                          <button
+                            key={name}
+                            type="button"
+                            className={`apartment-option ${selectedApartment === name ? "active" : ""}`}
+                            onClick={() => {
+                              setSelectedApartment(name);
+                              setApartmentQuery(name);
+                              setShowApartmentList(false);
+                            }}
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="select-grid select-grid-main select-grid-bottom">
                       <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
                         {areas.map((area) => (
                           <option key={area} value={area}>{area}</option>
                         ))}
                       </select>
 
-                      <button
-                        type="button"
-                        className="search-btn"
-                        onClick={() => setCurrentView("price-result")}
-                      >
-                        실시간 조회
-                      </button>
+                      <input
+                        type="text"
+                        value={selectedSummary}
+                        readOnly
+                        className="selected-summary-input"
+                      />
+
+                      <div className="api-status-pill">
+                        {marketResult?.source === "reb-openapi" ? "실API 연결" : "API + 예시 fallback"}
+                      </div>
                     </div>
 
                     <div className="selected-text">
                       선택 중: <strong>{selectedSummary}</strong> / <strong>{selectedArea}</strong>
                     </div>
+
+                    {marketError && <div className="api-status error">{marketError}</div>}
+                    <div className="api-status">한국부동산원 API 연동 구조이며, 키가 없으면 예시 데이터가 함께 표시됩니다.</div>
                   </div>
                 </div>
               </div>
@@ -385,40 +423,59 @@ export default function LoanLandingPage() {
 
             <section className="home-info-strip">
               <div className="container">
-                <div className="home-info-grid">
-                  <div className="home-info-box">
-                    <div className="home-info-head">
-                      <h3>공지사항</h3>
-                      <a href="#">더보기 →</a>
-                    </div>
-
-                    <div className="notice-list">
-                      {[
-                        ["공지사항 1", "2026.03.16"],
-                        ["공지사항 2", "2026.03.15"],
-                        ["공지사항 3", "2026.03.14"],
-                        ["공지사항 4", "2026.03.13"],
-                        ["공지사항 5", "2026.03.12"],
-                      ].map(([title, date]) => (
-                        <div key={title} className="notice-row">
-                          <span>{title}</span>
-                          <span>{date}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
+                <div className="home-info-grid home-info-grid-3">
                   <div className="home-info-box center-box">
-                    <h3>무료상담문의</h3>
-                    <div className="phone-main">0000-0000</div>
-                    <div className="phone-sub">000-0000-0000</div>
-                    <div className="phone-desc">상담시간 입력칸</div>
+                    <h3>대표 번호</h3>
+                    <div className="phone-main">070-8018-7437</div>
+                    <div className="phone-sub">빠른 상담 연결</div>
+                    <div className="phone-desc">평일 상담 문의 가능</div>
                   </div>
 
-                  <div className="home-info-box kakao-box">
+                  <a
+                    href="https://open.kakao.com/o/sbaltXmi"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="home-info-box kakao-box kakao-link-box"
+                  >
                     <div className="talk-circle">TALK</div>
-                    <div className="kakao-title">카카오톡 상담 예시</div>
-                    <div className="kakao-id">아이디칸</div>
+                    <div className="kakao-title">카카오톡 상담</div>
+                    <div className="kakao-id">Ldk1009</div>
+                  </a>
+
+                  <div id="calculator" className="home-info-box calculator-home-box">
+                    <div className="section-mini">이율 계산기</div>
+                    <h3 className="home-calc-title">간편 상환 계산</h3>
+                    <div className="two-col compact-two-col">
+                      <input
+                        type="text"
+                        placeholder="대출 금액"
+                        value={loanAmount}
+                        onChange={(e) => setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                      />
+                      <input
+                        type="text"
+                        placeholder="연 이율(%)"
+                        value={interestRate}
+                        onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
+                      />
+                    </div>
+                    <div className="two-col compact-two-col">
+                      <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
+                        <option>원리금균등</option>
+                        <option>원금균등</option>
+                        <option>만기일시상환</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="기간(개월)"
+                        value={loanMonths}
+                        onChange={(e) => setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))}
+                      />
+                    </div>
+                    <div className="calc-box home-calc-box">
+                      <div className="calc-label">예상 월 상환액</div>
+                      <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -507,7 +564,7 @@ export default function LoanLandingPage() {
 
                 <div className="result-search-panel">
                   <div className="result-search-row">
-                    <div className="result-search-label">대출 유형</div>
+                    <div className="result-search-label">물건 유형</div>
                     <div className="result-type-tabs">
                       {["아파트", "오피스텔", "빌라(연립/다세대)"].map((type) => (
                         <button
@@ -587,14 +644,9 @@ export default function LoanLandingPage() {
                       <button
                         type="button"
                         className="primary-btn result-query-btn"
-                        onClick={() => {
-                          if (!filteredApartments.includes(apartmentQuery) && filteredApartments[0]) {
-                            setSelectedApartment(filteredApartments[0]);
-                            setApartmentQuery(filteredApartments[0]);
-                          }
-                        }}
+                        onClick={handleMarketSearch}
                       >
-                        다시 조회
+                        {marketLoading ? "조회 중..." : "다시 조회"}
                       </button>
                     </div>
                   </div>
@@ -621,7 +673,7 @@ export default function LoanLandingPage() {
 
               <div className="result-page-hero">
                 <div>
-                  <div className="section-mini light-mini">시세조회 결과</div>
+                  <div className="section-mini light-mini">시세조회 결과 · {marketResult?.source === "reb-openapi" ? "한국부동산원 API" : "예시 데이터 fallback"}</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
                   <p className="result-page-sub">
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
@@ -712,16 +764,8 @@ export default function LoanLandingPage() {
                     <form className="form-stack">
                       <input type="text" placeholder="성함" />
                       <input type="text" placeholder="연락처" />
-                      <select defaultValue="">
-                        <option value="" disabled>대출 유형 선택</option>
-                        <option>아파트</option>
-                        <option>빌라/다세대</option>
-                        <option>오피스텔</option>
-                        <option>상가/통건물</option>
-                        <option>단독주택/토지</option>
-                      </select>
-                      <input type="text" placeholder="주소를 입력하세요" />
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
+                      <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
                       <select defaultValue="희망 상품 선택">
                         <option>희망 상품 선택</option>
                         <option>아파트 담보대출</option>
@@ -733,56 +777,25 @@ export default function LoanLandingPage() {
                     </form>
                   </div>
 
-                  <div id="calculator" className="side-card">
-                    <div className="section-mini">이율 계산기</div>
-                    <h3 className="card-title">예상 상환 금액 계산</h3>
-
-                    <div className="two-col">
-                      <input
-                        type="text"
-                        placeholder="대출 금액"
-                        value={loanAmount}
-                        onChange={(e) => setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))}
-                      />
-                      <input
-                        type="text"
-                        placeholder="연 이율(%)"
-                        value={interestRate}
-                        onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
-                      />
-                    </div>
-
-                    <div className="two-col">
-                      <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
-                        <option>원리금균등</option>
-                        <option>원금균등</option>
-                        <option>만기일시상환</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="기간(개월)"
-                        value={loanMonths}
-                        onChange={(e) => setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))}
-                      />
-                    </div>
-
-                    <div className="calc-box">
-                      <div className="calc-label">예상 월 상환액</div>
-                      <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
-
-                      <div className="calc-grid">
-                        <div className="calc-mini">
-                          <div className="calc-mini-label">총 예상 이자</div>
-                          <div className="calc-mini-value">{formatNumber(calcResult.totalInterest)}원</div>
+                  <div className="side-card">
+                    <div className="section-mini">대표 상담 채널</div>
+                    <h3 className="card-title">빠른 연결 안내</h3>
+                    <div className="condition-list quick-channel-list">
+                      <div className="condition-item">
+                        <div className="condition-left">
+                          <div className="condition-name">대표 번호</div>
+                          <div className="condition-desc">070-8018-7437</div>
                         </div>
-                        <div className="calc-mini">
-                          <div className="calc-mini-label">총 상환 예상액</div>
-                          <div className="calc-mini-value">{formatNumber(calcResult.totalPayment)}원</div>
-                        </div>
+                        <div className="condition-badge condition-blue">전화</div>
                       </div>
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="condition-item quick-channel-link">
+                        <div className="condition-left">
+                          <div className="condition-name">카카오톡 아이디</div>
+                          <div className="condition-desc">Ldk1009</div>
+                        </div>
+                        <div className="condition-badge condition-indigo">오픈채팅</div>
+                      </a>
                     </div>
-
-                    <a href="#contact" className="primary-link-btn">계산 후 상담 신청</a>
                   </div>
                 </div>
               </div>
