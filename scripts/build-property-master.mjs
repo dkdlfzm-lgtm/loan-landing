@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const DATA_GO_KR_KEY = process.env.DATA_GO_KR_KEY || "2f0549871b5f1c84af706fad667db3c3064a1c4a53202e183d4176765ab3b71f";
+const DATA_GO_KR_KEY = process.env.DATA_GO_KR_KEY || "";
 const APT_LIST_BASE =
   process.env.MOLIT_APT_TOTAL_BASE ||
   "https://apis.data.go.kr/1613000/AptListService3/getTotalAptList3";

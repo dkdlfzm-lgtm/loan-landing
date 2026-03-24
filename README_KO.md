@@ -1,72 +1,91 @@
-# 대출 랜딩 프로젝트 정리본
+# 대출 랜딩 프로젝트 (DB 게시판 + 관리자 포함)
 
-이 압축본은 깃허브에 바로 올리기 쉽게 정리한 버전입니다.
+이 버전은 이용후기와 상담접수를 **Supabase DB에 실제 저장**하고, 관리자 페이지에서 함께 확인할 수 있게 정리한 패키지입니다.
 
-## 포함된 것
-- 배포 가능한 Next.js 프로젝트 파일
-- 첫 화면 UI 수정본
-- `/api/reb-market` 시세조회 API 라우트
-- `/api/property-catalog` 목록 API 라우트
-- 외부 전국 단지 마스터를 붙일 수 있는 구조
-- 전국 단지 마스터 생성용 스크립트 예시: `scripts/build-property-master.mjs`
-- 샘플 마스터 JSON: `public/property-master.sample.json`
+## 이번 버전에 포함된 것
+- 홈 화면 이용후기 영역 → DB에서 최신 3건 불러오기
+- `/reviews` 이용후기 목록
+- `/reviews/write` 이용후기 작성
+- `/reviews/[id]` 상세 + 댓글 작성
+- 홈/결과 화면 상담접수 → DB 저장
+- `/admin` 관리자 로그인 + 상담접수/이용후기 상태 관리
+- Supabase SQL 스키마: `supabase/schema.sql`
 
-## 포함하지 않은 것
-- `node_modules`
-- `.next`
-- 실제 비밀키가 들어간 `.env.local`
+## 먼저 해야 할 것
+1. Supabase 프로젝트 생성
+2. Supabase SQL Editor에서 `supabase/schema.sql` 실행
+3. 프로젝트 루트에 `.env.local` 생성 후 `.env.example` 값을 참고해서 입력
+4. `npm install`
+5. `npm run dev`
 
-## 1. 깃허브에 올릴 때
-이 압축을 풀고, 안의 파일들만 프로젝트 루트에 덮어쓰면 됩니다.
-
-올려야 하는 대표 파일:
-- `app/`
-- `public/`
-- `scripts/`
-- `package.json`
-- `package-lock.json`
-- `.env.example`
-- `API_SETUP.md`
-- `README_KO.md`
-
-## 2. 로컬 실행
-```bash
-npm install
-npm run dev
-```
-
-## 3. 배포 전 필수
-프로젝트 루트에 `.env.local` 파일을 만들고 필요한 값을 넣어야 합니다.
-기본 양식은 `.env.example` 참고.
-
-## 4. 전국 단지 마스터를 붙이는 방법
-### 방법 A: 외부 JSON 사용
-외부에 `property-master.json`을 올리고 Vercel 환경변수에 아래를 추가:
+## 꼭 넣어야 하는 환경변수
 ```env
-PROPERTY_MASTER_URL=https://.../property-master.json
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+ADMIN_PASSWORD=원하는관리자비밀번호
+ADMIN_SESSION_SECRET=임의의긴문자열
 ```
 
-### 방법 B: 직접 생성
-공공데이터 키를 준비한 뒤:
+기존 시세조회용 키도 그대로 함께 사용합니다.
+```env
+REB_OPENAPI_KEY=...
+DATA_GO_KR_KEY=...
+REB_APT_STATBL_ID=A_2024_00045
+REB_OFFICETEL_STATBL_ID=A_2024_00615
+REB_VILLA_STATBL_ID=A_2024_00189
+```
+
+## Supabase에서 어디서 값을 찾는지
+- `SUPABASE_URL`: Project Settings → Data API → Project URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Project Settings → Data API → service_role key
+
+`service_role` 키는 서버 전용이며 브라우저에 노출하면 안 됩니다. Supabase 공식 문서도 service_role 키는 서버에서만 사용하라고 안내합니다.
+
+## 관리자 페이지
+- 주소: `/admin`
+- 비밀번호: `.env.local`의 `ADMIN_PASSWORD`
+- 기능:
+  - 상담접수 목록 확인
+  - 상담접수 상태 변경 (신규 / 연락완료 / 처리완료)
+  - 이용후기 상태 변경 (게시중 / 숨김)
+
+## 전국 단지 마스터 생성
+기존처럼 아래 명령으로 생성할 수 있습니다.
 ```bash
 npm run build:property-master
 ```
-실행 후 `public/property-master.json` 생성.
 
-## 5. 꼭 알아둘 점
-- 현재 `scripts/build-property-master.mjs`는 **실행용 뼈대**입니다.
-- 실제 공공데이터 서비스별 응답 필드명이 다를 수 있어서, 1회 필드명 점검이 필요합니다.
-- 즉, 구조는 잡아뒀지만 공공데이터 응답에 맞는 최종 미세조정은 필요합니다.
-
-## 6. 깃허브 반영
-```bash
-git add .
-git commit -m "Apply organized project files"
-git push
+생성 후 아래 주소에서 `source: "property-master.json"` 이 보이면 정상입니다.
+```text
+http://localhost:3000/api/property-catalog
 ```
 
-## 7. Vercel
-- Root Directory: 비우기
-- Framework Preset: Next.js
-- Install Command: `npm install`
-- Build Command: `npm run build`
+## 배포 전 필수
+Vercel 환경변수에도 아래를 모두 추가해야 합니다.
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
+- `REB_OPENAPI_KEY`
+- `DATA_GO_KR_KEY`
+- `REB_APT_STATBL_ID`
+- `REB_OFFICETEL_STATBL_ID`
+- `REB_VILLA_STATBL_ID`
+
+## 참고
+- Supabase는 Next.js용 빠른 시작 가이드와 서버 전용 키 사용 방식을 공식 문서로 제공하고 있습니다.
+
+
+## Supabase 환경변수
+
+Vercel과 로컬 둘 다 아래 값을 넣어야 상담 신청과 관리자 목록이 정상 동작합니다.
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+SUPABASE_SECRET_KEY=your_secret_key
+ADMIN_PASSWORD=change_this_admin_password
+ADMIN_SESSION_SECRET=change_this_random_secret
+```
+
+호환용으로 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`를 함께 넣어도 됩니다.

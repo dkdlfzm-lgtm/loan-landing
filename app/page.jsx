@@ -293,7 +293,9 @@ export default function LoanLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "상담접수를 저장하지 못했습니다.");
-      setHomeInquiryStatus("상담접수가 완료되었습니다. 확인 후 빠르게 연락드리겠습니다.");
+      const successMessage = "상담접수가 완료되었습니다. 확인 후 빠르게 연락드리겠습니다.";
+      setHomeInquiryStatus(successMessage);
+      alert(successMessage);
       setHomeInquiry({ name: "", phone: "", address: "", loanType: "아파트 담보대출" });
     } catch (error) {
       setHomeInquiryStatus(error?.message || "상담접수를 저장하지 못했습니다.");
@@ -328,7 +330,9 @@ export default function LoanLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "대출 신청을 저장하지 못했습니다.");
-      setResultInquiryStatus("대출 신청이 접수되었습니다. 확인 후 빠르게 연락드리겠습니다.");
+      const successMessage = "대출 신청이 접수되었습니다. 확인 후 빠르게 연락드리겠습니다.";
+      setResultInquiryStatus(successMessage);
+      alert(successMessage);
       setResultInquiry({ name: "", phone: "", loanType: "희망 상품 선택", memo: "" });
     } catch (error) {
       setResultInquiryStatus(error?.message || "대출 신청을 저장하지 못했습니다.");

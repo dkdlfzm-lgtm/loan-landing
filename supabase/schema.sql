@@ -38,6 +38,13 @@ create table if not exists public.review_comments (
   created_at timestamptz not null default now()
 );
 
+
+alter table public.inquiries add column if not exists email text;
+alter table public.inquiries add column if not exists job_type text;
+alter table public.inquiries add column if not exists assignee text default '미배정';
+alter table public.inquiries add column if not exists call_summary text default '';
+alter table public.inquiries add column if not exists internal_memo text default '';
+
 create index if not exists inquiries_created_at_idx on public.inquiries(created_at desc);
 create index if not exists inquiries_status_idx on public.inquiries(status);
 create index if not exists reviews_created_at_idx on public.reviews(created_at desc);
