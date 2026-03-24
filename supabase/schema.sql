@@ -73,3 +73,26 @@ values
   ('이서연', 'review2@example.com', encode(digest('1234', 'sha256'), 'hex'), '시세조회 후 상담 연결이 편했습니다', '원하는 단지를 먼저 조회해 보고 바로 상담을 신청할 수 있어서 좋았습니다. 진행 과정도 친절하게 설명해 주셔서 안심하고 문의할 수 있었어요.', 'published', 12),
   ('박지훈', 'review3@example.com', encode(digest('1234', 'sha256'), 'hex'), '복잡할 줄 알았는데 생각보다 쉬웠어요', '처음에는 어렵게 느껴졌는데 상담 과정이 체계적이라 빠르게 이해할 수 있었습니다. 필요한 조건도 비교해서 알려주셔서 도움이 많이 됐습니다.', 'published', 9)
 on conflict do nothing;
+
+
+create table if not exists public.property_master (
+  id uuid primary key default gen_random_uuid(),
+  property_type text not null,
+  city text not null,
+  district text not null,
+  town text not null,
+  apartment text not null,
+  apartment_search text not null,
+  area text,
+  kapt_code text,
+  bjd_code text,
+  sort_order bigint not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists property_master_type_city_idx on public.property_master(property_type, city);
+create index if not exists property_master_type_city_district_idx on public.property_master(property_type, city, district);
+create index if not exists property_master_type_city_district_town_idx on public.property_master(property_type, city, district, town);
+create index if not exists property_master_search_idx on public.property_master(property_type, city, district, town, apartment_search);
+
+alter table public.property_master disable row level security;

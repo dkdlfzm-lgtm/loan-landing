@@ -308,6 +308,36 @@ textarea {
   color: white;
 }
 
+.catalog-count-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+
+.catalog-count-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #dbeafe;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.catalog-count-chip strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.catalog-count-chip.highlight {
+  background: rgba(255,255,255,0.2);
+}
+
 .select-grid {
   display: grid;
   gap: 12px;
@@ -324,13 +354,26 @@ textarea {
 
 .quick-search-box select,
 .quick-search-box input {
-  border: 1px solid rgba(255,255,255,0.26);
-  background: rgba(255,255,255,0.12);
+  min-height: 60px;
+  border: 1px solid rgba(255,255,255,0.34);
+  background: rgba(255,255,255,0.14);
   color: white;
+  font-size: 18px;
+  font-weight: 800;
+  border-radius: 0;
 }
 
 .quick-search-box option {
   color: #142033;
+}
+
+.quick-search-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 18px;
+  font-size: 14px;
+  color: #dbeafe;
 }
 
 .search-btn {
@@ -706,6 +749,20 @@ textarea {
   margin-top: 20px;
 }
 
+.result-count-strip {
+  margin: 0 0 14px;
+}
+
+.result-count-strip .catalog-count-chip {
+  background: #eff6ff;
+  border-color: #d7e5ff;
+  color: #31527d;
+}
+
+.result-count-strip .catalog-count-chip strong {
+  color: #1d4ed8;
+}
+
 .result-search-row {
   display: grid;
   grid-template-columns: 110px 1fr;
@@ -767,12 +824,20 @@ textarea {
   gap: 12px;
 }
 
+.result-form-grid select,
+.result-form-grid input {
+  min-height: 56px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 0;
+}
+
 .result-form-grid-3 {
   grid-template-columns: repeat(3, 1fr);
 }
 
 .result-form-grid-complex {
-  grid-template-columns: 1.2fr 0.7fr 160px;
+  grid-template-columns: 1.2fr 0.7fr 140px 160px;
 }
 
 .result-query-btn {
@@ -788,14 +853,21 @@ textarea {
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  max-height: 220px;
+  max-height: 460px;
   overflow: auto;
   border: 1px solid #d6dfeb;
-  border-radius: 16px;
+  border-radius: 0;
   background: white;
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
   z-index: 20;
   padding: 8px;
+}
+
+.apartment-dropdown-head {
+  padding: 8px 10px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
 }
 
 .apartment-option {
@@ -803,10 +875,17 @@ textarea {
   text-align: left;
   border: 0;
   background: transparent;
-  border-radius: 12px;
-  padding: 12px 14px;
+  border-radius: 8px;
+  padding: 11px 12px;
   cursor: pointer;
   color: #334155;
+  font-weight: 700;
+}
+
+.apartment-empty {
+  padding: 16px 14px;
+  color: #64748b;
+  font-size: 14px;
   font-weight: 700;
 }
 
