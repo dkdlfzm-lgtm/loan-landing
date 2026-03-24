@@ -3,7 +3,7 @@ import { isSupabaseConfigured, supabaseRest } from "../../../lib/supabase-rest";
 import { loadPropertyMaster, resolvePropertyOptions } from "../../lib-property-master";
 
 function unique(values = []) {
-  return [...new Set(values.filter(Boolean))];
+  return [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "ko"));
 }
 
 function applyQuery(rows, queryText) {
@@ -59,6 +59,16 @@ async function getDbRows(query) {
   return { city, district, town, apartment, area, cities, districts, towns, apartments, areas, counts: { cityCount: cities.length, districtCount: districts.length, townCount: towns.length, apartmentCount: apartments.length, areaCount: areas.length } };
 }
 
+function mergeCounts(primary, secondary) {
+  return {
+    cityCount: Math.max(primary?.cityCount || 0, secondary?.cityCount || 0),
+    districtCount: Math.max(primary?.districtCount || 0, secondary?.districtCount || 0),
+    townCount: Math.max(primary?.townCount || 0, secondary?.townCount || 0),
+    apartmentCount: Math.max(primary?.apartmentCount || 0, secondary?.apartmentCount || 0),
+    areaCount: Math.max(primary?.areaCount || 0, secondary?.areaCount || 0),
+  };
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = {
@@ -72,27 +82,47 @@ export async function GET(request) {
   };
 
   try {
+    const { master, source: fallbackSource } = await loadPropertyMaster();
+    const fallbackResult = resolvePropertyOptions(master, query);
+
     if (isSupabaseConfigured()) {
-      const result = await getDbRows(query);
+      const dbResult = await getDbRows(query);
+      const requestedCity = query.city || "";
+      const dbHasRequestedCity = requestedCity ? dbResult.cities.includes(requestedCity) : false;
+      const shouldUseDb = requestedCity ? dbHasRequestedCity : dbResult.cities.length > 0;
+      const base = shouldUseDb ? dbResult : fallbackResult;
+
       return NextResponse.json({
         ok: true,
-        source: "supabase-db",
-        query: { city: result.city, district: result.district, town: result.town, apartment: result.apartment, area: result.area },
-        options: { cities: result.cities, districts: result.districts, towns: result.towns, apartments: result.apartments, areas: result.areas },
-        counts: result.counts,
-        note: "DB 기반 전국 단지 마스터로 검색 중입니다.",
+        source: shouldUseDb ? "supabase-db" : `${fallbackSource}-with-db-cities`,
+        query: {
+          city: base.city,
+          district: base.district,
+          town: base.town,
+          apartment: base.apartment,
+          area: base.area,
+        },
+        options: {
+          cities: unique([...(fallbackResult.cities || []), ...(dbResult.cities || [])]),
+          districts: base.districts || [],
+          towns: base.towns || [],
+          apartments: base.apartments || [],
+          areas: base.areas || [],
+        },
+        counts: mergeCounts(base.counts, fallbackResult.counts),
+        note: shouldUseDb
+          ? "전국 기본 지역 목록과 DB 단지 데이터를 함께 사용하고 있습니다."
+          : "기본 전국 지역 목록을 우선 표시하고 있습니다. 선택한 지역에 DB 단지가 있으면 자동으로 이어집니다.",
       });
     }
 
-    const { master, source } = await loadPropertyMaster();
-    const result = resolvePropertyOptions(master, query);
     return NextResponse.json({
       ok: true,
-      source,
-      query: { city: result.city, district: result.district, town: result.town, apartment: result.apartment, area: result.area },
-      options: { cities: result.cities, districts: result.districts, towns: result.towns, apartments: result.apartments, areas: result.areas },
-      counts: result.counts,
-      note: "내장 단지 마스터로 검색 중입니다. DB 연동 시 더 많은 단지명이 노출됩니다.",
+      source: fallbackSource,
+      query: { city: fallbackResult.city, district: fallbackResult.district, town: fallbackResult.town, apartment: fallbackResult.apartment, area: fallbackResult.area },
+      options: { cities: fallbackResult.cities, districts: fallbackResult.districts, towns: fallbackResult.towns, apartments: fallbackResult.apartments, areas: fallbackResult.areas },
+      counts: fallbackResult.counts,
+      note: "기본 전국 지역 목록으로 검색 중입니다.",
     });
   } catch (error) {
     return NextResponse.json({ ok: false, message: error?.message || "단지 목록을 불러오지 못했습니다." }, { status: 500 });
