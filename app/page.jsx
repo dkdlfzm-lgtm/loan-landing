@@ -33,16 +33,6 @@ const statSlides = [
   },
 ];
 
-const LOAN_TYPE_OPTIONS = [
-  "주택담보대출",
-  "전세퇴거자금",
-  "경매취하자금",
-  "사업자대출",
-  "대환대출",
-  "매매자금대출",
-  "기타",
-];
-
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
   return Math.round(value).toLocaleString("ko-KR");
@@ -66,21 +56,19 @@ export default function LoanLandingPage() {
   const [apartmentQuery, setApartmentQuery] = useState("");
   const [showApartmentList, setShowApartmentList] = useState(false);
   const [selectedArea, setSelectedArea] = useState("");
-  const [selectedUnit, setSelectedUnit] = useState("");
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [catalogSource, setCatalogSource] = useState("");
   const [catalogNote, setCatalogNote] = useState("");
-  const [catalogCounts, setCatalogCounts] = useState({ cityCount: 0, districtCount: 0, townCount: 0, apartmentCount: 0, areaCount: 0 });
   const [catalogLoading, setCatalogLoading] = useState(false);
 
   const [marketResult, setMarketResult] = useState(null);
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState("");
   const [latestReviews, setLatestReviews] = useState([]);
-  const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
+  const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: "아파트 담보대출" });
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
-  const [resultInquiry, setResultInquiry] = useState({ name: "", phone: "", loanType: LOAN_TYPE_OPTIONS[0], memo: "" });
+  const [resultInquiry, setResultInquiry] = useState({ name: "", phone: "", loanType: "희망 상품 선택", memo: "" });
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
 
@@ -118,7 +106,6 @@ export default function LoanLandingPage() {
         setCatalogOptions(data.options);
         setCatalogSource(data.source || "");
         setCatalogNote(data.note || "");
-        setCatalogCounts(data.counts || { cityCount: 0, districtCount: 0, townCount: 0, apartmentCount: 0, areaCount: 0 });
         setSelectedCity(data.query.city || "");
         setSelectedDistrict(data.query.district || "");
         setSelectedTown(data.query.town || "");
@@ -169,7 +156,7 @@ export default function LoanLandingPage() {
 
   const filteredApartments = apartments;
 
-  const selectedSummary = `${selectedCity} ${selectedDistrict} ${selectedTown} ${selectedApartment}`.trim();
+  const selectedSummary = `${selectedCity} ${selectedDistrict} ${selectedTown} ${selectedApartment}`;
   const marketSummary = marketResult?.summary;
 
   const priceResult = useMemo(() => {
@@ -185,7 +172,7 @@ export default function LoanLandingPage() {
         estimateLimit: marketSummary.estimateLimit || "상담 후 산정",
         description:
           marketSummary.description ||
-          "선택하신 단지와 면적을 기준으로 상담에 필요한 기본 정보를 정리해 안내드리는 화면입니다.",
+          "한국부동산원 API 기준으로 조회한 값을 기반으로 예상 조건과 상담 연결 흐름을 보여주는 화면입니다.",
       };
     }
 
@@ -199,7 +186,7 @@ export default function LoanLandingPage() {
       range: "8억 3,000만원 ~ 8억 9,000만원",
       estimateLimit: "최대 6억 1,000만원 가능",
       description:
-        "선택하신 단지와 면적을 기준으로 최근 시세 흐름을 확인하고 상담 가능한 방향을 안내해드립니다.",
+        "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다.",
     };
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
@@ -306,10 +293,8 @@ export default function LoanLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "상담접수를 저장하지 못했습니다.");
-      const successMessage = "상담접수가 완료되었습니다. 확인 후 빠르게 연락드리겠습니다.";
-      setHomeInquiryStatus(successMessage);
-      alert(successMessage);
-      setHomeInquiry({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
+      setHomeInquiryStatus("상담접수가 완료되었습니다. 확인 후 빠르게 연락드리겠습니다.");
+      setHomeInquiry({ name: "", phone: "", address: "", loanType: "아파트 담보대출" });
     } catch (error) {
       setHomeInquiryStatus(error?.message || "상담접수를 저장하지 못했습니다.");
     } finally {
@@ -343,10 +328,8 @@ export default function LoanLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "대출 신청을 저장하지 못했습니다.");
-      const successMessage = "대출 신청이 접수되었습니다. 확인 후 빠르게 연락드리겠습니다.";
-      setResultInquiryStatus(successMessage);
-      alert(successMessage);
-      setResultInquiry({ name: "", phone: "", loanType: LOAN_TYPE_OPTIONS[0], memo: "" });
+      setResultInquiryStatus("대출 신청이 접수되었습니다. 확인 후 빠르게 연락드리겠습니다.");
+      setResultInquiry({ name: "", phone: "", loanType: "희망 상품 선택", memo: "" });
     } catch (error) {
       setResultInquiryStatus(error?.message || "대출 신청을 저장하지 못했습니다.");
     } finally {
@@ -361,8 +344,8 @@ export default function LoanLandingPage() {
           <div className="brand">
             <div className="brand-icon">대</div>
             <div>
-              <div className="brand-title">ANDI 대출상담센터</div>
-              <div className="brand-sub">주택담보 · 사업자 · 대환 상담 전문</div>
+              <div className="brand-title">대출상담 브랜드명</div>
+              <div className="brand-sub">빠른 상담 접수 랜딩페이지</div>
             </div>
           </div>
 
@@ -371,7 +354,7 @@ export default function LoanLandingPage() {
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
             <a href="/reviews">이용후기</a>
-            
+            <a href="/admin">관리자</a>
             <a href="#contact" className="nav-btn">상담 신청</a>
           </nav>
         </div>
@@ -386,24 +369,24 @@ export default function LoanLandingPage() {
 
               <div className="container hero-grid">
                 <div className="hero-left">
-                  <div className="hero-pill">주택담보대출 · 대환대출 · 사업자대출 맞춤 상담</div>
+                  <div className="hero-pill">선택형 시세조회 · 빠른 상담 연결</div>
 
                   <h1 className="hero-title">
-                    내 조건에 맞는
+                    아파트 시세조회부터
                     <br />
-                    대출 가능 여부와
+                    대출 상담 신청까지
                     <br />
-                    상담 진행을 한 번에
+                    한 번에 연결되는 구조
                   </h1>
 
                   <p className="hero-text">
-                    부동산 시세 확인부터 한도 상담, 대환 가능 여부까지 빠르게 안내해드립니다.
-                    접수 내용을 남겨주시면 담당자가 조건을 확인한 뒤 순차적으로 상담 도와드립니다.
+                    지역, 단지명, 면적을 차례대로 선택하고 조회를 누르면 결과형 페이지처럼
+                    설명 영역과 상담 신청란이 이어지는 구조로 만든 시안입니다.
                   </p>
 
                   <div className="hero-actions">
-                    <a href="#quick-search" className="btn btn-white">시세 조회하기</a>
-                    <a href="#contact" className="btn btn-outline">무료 상담 접수</a>
+                    <a href="#quick-search" className="btn btn-white">빠른 시세조회</a>
+                    <a href="#contact" className="btn btn-outline">무료 상담 신청</a>
                   </div>
                 </div>
 
@@ -411,7 +394,7 @@ export default function LoanLandingPage() {
                   <div className="section-mini">빠른 상담 신청</div>
                   <h2 className="card-title">간편 접수</h2>
                   <p className="card-desc">
-                    간단한 정보만 남겨주시면 담당자가 확인 후 빠르게 연락드려 맞춤 상담을 진행해드립니다.
+                    성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
                   </p>
 
                   <form className="form-stack" onSubmit={submitHomeInquiry}>
@@ -430,7 +413,10 @@ export default function LoanLandingPage() {
                     <div className="field">
                       <label>대출유형</label>
                       <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                        {LOAN_TYPE_OPTIONS.map((option) => (<option key={option}>{option}</option>))}
+                        <option>아파트 담보대출</option>
+                        <option>생활안정자금</option>
+                        <option>대환대출</option>
+                        <option>사업자대출</option>
                       </select>
                     </div>
                     {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
@@ -444,21 +430,14 @@ export default function LoanLandingPage() {
               <div className="container">
                 <div className="white-panel">
                   <div className="section-center">
-                    <div className="section-mini">아파트 시세 조회</div>
-                    <h2 className="section-title">지역·단지·면적까지 선택해 상세 시세를 확인해보세요</h2>
+                    <div className="section-mini">빠른 시세조회</div>
+                    <h2 className="section-title">오늘의 부동산 시세와 예상 한도가 궁금하세요?</h2>
                   </div>
 
                   <div className="quick-search-box">
                     <div className="quick-search-meta">
-                      <span>{catalogLoading ? "선택 지역의 단지 정보를 불러오는 중입니다." : "광역시/도부터 단지명까지 순서대로 선택하면 보다 정확한 시세 조회가 가능합니다."}</span>
-                      <span>{catalogNote || "단지명이 많을 경우 아파트명 일부만 입력해도 자동으로 검색됩니다."}</span>
-                    </div>
-
-                    <div className="catalog-count-strip">
-                      <div className="catalog-count-chip">광역시/도 <strong>{(catalogCounts.cityCount || 0).toLocaleString("ko-KR")}</strong></div>
-                      <div className="catalog-count-chip">시/군/구 <strong>{(catalogCounts.districtCount || 0).toLocaleString("ko-KR")}</strong></div>
-                      <div className="catalog-count-chip">읍/면/동 <strong>{(catalogCounts.townCount || 0).toLocaleString("ko-KR")}</strong></div>
-                      <div className="catalog-count-chip highlight">단지명 <strong>{(catalogCounts.apartmentCount || 0).toLocaleString("ko-KR")}</strong></div>
+                      <span>{catalogLoading ? "전국 단지 마스터 불러오는 중..." : `목록 소스: ${catalogSource || "미확인"}`}</span>
+                      <span>{catalogNote}</span>
                     </div>
                     <div className="select-grid select-grid-3">
                       <select value={propertyType} onChange={(e) => { setPropertyType(e.target.value); setSelectedCity(""); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); }}>
@@ -467,22 +446,22 @@ export default function LoanLandingPage() {
                         <option>빌라(연립/다세대)</option>
                       </select>
 
-                      <select aria-label="광역시/도" value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
-                        <option value="">광역시/도</option>{cities.map((city) => (
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                        {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
 
-                      <select aria-label="시/군/구" value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
-                        <option value="">시/군/구</option>{districts.map((district) => (
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                        {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
                     </div>
 
                     <div className="select-grid select-grid-main">
-                      <select aria-label="읍/면/동" value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
-                        <option value="">읍/면/동</option>{towns.map((town) => (
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
+                        {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
                         ))}
                       </select>
@@ -490,7 +469,7 @@ export default function LoanLandingPage() {
                       <input
                         type="text"
                         value={apartmentQuery}
-                        placeholder="아파트명 일부를 입력하면 자동으로 검색됩니다"
+                        placeholder="단지 선택"
                         onChange={(e) => {
                           setApartmentQuery(e.target.value);
                           setSelectedApartment("");
@@ -510,11 +489,9 @@ export default function LoanLandingPage() {
                       </button>
                     </div>
 
-                    {showApartmentList && (
+                    {showApartmentList && filteredApartments.length > 0 && (
                       <div className="apartment-dropdown apartment-dropdown-home">
-                        <div className="apartment-dropdown-head">단지 검색 결과 {filteredApartments.length.toLocaleString("ko-KR")}건</div>
-                        {filteredApartments.length === 0 && <div className="apartment-empty">선택하신 읍/면/동 안에서 조건에 맞는 단지를 찾지 못했습니다.</div>}
-                        {filteredApartments.slice(0, 200).map((name) => (
+                        {filteredApartments.slice(0, 8).map((name) => (
                           <button
                             key={name}
                             type="button"
@@ -533,7 +510,7 @@ export default function LoanLandingPage() {
                     )}
 
                     <div className="select-grid select-grid-main select-grid-bottom">
-                      <select aria-label="면적" value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}><option value="">면적</option>
+                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
                         {areas.map((area) => (
                           <option key={area} value={area}>{area}</option>
                         ))}
@@ -541,19 +518,22 @@ export default function LoanLandingPage() {
 
                       <input
                         type="text"
-                        value={selectedUnit}
-                        onChange={(e) => setSelectedUnit(e.target.value)}
-                        placeholder="동 · 호수"
+                        value={selectedSummary}
+                        readOnly
                         className="selected-summary-input"
                       />
 
+                      <div className="api-status-pill">
+                        {marketResult?.source === "reb-openapi" ? "실API 연결" : "API + 예시 fallback"}
+                      </div>
                     </div>
 
                     <div className="selected-text">
-                      선택 주소: <strong>{selectedSummary}</strong> / <strong>{selectedArea || "면적 선택"}</strong>{selectedUnit ? <> / <strong>{selectedUnit}</strong></> : null}
+                      선택 중: <strong>{selectedSummary}</strong> / <strong>{selectedArea}</strong>
                     </div>
 
                     {marketError && <div className="api-status error">{marketError}</div>}
+                    <div className="api-status">한국부동산원 API 연동 구조이며, 키가 없으면 예시 데이터가 함께 표시됩니다.</div>
                   </div>
                 </div>
               </div>
@@ -565,8 +545,8 @@ export default function LoanLandingPage() {
                   <div className="home-info-box center-box">
                     <h3>대표 번호</h3>
                     <div className="phone-main">070-8018-7437</div>
-                    <div className="phone-sub">대표 상담센터</div>
-                    <div className="phone-desc">평일 09:00 ~ 18:00 상담 가능</div>
+                    <div className="phone-sub">빠른 상담 연결</div>
+                    <div className="phone-desc">평일 상담 문의 가능</div>
                   </div>
 
                   <a
@@ -577,8 +557,7 @@ export default function LoanLandingPage() {
                   >
                     <div className="talk-circle">TALK</div>
                     <div className="kakao-title">카카오톡 상담</div>
-                    <div className="kakao-id">ANDi7437</div>
-                    <div className="kakao-help">클릭 시 자동으로 연결됩니다.</div>
+                    <div className="kakao-id">Ldk1009</div>
                   </a>
 
                   <div id="calculator" className="home-info-box calculator-home-box">
@@ -717,31 +696,23 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="result-search-row">
-                    <div className="result-search-label">광역시/도 · 시/군/구 · 읍/면/동</div>
-                    <div>
-                      <div className="catalog-count-strip result-count-strip">
-                        <div className="catalog-count-chip">광역시/도 <strong>{(catalogCounts.cityCount || 0).toLocaleString("ko-KR")}</strong></div>
-                        <div className="catalog-count-chip">시/군/구 <strong>{(catalogCounts.districtCount || 0).toLocaleString("ko-KR")}</strong></div>
-                        <div className="catalog-count-chip">읍/면/동 <strong>{(catalogCounts.townCount || 0).toLocaleString("ko-KR")}</strong></div>
-                        <div className="catalog-count-chip highlight">단지명 <strong>{(catalogCounts.apartmentCount || 0).toLocaleString("ko-KR")}</strong></div>
-                      </div>
-                      <div className="result-form-grid result-form-grid-3">
-                      <select aria-label="광역시/도" value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
-                        <option value="">광역시/도</option>{cities.map((city) => (
+                    <div className="result-search-label">지역 선택</div>
+                    <div className="result-form-grid result-form-grid-3">
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                        {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
-                      <select aria-label="시/군/구" value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
-                        <option value="">시/군/구</option>{districts.map((district) => (
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                        {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
-                      <select aria-label="읍/면/동" value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
-                        <option value="">읍/면/동</option>{towns.map((town) => (
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
+                        {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
                         ))}
                       </select>
-                    </div>
                     </div>
                   </div>
 
@@ -752,18 +723,16 @@ export default function LoanLandingPage() {
                         <input
                           type="text"
                           value={apartmentQuery}
-                          placeholder="아파트명 일부를 입력하면 자동으로 검색됩니다"
+                          placeholder="단지명을 입력하거나 선택하세요"
                           onChange={(e) => {
                             setApartmentQuery(e.target.value);
                             setShowApartmentList(true);
                           }}
                           onFocus={() => setShowApartmentList(true)}
                         />
-                        {showApartmentList && (
+                        {showApartmentList && filteredApartments.length > 0 && (
                           <div className="apartment-dropdown">
-                            <div className="apartment-dropdown-head">단지 검색 결과 {filteredApartments.length.toLocaleString("ko-KR")}건</div>
-                            {filteredApartments.length === 0 && <div className="apartment-empty">선택하신 읍/면/동 안에서 조건에 맞는 단지를 찾지 못했습니다.</div>}
-                            {filteredApartments.slice(0, 250).map((name) => (
+                            {filteredApartments.map((name) => (
                               <button
                                 key={name}
                                 type="button"
@@ -781,13 +750,11 @@ export default function LoanLandingPage() {
                         )}
                       </div>
 
-                      <select aria-label="면적" value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}><option value="">면적</option>
+                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
                         {areas.map((area) => (
                           <option key={area} value={area}>{area}</option>
                         ))}
                       </select>
-
-                      <input type="text" value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)} placeholder="동 · 호수" />
 
                       <button
                         type="button"
@@ -821,7 +788,7 @@ export default function LoanLandingPage() {
 
               <div className="result-page-hero">
                 <div>
-                  <div className="section-mini light-mini">시세 조회 결과</div>
+                  <div className="section-mini light-mini">시세조회 결과 · {marketResult?.source === "reb-openapi" ? "한국부동산원 API" : "예시 데이터 fallback"}</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
                   <p className="result-page-sub">
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
@@ -857,7 +824,7 @@ export default function LoanLandingPage() {
 
                   <div className="condition-card">
                     <div className="section-mini">조건 안내</div>
-                    <h3 className="desc-title">현재 조건에 맞춘 상담 방향 안내</h3>
+                    <h3 className="desc-title">시세 정보 기준 추천 조건</h3>
 
                     <div className="condition-list">
                       <div className="condition-item">
@@ -887,8 +854,8 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="desc-card">
-                    <div className="section-mini">상담 안내</div>
-                    <h3 className="desc-title">선택하신 단지와 조건을 바탕으로 상담을 도와드립니다.</h3>
+                    <div className="section-mini">설명 영역</div>
+                    <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
                     <p className="desc-text">{priceResult.description}</p>
 
                     <div className="tag-wrap">
@@ -903,19 +870,22 @@ export default function LoanLandingPage() {
 
                 <div className="result-side-col">
                   <div id="contact" className="side-card">
-                    <div className="section-mini">맞춤 상담 접수</div>
+                    <div className="section-mini">대출 신청 작성란</div>
                     <h3 className="card-title">지금 바로 상담 신청</h3>
                     <p className="card-desc">
-                      조회하신 단지 정보가 함께 전달되어 보다 빠르게 상담을 진행하실 수 있습니다.
+                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
                     </p>
 
                     <form className="form-stack" onSubmit={submitResultInquiry}>
                       <input type="text" placeholder="성함" value={resultInquiry.name} onChange={(e) => setResultInquiry((prev) => ({ ...prev, name: e.target.value }))} />
                       <input type="text" placeholder="연락처" value={resultInquiry.phone} onChange={(e) => setResultInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
-                      <input type="text" value={marketResult?.source === "reb-openapi" ? "조회 조건이 자동으로 반영됩니다" : "조회 조건이 자동으로 반영됩니다"} readOnly />
+                      <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
                       <select value={resultInquiry.loanType} onChange={(e) => setResultInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                        {LOAN_TYPE_OPTIONS.map((option) => (<option key={option}>{option}</option>))}
+                        <option>희망 상품 선택</option>
+                        <option>아파트 담보대출</option>
+                        <option>생활안정자금</option>
+                        <option>대환대출</option>
                       </select>
                       <textarea rows={4} placeholder="상담 내용을 입력하세요" value={resultInquiry.memo} onChange={(e) => setResultInquiry((prev) => ({ ...prev, memo: e.target.value }))} />
                       {resultInquiryStatus && <div className={`api-status ${resultInquiryStatus.includes("완료") ? "success" : "error"}`}>{resultInquiryStatus}</div>}
@@ -937,8 +907,7 @@ export default function LoanLandingPage() {
                       <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="condition-item quick-channel-link">
                         <div className="condition-left">
                           <div className="condition-name">카카오톡 아이디</div>
-                          <div className="condition-desc">ANDi7437</div>
-                          <div className="condition-desc quick-channel-sub">클릭 시 자동으로 연결됩니다.</div>
+                          <div className="condition-desc">Ldk1009</div>
                         </div>
                         <div className="condition-badge condition-indigo">오픈채팅</div>
                       </a>
@@ -959,16 +928,16 @@ export default function LoanLandingPage() {
 
             <div className="faq-list">
               <details className="faq-item">
-                <summary>시세 확인 후 바로 상담 접수가 가능한가요?</summary>
-                <p>네. 상담 접수란에 정보를 남겨주시면 담당자가 확인 후 순차적으로 연락드립니다.</p>
+                <summary>시세조회 후 바로 대출 상담도 가능한가요?</summary>
+                <p>네. 결과 페이지 오른쪽에 상담 신청란을 함께 배치해 바로 접수할 수 있습니다.</p>
               </details>
               <details className="faq-item">
-                <summary>안내되는 한도와 금리는 확정 조건인가요?</summary>
-                <p>최종 한도와 금리는 고객님의 소득, 부채, 담보 조건을 확인한 뒤 개별 안내드립니다.</p>
+                <summary>조건 안내는 확정 조건인가요?</summary>
+                <p>아니요. 현재는 예시 조건이며 실제 가능 여부와 금리는 상담 후 달라질 수 있습니다.</p>
               </details>
               <details className="faq-item">
-                <summary>이율 계산기는 참고용으로 활용하면 되나요?</summary>
-                <p>네. 입력하신 금액과 기간에 따라 예상 상환액이 즉시 계산되어 상담 전 참고용으로 활용하실 수 있습니다.</p>
+                <summary>이율 계산기는 실시간으로 바뀌나요?</summary>
+                <p>네. 입력값을 바꾸면 예상 월 상환액과 총 상환 예상액이 즉시 변경됩니다.</p>
               </details>
             </div>
           </div>
@@ -985,35 +954,19 @@ export default function LoanLandingPage() {
             </div>
 
             <div className="legal-meta">
-              <span>상호명 : ANDI 대출상담센터</span>
-              <span>사업자등록번호 : 상담 시 별도 안내</span>
-              <span>사업장소재지 : 상담 시 별도 안내</span>
-              <span>대표자명 : 상담 시 별도 안내</span>
-              <span>광고등록번호 : 관련 법령에 따라 표기</span>
-              <span>대부업등록기관 : 관련 법령에 따라 표기</span>
-              <span>대부업번호 : 관련 법령에 따라 표기</span>
+              <span>상호명 : 시안용 입력칸</span>
+              <span>사업자등록번호 : 000-00-00000</span>
+              <span>사업장소재지 : 주소 입력칸</span>
+              <span>대표자명 : 대표자 입력칸</span>
+              <span>광고등록번호 : 0000-0000 / 000-0000-0000</span>
+              <span>대부업등록기관 : 등록기관 입력칸</span>
+              <span>대부업번호 : 등록번호 입력칸</span>
             </div>
 
-            <div className="legal-copy">© ANDI 대출상담센터. All Rights Reserved.</div>
+            <div className="legal-copy">© 시안용 업체명. All Rights Reserved.</div>
           </div>
         </section>
       </main>
-      <div className="floating-consult-widget" aria-label="빠른 상담 연결">
-        <a href="tel:070-8018-7437" className="floating-consult-btn phone">
-          <span className="floating-consult-icon">☎</span>
-          <span className="floating-consult-text">
-            <strong>대표번호</strong>
-            <small>070-8018-7437</small>
-          </span>
-        </a>
-        <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-consult-btn kakao">
-          <span className="floating-consult-icon kakao-badge">TALK</span>
-          <span className="floating-consult-text">
-            <strong>카카오상담</strong>
-            <small>클릭 시 자동으로 연결됩니다.</small>
-          </span>
-        </a>
-      </div>
     </div>
   );
 }

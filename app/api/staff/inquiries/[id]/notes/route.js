@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { isAdminAuthenticated } from "../../../../../../lib/admin-auth";
+import { isStaffAuthenticated } from "../../../../../../lib/staff-auth";
 import { isSupabaseConfigured, supabaseRest } from "../../../../../../lib/supabase-rest";
 
 export async function GET(_request, { params }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });
+  if (!(await isStaffAuthenticated())) return NextResponse.json({ ok: false, message: '직원 인증이 필요합니다.' }, { status: 401 });
+  if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: 'Supabase 환경변수가 설정되지 않았습니다.' }, { status: 500 });
   try {
-    const notes = await supabaseRest('/inquiry_notes', {
-      query: { select: 'id,inquiry_id,author,content,created_at', inquiry_id: `eq.${params.id}`, order: 'created_at.desc', limit: 200 },
-    });
+    const notes = await supabaseRest('/inquiry_notes', { query: { select: 'id,inquiry_id,author,content,created_at', inquiry_id: `eq.${params.id}`, order: 'created_at.desc', limit: 200 } });
     return NextResponse.json({ ok: true, notes: Array.isArray(notes) ? notes : [] });
   } catch (error) {
     return NextResponse.json({ ok: false, message: error.message || '상담 이력을 불러오지 못했습니다.' }, { status: 500 });
@@ -16,8 +14,8 @@ export async function GET(_request, { params }) {
 }
 
 export async function POST(request, { params }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });
+  if (!(await isStaffAuthenticated())) return NextResponse.json({ ok: false, message: '직원 인증이 필요합니다.' }, { status: 401 });
+  if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: 'Supabase 환경변수가 설정되지 않았습니다.' }, { status: 500 });
   try {
     const body = await request.json();
     const author = String(body.author || '').trim();

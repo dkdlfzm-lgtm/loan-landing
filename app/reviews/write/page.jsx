@@ -51,7 +51,7 @@ export default function ReviewWritePage() {
           <nav className="nav">
             <Link href="/">홈</Link>
             <Link href="/reviews">이용후기</Link>
-            
+            <Link href="/admin">관리자</Link>
           </nav>
         </div>
       </header>

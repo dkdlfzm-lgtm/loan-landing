@@ -83,7 +83,7 @@ export default function ReviewDetailPage({ params }) {
             <Link href="/">홈</Link>
             <Link href="/reviews">이용후기</Link>
             <Link href="/reviews/write" className="nav-btn">작성하기</Link>
-            
+            <Link href="/admin">관리자</Link>
           </nav>
         </div>
       </header>

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { isAdminAuthenticated } from "../../../../../lib/admin-auth";
+import { isStaffAuthenticated } from "../../../../../lib/staff-auth";
 import { isSupabaseConfigured, supabaseRest } from "../../../../../lib/supabase-rest";
 
 export async function PATCH(request, { params }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });
+  if (!(await isStaffAuthenticated())) return NextResponse.json({ ok: false, message: '직원 인증이 필요합니다.' }, { status: 401 });
+  if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: 'Supabase 환경변수가 설정되지 않았습니다.' }, { status: 500 });
   try {
     const body = await request.json();
     const payload = {
