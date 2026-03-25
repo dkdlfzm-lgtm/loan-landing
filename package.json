@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "build:property-master": "node scripts/build-property-master.mjs"
+    "build:property-master": "node scripts/build-property-master.mjs",
+    "sync:property-master": "node scripts/sync-property-master-to-supabase.mjs"
   },
   "dependencies": {
     "next": "14.2.35",
