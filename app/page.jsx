@@ -354,7 +354,6 @@ export default function LoanLandingPage() {
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
             <a href="/reviews">이용후기</a>
-            <a href="/admin">관리자</a>
             <a href="#contact" className="nav-btn">상담 신청</a>
           </nav>
         </div>
