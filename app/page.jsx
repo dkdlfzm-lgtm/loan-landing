@@ -350,8 +350,8 @@ export default function LoanLandingPage() {
           <div className="brand">
             <div className="brand-icon">대</div>
             <div>
-              <div className="brand-title">ANDI 대출상담센터</div>
-              <div className="brand-sub">주택담보 · 사업자 · 대환 상담 전문</div>
+              <div className="brand-title">ANDI 프라이빗 파이낸스</div>
+              <div className="brand-sub">주택담보 · 대환 · 사업자 자금 맞춤 컨설팅</div>
             </div>
           </div>
 
@@ -375,19 +375,19 @@ export default function LoanLandingPage() {
 
               <div className="container hero-grid">
                 <div className="hero-left">
-                  <div className="hero-pill">주택담보대출 · 대환대출 · 사업자대출 맞춤 상담</div>
+                  <div className="hero-pill">주택담보 · 대환 · 사업자 자금 프리미엄 상담</div>
 
                   <h1 className="hero-title">
+                    복잡한 대출 비교 없이
+                    <br />
                     내 조건에 맞는
                     <br />
-                    대출 가능 여부와
-                    <br />
-                    상담 진행을 한 번에
+                    최적의 상담 방향을 한 번에
                   </h1>
 
                   <p className="hero-text">
-                    부동산 시세 확인부터 한도 상담, 대환 가능 여부까지 빠르게 안내해드립니다.
-                    접수 내용을 남겨주시면 담당자가 조건을 확인한 뒤 순차적으로 상담 도와드립니다.
+                    부동산 시세 확인부터 한도 상담, 대환 가능 여부, 진행 가능성까지 한 번에 정리해드립니다.
+                    접수 내용을 남겨주시면 담당자가 조건을 검토한 뒤 가장 적합한 방향으로 순차 상담을 도와드립니다.
                   </p>
 
                   <div className="hero-actions">
@@ -397,10 +397,10 @@ export default function LoanLandingPage() {
                 </div>
 
                 <div className="hero-card">
-                  <div className="section-mini">빠른 상담 신청</div>
-                  <h2 className="card-title">간편 접수</h2>
+                  <div className="section-mini">전문 상담 접수</div>
+                  <h2 className="card-title">프리미엄 간편 접수</h2>
                   <p className="card-desc">
-                    간단한 정보만 남겨주시면 담당자가 확인 후 빠르게 연락드려 맞춤 상담을 진행해드립니다.
+                    필수 정보만 남겨주시면 담당자가 확인 후 빠르게 연락드려 고객 상황에 맞는 상담 방향을 안내해드립니다.
                   </p>
 
                   <form className="form-stack" onSubmit={submitHomeInquiry}>
@@ -433,14 +433,14 @@ export default function LoanLandingPage() {
               <div className="container">
                 <div className="white-panel">
                   <div className="section-center">
-                    <div className="section-mini">아파트 시세 조회</div>
-                    <h2 className="section-title">지역·단지·면적까지 선택해 상세 시세를 확인해보세요</h2>
+                    <div className="section-mini">담보 시세 조회</div>
+                    <h2 className="section-title">지역, 단지, 면적까지 선택해 보다 정교한 시세 흐름을 확인해보세요</h2>
                   </div>
 
                   <div className="quick-search-box">
                     <div className="quick-search-meta">
-                      <span>{catalogLoading ? "선택 지역 정보를 불러오는 중입니다." : "광역시/도부터 단지명까지 순서대로 선택하면 보다 정확한 시세 조회가 가능합니다."}</span>
-                      <span>선택하신 지역 기준으로 단지와 면적이 자동으로 연결됩니다.</span>
+                      <span>{catalogLoading ? "선택 지역 정보를 불러오는 중입니다." : "지역부터 단지와 면적까지 순서대로 선택하면 보다 정교한 시세 확인이 가능합니다."}</span>
+                      <span>선택하신 조건에 맞춰 단지와 면적이 자동으로 연결됩니다.</span>
                     </div>
 
                     <div className="catalog-count-strip">
@@ -851,7 +851,7 @@ export default function LoanLandingPage() {
 
                   <div className="desc-card">
                     <div className="section-mini">상담 안내</div>
-                    <h3 className="desc-title">선택하신 단지와 조건을 바탕으로 상담을 도와드립니다.</h3>
+                    <h3 className="desc-title">선택하신 단지와 조건을 기준으로 상담 방향을 정리해드립니다.</h3>
                     <p className="desc-text">{priceResult.description}</p>
 
                     <div className="tag-wrap">
@@ -867,9 +867,9 @@ export default function LoanLandingPage() {
                 <div className="result-side-col">
                   <div id="contact" className="side-card">
                     <div className="section-mini">맞춤 상담 접수</div>
-                    <h3 className="card-title">지금 바로 상담 신청</h3>
+                    <h3 className="card-title">맞춤 상담 신청</h3>
                     <p className="card-desc">
-                      조회하신 단지 정보가 함께 전달되어 보다 빠르게 상담을 진행하실 수 있습니다.
+                      조회하신 단지 정보가 함께 전달되어 보다 빠르고 정확한 상담 진행이 가능합니다.
                     </p>
 
                     <form className="form-stack" onSubmit={submitResultInquiry}>
@@ -887,8 +887,8 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="side-card">
-                    <div className="section-mini">대표 상담 채널</div>
-                    <h3 className="card-title">빠른 연결 안내</h3>
+                    <div className="section-mini">빠른 상담 채널</div>
+                    <h3 className="card-title">전문 상담 채널</h3>
                     <div className="condition-list quick-channel-list">
                       <div className="condition-item">
                         <div className="condition-left">
@@ -917,7 +917,7 @@ export default function LoanLandingPage() {
           <div className="container faq-wrap">
             <div className="section-center">
               <div className="section-mini">FAQ</div>
-              <h2 className="section-title">자주 묻는 질문</h2>
+              <h2 className="section-title">상담 전 확인사항</h2>
             </div>
 
             <div className="faq-list">
@@ -948,7 +948,7 @@ export default function LoanLandingPage() {
             </div>
 
             <div className="legal-meta">
-              <span>상호명 : ANDI 대출상담센터</span>
+              <span>상호명 : ANDI 프라이빗 파이낸스</span>
               <span>사업자등록번호 : 상담 시 별도 안내</span>
               <span>사업장소재지 : 상담 시 별도 안내</span>
               <span>대표자명 : 상담 시 별도 안내</span>
@@ -957,7 +957,7 @@ export default function LoanLandingPage() {
               <span>대부업번호 : 관련 법령에 따라 표기</span>
             </div>
 
-            <div className="legal-copy">© ANDI 대출상담센터. All Rights Reserved.</div>
+            <div className="legal-copy">© ANDI 프라이빗 파이낸스. All Rights Reserved.</div>
           </div>
         </section>
       </main>
