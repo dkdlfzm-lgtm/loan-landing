@@ -370,6 +370,8 @@ export default function AdminPage() {
   }, [inquiries]);
 
 
+  const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedInquiryId) || null, [inquiries, selectedInquiryId]);
+
   const assigneeOptions = useMemo(() => {
     const activeNames = assignees.filter((item) => item.status === "active").map((item) => item.name);
     const currentAssigned = selectedInquiry?.assignee && !activeNames.includes(selectedInquiry.assignee) ? [selectedInquiry.assignee] : [];
@@ -396,8 +398,6 @@ export default function AdminPage() {
       return map;
     }, new Map()).entries()).map(([name, count]) => ({ name, count })).sort((a,b)=>b.count-a.count).slice(0,8),
   }), [inquiries]);
-
-  const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedInquiryId) || null, [inquiries, selectedInquiryId]);
 
   useEffect(() => {
     if (!selectedInquiry) return;
