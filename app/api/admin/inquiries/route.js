@@ -13,7 +13,7 @@ export async function GET() {
   try {
     const inquiries = await supabaseRest("/inquiries", {
       query: {
-        select: "id,name,phone,email,address,loan_type,memo,source_page,property_type,city,district,town,apartment,area,status,job_type,assignee,call_summary,internal_memo,created_at",
+        select: "id,name,phone,email,address,loan_type,memo,source_page,property_type,city,district,town,apartment,area,status,job_type,assignee,call_summary,internal_memo,created_at,updated_at",
         order: "created_at.desc",
         limit: 200,
       },

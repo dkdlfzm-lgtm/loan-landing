@@ -96,3 +96,23 @@ create index if not exists property_master_type_city_district_town_idx on public
 create index if not exists property_master_search_idx on public.property_master(property_type, city, district, town, apartment_search);
 
 alter table public.property_master disable row level security;
+
+
+create table if not exists public.staff_members (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  status text not null default 'active' check (status in ('active', 'inactive')),
+  note text default '',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists staff_members_status_idx on public.staff_members(status);
+alter table public.staff_members disable row level security;
+
+insert into public.staff_members (name, status, note)
+values
+  ('김희수', 'active', '상담팀'),
+  ('박지훈', 'active', '상담팀'),
+  ('이서연', 'active', '심사 지원'),
+  ('김민수', 'inactive', '퇴사 담당자 예시')
+on conflict (name) do nothing;
