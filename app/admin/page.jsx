@@ -369,11 +369,12 @@ export default function AdminPage() {
     return ["all", ...Array.from(set)];
   }, [inquiries]);
 
+
   const assigneeOptions = useMemo(() => {
     const activeNames = assignees.filter((item) => item.status === "active").map((item) => item.name);
     const currentAssigned = selectedInquiry?.assignee && !activeNames.includes(selectedInquiry.assignee) ? [selectedInquiry.assignee] : [];
     return ["미배정", ...activeNames, ...currentAssigned];
-  }, [assignees, selectedInquiryId, inquiries]);
+  }, [assignees, selectedInquiry]);
 
   const filteredInquiries = useMemo(() => inquiries.filter((item) => {
     const matchesStatus = statusFilter === "all" ? true : item.status === statusFilter;
