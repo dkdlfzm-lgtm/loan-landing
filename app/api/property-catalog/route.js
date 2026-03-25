@@ -6,12 +6,6 @@ function unique(values = []) {
   return [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "ko"));
 }
 
-function applyQuery(rows, queryText) {
-  const q = String(queryText || "").trim().toLowerCase();
-  if (!q) return rows;
-  return rows.filter((row) => String(row.apartment || "").toLowerCase().includes(q));
-}
-
 async function getDbRows(query) {
   const propertyType = query.propertyType || "아파트";
   const baseFilter = { property_type: `eq.${propertyType}` };
@@ -21,51 +15,116 @@ async function getDbRows(query) {
   });
   const cities = unique(cityRows.map((row) => row.city));
   const city = query.city && cities.includes(query.city) ? query.city : cities[0] || "";
+
   if (!city) {
-    return { city: "", district: "", town: "", apartment: "", area: "", cities, districts: [], towns: [], apartments: [], areas: [], counts: { cityCount: cities.length, districtCount: 0, townCount: 0, apartmentCount: 0, areaCount: 0 } };
+    return {
+      city: "",
+      district: "",
+      town: "",
+      apartment: "",
+      area: "",
+      cities,
+      districts: [],
+      towns: [],
+      apartments: [],
+      areas: [],
+      counts: { cityCount: cities.length, districtCount: 0, townCount: 0, apartmentCount: 0, areaCount: 0 },
+    };
   }
 
-  const districtRows = await supabaseRest("/property_master", {
-    query: { select: "district", ...baseFilter, city: `eq.${city}`, order: "district.asc", limit: 50000 },
+  const cityEntries = await supabaseRest("/property_master", {
+    query: {
+      select: "district,town,apartment,area",
+      ...baseFilter,
+      city: `eq.${city}`,
+      order: "district.asc,town.asc,apartment.asc,area.asc",
+      limit: 50000,
+    },
   });
-  const districts = unique(districtRows.map((row) => row.district));
+
+  const districts = unique(cityEntries.map((row) => row.district));
   const district = query.district && districts.includes(query.district) ? query.district : districts[0] || "";
 
-  const townRows = district
-    ? await supabaseRest("/property_master", {
-        query: { select: "town", ...baseFilter, city: `eq.${city}`, district: `eq.${district}`, order: "town.asc", limit: 50000 },
-      })
-    : [];
-  const towns = unique(townRows.map((row) => row.town));
+  const districtEntries = district ? cityEntries.filter((row) => row.district === district) : [];
+  const towns = unique(districtEntries.map((row) => row.town));
   const town = query.town && towns.includes(query.town) ? query.town : towns[0] || "";
 
-  const apartmentRowsRaw = town
-    ? await supabaseRest("/property_master", {
-        query: { select: "apartment,apartment_search,sort_order", ...baseFilter, city: `eq.${city}`, district: `eq.${district}`, town: `eq.${town}`, order: "sort_order.asc,apartment.asc", limit: 20000 },
-      })
-    : [];
-  const apartmentRows = applyQuery(apartmentRowsRaw, query.apartmentQuery);
-  const apartments = unique(apartmentRows.map((row) => row.apartment));
+  const townEntries = town ? districtEntries.filter((row) => row.town === town) : [];
+  const apartments = unique(townEntries.map((row) => row.apartment));
   const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : apartments[0] || "";
 
-  const areaRows = apartment
-    ? await supabaseRest("/property_master", {
-        query: { select: "area", ...baseFilter, city: `eq.${city}`, district: `eq.${district}`, town: `eq.${town}`, apartment: `eq.${apartment}`, order: "area.asc", limit: 500 },
-      })
-    : [];
-  const areas = unique(areaRows.map((row) => row.area));
+  const apartmentEntries = apartment ? townEntries.filter((row) => row.apartment === apartment) : [];
+  const areas = unique(apartmentEntries.map((row) => row.area));
   const area = query.area && areas.includes(query.area) ? query.area : areas[0] || "";
 
-  return { city, district, town, apartment, area, cities, districts, towns, apartments, areas, counts: { cityCount: cities.length, districtCount: districts.length, townCount: towns.length, apartmentCount: apartments.length, areaCount: areas.length } };
+  return {
+    city,
+    district,
+    town,
+    apartment,
+    area,
+    cities,
+    districts,
+    towns,
+    apartments,
+    areas,
+    counts: {
+      cityCount: cities.length,
+      districtCount: districts.length,
+      townCount: towns.length,
+      apartmentCount: apartments.length,
+      areaCount: areas.length,
+    },
+  };
 }
 
-function mergeCounts(primary, secondary) {
+function pick(value, options, fallback = "") {
+  if (value && options.includes(value)) return value;
+  return fallback && options.includes(fallback) ? fallback : options[0] || "";
+}
+
+function mergeResult(query, fallbackResult, dbResult, useDb) {
+  const cities = unique([...(fallbackResult?.cities || []), ...(dbResult?.cities || [])]);
+  const city = pick(query.city, cities, useDb ? dbResult?.city : fallbackResult?.city);
+
+  const fallbackDistricts = city === fallbackResult?.city ? fallbackResult?.districts || [] : [];
+  const dbDistricts = city === dbResult?.city ? dbResult?.districts || [] : [];
+  const districts = unique([...fallbackDistricts, ...dbDistricts]);
+  const district = pick(query.district, districts, useDb ? dbResult?.district : fallbackResult?.district);
+
+  const fallbackTowns = city === fallbackResult?.city && district === fallbackResult?.district ? fallbackResult?.towns || [] : [];
+  const dbTowns = city === dbResult?.city && district === dbResult?.district ? dbResult?.towns || [] : [];
+  const towns = unique([...fallbackTowns, ...dbTowns]);
+  const town = pick(query.town, towns, useDb ? dbResult?.town : fallbackResult?.town);
+
+  const fallbackApartments = city === fallbackResult?.city && district === fallbackResult?.district && town === fallbackResult?.town ? fallbackResult?.apartments || [] : [];
+  const dbApartments = city === dbResult?.city && district === dbResult?.district && town === dbResult?.town ? dbResult?.apartments || [] : [];
+  const apartments = unique([...fallbackApartments, ...dbApartments]);
+  const apartment = pick(query.apartment, apartments, useDb ? dbResult?.apartment : fallbackResult?.apartment);
+
+  const fallbackAreas = city === fallbackResult?.city && district === fallbackResult?.district && town === fallbackResult?.town && apartment === fallbackResult?.apartment ? fallbackResult?.areas || [] : [];
+  const dbAreas = city === dbResult?.city && district === dbResult?.district && town === dbResult?.town && apartment === dbResult?.apartment ? dbResult?.areas || [] : [];
+  const areas = unique([...fallbackAreas, ...dbAreas]);
+  const area = pick(query.area, areas, useDb ? dbResult?.area : fallbackResult?.area);
+
   return {
-    cityCount: Math.max(primary?.cityCount || 0, secondary?.cityCount || 0),
-    districtCount: Math.max(primary?.districtCount || 0, secondary?.districtCount || 0),
-    townCount: Math.max(primary?.townCount || 0, secondary?.townCount || 0),
-    apartmentCount: Math.max(primary?.apartmentCount || 0, secondary?.apartmentCount || 0),
-    areaCount: Math.max(primary?.areaCount || 0, secondary?.areaCount || 0),
+    city,
+    district,
+    town,
+    apartment,
+    area,
+    cities,
+    districts,
+    towns,
+    apartments,
+    areas,
+    counts: {
+      cityCount: cities.length,
+      districtCount: districts.length,
+      townCount: towns.length,
+      apartmentCount: apartments.length,
+      areaCount: areas.length,
+    },
   };
 }
 
@@ -77,7 +136,6 @@ export async function GET(request) {
     district: searchParams.get("district") || "",
     town: searchParams.get("town") || "",
     apartment: searchParams.get("apartment") || "",
-    apartmentQuery: searchParams.get("apartmentQuery") || "",
     area: searchParams.get("area") || "",
   };
 
@@ -90,39 +148,47 @@ export async function GET(request) {
       const requestedCity = query.city || "";
       const dbHasRequestedCity = requestedCity ? dbResult.cities.includes(requestedCity) : false;
       const shouldUseDb = requestedCity ? dbHasRequestedCity : dbResult.cities.length > 0;
-      const base = shouldUseDb ? dbResult : fallbackResult;
+      const merged = mergeResult(query, fallbackResult, dbResult, shouldUseDb);
 
       return NextResponse.json({
         ok: true,
         source: shouldUseDb ? "supabase-db" : `${fallbackSource}-with-db-cities`,
         query: {
-          city: base.city,
-          district: base.district,
-          town: base.town,
-          apartment: base.apartment,
-          area: base.area,
+          city: merged.city,
+          district: merged.district,
+          town: merged.town,
+          apartment: merged.apartment,
+          area: merged.area,
         },
         options: {
-          cities: unique([...(fallbackResult.cities || []), ...(dbResult.cities || [])]),
-          districts: base.districts || [],
-          towns: base.towns || [],
-          apartments: base.apartments || [],
-          areas: base.areas || [],
+          cities: merged.cities,
+          districts: merged.districts,
+          towns: merged.towns,
+          apartments: merged.apartments,
+          areas: merged.areas,
         },
-        counts: mergeCounts(base.counts, fallbackResult.counts),
-        note: shouldUseDb
-          ? "전국 기본 지역 목록과 DB 단지 데이터를 함께 사용하고 있습니다."
-          : "기본 전국 지역 목록을 우선 표시하고 있습니다. 선택한 지역에 DB 단지가 있으면 자동으로 이어집니다.",
+        counts: merged.counts,
       });
     }
 
     return NextResponse.json({
       ok: true,
       source: fallbackSource,
-      query: { city: fallbackResult.city, district: fallbackResult.district, town: fallbackResult.town, apartment: fallbackResult.apartment, area: fallbackResult.area },
-      options: { cities: fallbackResult.cities, districts: fallbackResult.districts, towns: fallbackResult.towns, apartments: fallbackResult.apartments, areas: fallbackResult.areas },
+      query: {
+        city: fallbackResult.city,
+        district: fallbackResult.district,
+        town: fallbackResult.town,
+        apartment: fallbackResult.apartment,
+        area: fallbackResult.area,
+      },
+      options: {
+        cities: fallbackResult.cities,
+        districts: fallbackResult.districts,
+        towns: fallbackResult.towns,
+        apartments: fallbackResult.apartments,
+        areas: fallbackResult.areas,
+      },
       counts: fallbackResult.counts,
-      note: "기본 전국 지역 목록으로 검색 중입니다.",
     });
   } catch (error) {
     return NextResponse.json({ ok: false, message: error?.message || "단지 목록을 불러오지 못했습니다." }, { status: 500 });

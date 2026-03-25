@@ -63,13 +63,10 @@ export default function LoanLandingPage() {
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
-  const [apartmentQuery, setApartmentQuery] = useState("");
   const [showApartmentList, setShowApartmentList] = useState(false);
   const [selectedArea, setSelectedArea] = useState("");
   const [selectedUnit, setSelectedUnit] = useState("");
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
-  const [catalogSource, setCatalogSource] = useState("");
-  const [catalogNote, setCatalogNote] = useState("");
   const [catalogCounts, setCatalogCounts] = useState({ cityCount: 0, districtCount: 0, townCount: 0, apartmentCount: 0, areaCount: 0 });
   const [catalogLoading, setCatalogLoading] = useState(false);
 
@@ -103,8 +100,6 @@ export default function LoanLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
-          apartmentQuery,
-          area: selectedArea,
         });
 
         const response = await fetch(`/api/property-catalog?${query.toString()}`, { cache: "no-store" });
@@ -116,8 +111,6 @@ export default function LoanLandingPage() {
 
         if (cancelled) return;
         setCatalogOptions(data.options);
-        setCatalogSource(data.source || "");
-        setCatalogNote(data.note || "");
         setCatalogCounts(data.counts || { cityCount: 0, districtCount: 0, townCount: 0, apartmentCount: 0, areaCount: 0 });
         setSelectedCity(data.query.city || "");
         setSelectedDistrict(data.query.district || "");
@@ -137,7 +130,7 @@ export default function LoanLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, apartmentQuery, selectedArea]);
+  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment]);
 
   useEffect(() => {
     let cancelled = false;
@@ -252,7 +245,6 @@ export default function LoanLandingPage() {
 
     if (finalApartment && finalApartment !== selectedApartment) {
       setSelectedApartment(finalApartment);
-      setApartmentQuery(finalApartment);
     }
 
     setMarketLoading(true);
@@ -336,7 +328,6 @@ export default function LoanLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
-          area: selectedArea,
         }),
       });
       const data = await response.json();
@@ -448,8 +439,8 @@ export default function LoanLandingPage() {
 
                   <div className="quick-search-box">
                     <div className="quick-search-meta">
-                      <span>{catalogLoading ? "선택 지역의 단지 정보를 불러오는 중입니다." : "광역시/도부터 단지명까지 순서대로 선택하면 보다 정확한 시세 조회가 가능합니다."}</span>
-                      <span>{catalogNote || "선택하신 읍·면·동 기준으로 아파트명이 자동 표시되며 목록에서 바로 선택하실 수 있습니다."}</span>
+                      <span>{catalogLoading ? "선택 지역 정보를 불러오는 중입니다." : "광역시/도부터 단지명까지 순서대로 선택하면 보다 정확한 시세 조회가 가능합니다."}</span>
+                      <span>선택하신 지역 기준으로 단지와 면적이 자동으로 연결됩니다.</span>
                     </div>
 
                     <div className="catalog-count-strip">
@@ -459,7 +450,7 @@ export default function LoanLandingPage() {
                       <div className="catalog-count-chip highlight">단지명 <strong>{(catalogCounts.apartmentCount || 0).toLocaleString("ko-KR")}</strong></div>
                     </div>
                     <div className="select-grid select-grid-3">
-                      <select value={propertyType} onChange={(e) => { setPropertyType(e.target.value); setSelectedCity(""); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); }}>
+                      <select value={propertyType} onChange={(e) => { setPropertyType(e.target.value); setSelectedCity(""); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
                         <option>아파트</option>
                         <option>오피스텔</option>
                         <option>빌라(연립/다세대)</option>
@@ -738,7 +729,6 @@ export default function LoanLandingPage() {
                           value={selectedApartment}
                           onChange={(e) => {
                             setSelectedApartment(e.target.value);
-                            setApartmentQuery(e.target.value);
                             setSelectedArea("");
                           }}
                         >
