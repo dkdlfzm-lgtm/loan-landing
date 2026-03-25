@@ -628,9 +628,11 @@ export default function AdminPage() {
                 </div>
                 <InquiryList inquiries={filteredInquiries} selectedId={selectedInquiryId} onSelect={setSelectedInquiryId} />
                 {selectedInquiry ? (
-                  <div className="crm-detail-stack">
-                    <CustomerInfoSection inquiry={selectedInquiry} />
-                    <ProcessSection inquiry={selectedInquiry} form={detailForm} setForm={setDetailForm} onSave={saveInquiry} saving={detailSaving} message={message} assigneeOptions={assigneeOptions} />
+                  <div className="crm-detail-stack crm-detail-stack-large">
+                    <div className="crm-detail-grid">
+                      <CustomerInfoSection inquiry={selectedInquiry} />
+                      <ProcessSection inquiry={selectedInquiry} form={detailForm} setForm={setDetailForm} onSave={saveInquiry} saving={detailSaving} message={message} assigneeOptions={assigneeOptions} />
+                    </div>
                     <NotesSection notes={notes} noteAuthor={noteAuthor} setNoteAuthor={setNoteAuthor} noteContent={noteContent} setNoteContent={setNoteContent} adding={noteSaving} addMessage={noteMessage} onAdd={addNote} />
                   </div>
                 ) : <div className="crm-empty-panel">왼쪽 목록에서 고객을 선택하면 상세 정보와 처리 내용을 확인할 수 있습니다.</div>}
