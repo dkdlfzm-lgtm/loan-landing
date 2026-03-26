@@ -2979,3 +2979,153 @@ textarea:focus {
     font-size: 34px;
   }
 }
+
+/* v9.3 contact card redesign */
+.contact-home-box-split {
+  padding: 16px;
+  background: linear-gradient(180deg, #f9fbff 0%, #f3f7fd 100%);
+}
+
+.contact-split-grid-soft {
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.contact-display-card {
+  min-height: 312px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+}
+
+.phone-display-card {
+  border-right: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8ff 100%);
+}
+
+.kakao-display-card {
+  background: linear-gradient(180deg, #fffef8 0%, #fff8d9 100%);
+}
+
+.contact-display-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.10);
+  color: #2451c6;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.contact-display-badge-kakao {
+  background: rgba(105, 50, 3, 0.10);
+  color: #7a3200;
+}
+
+.contact-display-icon,
+.kakao-symbol {
+  margin-top: 16px;
+}
+
+.contact-display-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #67ca72 0%, #4ab35a 100%);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(74, 179, 90, 0.26);
+}
+
+.kakao-symbol {
+  width: 72px;
+  height: 72px;
+  font-size: 19px;
+}
+
+.contact-display-title {
+  margin-top: 14px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #334864;
+}
+
+.contact-display-main {
+  margin-top: 12px;
+  font-size: clamp(28px, 2.2vw, 42px);
+  line-height: 1.12;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-display-main-kakao {
+  font-size: clamp(30px, 2.4vw, 44px);
+  color: #6f2600;
+}
+
+.contact-display-sub {
+  margin-top: 14px;
+  font-size: 21px;
+  font-weight: 900;
+  color: #2e4f75;
+}
+
+.contact-display-mini {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #4068eb;
+}
+
+@media (max-width: 1280px) {
+  .contact-display-main {
+    font-size: 32px;
+  }
+
+  .contact-display-main-kakao {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 768px) {
+  .contact-home-box-split {
+    padding: 0;
+  }
+
+  .contact-split-grid-soft {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .contact-display-card {
+    min-height: 220px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .phone-display-card {
+    border-bottom: 1px solid #d9e2ef;
+  }
+
+  .contact-display-main,
+  .contact-display-main-kakao {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+}

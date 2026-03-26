@@ -523,19 +523,23 @@ export default function LoanLandingPage() {
               <div className="container">
                 <div className="home-info-grid home-info-grid-3">
                   <div className="home-info-box contact-home-box contact-home-box-split">
-                    <div className="contact-split-grid">
+                    <div className="contact-split-grid contact-split-grid-soft">
                       <a href="tel:070-8018-7437" className="contact-display-card phone-display-card">
-                        <div className="contact-display-title">대표 번호</div>
+                        <div className="contact-display-badge">대표번호</div>
+                        <div className="contact-display-icon phone-display-icon">☎</div>
+                        <div className="contact-display-title">전화 상담</div>
                         <div className="contact-display-main">070-8018-7437</div>
                         <div className="contact-display-sub">빠른 상담 연결</div>
                         <div className="contact-display-mini">대표 상담번호로 바로 연결됩니다.</div>
                       </a>
 
                       <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
+                        <div className="contact-display-badge contact-display-badge-kakao">카카오톡</div>
                         <div className="kakao-symbol">TALK</div>
                         <div className="contact-display-title">카카오톡 상담</div>
                         <div className="contact-display-main contact-display-main-kakao">ANDi7437</div>
-                        <div className="contact-display-mini">클릭하면 오픈채팅으로 연결됩니다.</div>
+                        <div className="contact-display-sub">오픈채팅 바로 연결</div>
+                        <div className="contact-display-mini">클릭하면 상담창으로 이동합니다.</div>
                       </a>
                     </div>
                   </div>
