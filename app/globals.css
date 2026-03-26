@@ -3064,18 +3064,33 @@ textarea:focus {
 
 .contact-display-main {
   margin-top: 12px;
-  font-size: clamp(28px, 2.2vw, 42px);
-  line-height: 1.12;
+  font-size: clamp(24px, 1.9vw, 38px);
+  line-height: 1.08;
   font-weight: 900;
   letter-spacing: -0.03em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: 100%;
+  min-width: 0;
+}
+
+.contact-display-main-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contact-display-main-phone span {
+  display: block;
 }
 
 .contact-display-main-kakao {
-  font-size: clamp(30px, 2.4vw, 44px);
+  font-size: clamp(24px, 2vw, 38px);
   color: #6f2600;
+  word-break: keep-all;
+}
+
+.contact-display-main-kakao span {
+  display: inline-block;
+  max-width: 100%;
 }
 
 .contact-display-sub {
@@ -3094,11 +3109,11 @@ textarea:focus {
 
 @media (max-width: 1280px) {
   .contact-display-main {
-    font-size: 32px;
+    font-size: 28px;
   }
 
   .contact-display-main-kakao {
-    font-size: 34px;
+    font-size: 30px;
   }
 }
 
@@ -3127,5 +3142,9 @@ textarea:focus {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
+  }
+
+  .contact-display-main-phone {
+    gap: 0;
   }
 }
