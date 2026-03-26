@@ -7,10 +7,12 @@ export async function PATCH(request, { params }) {
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });
   try {
     const body = await request.json();
+    const assigned_staff_account_id = body.assigned_staff_account_id ? String(body.assigned_staff_account_id).trim() : null;
     const payload = {
       status: String(body.status || 'new').trim(),
       job_type: String(body.job_type || '').trim(),
       assignee: String(body.assignee || '미배정').trim(),
+      assigned_staff_account_id,
       call_summary: String(body.call_summary || '').trim(),
       internal_memo: String(body.internal_memo || '').trim(),
       email: String(body.email || '').trim(),

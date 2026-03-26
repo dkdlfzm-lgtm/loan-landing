@@ -95,3 +95,7 @@ values
   ('박지훈', 'active', '상담팀'),
   ('이서연', 'active', '심사 지원')
 on conflict (name) do nothing;
+
+
+alter table public.inquiries add column if not exists assigned_staff_account_id uuid references public.staff_accounts(id) on delete set null;
+create index if not exists inquiries_assigned_staff_account_idx on public.inquiries(assigned_staff_account_id);

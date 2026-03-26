@@ -44,7 +44,7 @@ function LoginView({ form, setForm, loginError, handleLogin }) {
 function Sidebar({ activeTab, setActiveTab, handleLogout, account }) {
   const tabs = [
     { key: "overview", label: "전체 요약" },
-    { key: "customers", label: "고객관리" },
+    { key: "customers", label: "배정 고객" },
   ];
 
   return (
@@ -52,7 +52,7 @@ function Sidebar({ activeTab, setActiveTab, handleLogout, account }) {
       <div className="crm-sidebar-brand">
         <div className="crm-sidebar-eyebrow">직원 전용</div>
         <strong>상담 CRM</strong>
-        <span>{account?.display_name || account?.username || "직원"}님으로 로그인됨</span>
+        <span>{account?.display_name || account?.username || "직원"}님에게 배정된 고객만 표시됩니다.</span>
       </div>
       <nav className="crm-sidebar-nav">
         {tabs.map((tab) => (
@@ -78,10 +78,9 @@ export default function StaffPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [inquiries, setInquiries] = useState([]);
-  const [assignees, setAssignees] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [filters, setFilters] = useState({ q: "", status: "all", loanType: "all" });
-  const [form, setForm] = useState({ status: "new", job_type: "", assignee: "미배정", call_summary: "", internal_memo: "", email: "" });
+  const [form, setForm] = useState({ status: "new", job_type: "", call_summary: "", internal_memo: "", email: "" });
   const [notes, setNotes] = useState([]);
   const [noteAuthor, setNoteAuthor] = useState("");
   const [noteContent, setNoteContent] = useState("");
@@ -106,8 +105,10 @@ export default function StaffPage() {
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.message || "데이터를 불러오지 못했습니다.");
     setInquiries(data.inquiries || []);
-    setAssignees(data.assignees || []);
     if (!selectedId && data.inquiries?.length) setSelectedId(data.inquiries[0].id);
+    if (selectedId && !data.inquiries?.some((item) => item.id === selectedId)) {
+      setSelectedId(data.inquiries?.[0]?.id || null);
+    }
     setLoading(false);
   }
 
@@ -121,7 +122,6 @@ export default function StaffPage() {
   }, [authenticated]);
 
   const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedId) || null, [inquiries, selectedId]);
-  const assigneeOptions = useMemo(() => ["미배정", ...assignees.filter((item) => item.status === "active").map((item) => item.name)], [assignees]);
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
 
   useEffect(() => {
@@ -129,7 +129,6 @@ export default function StaffPage() {
     setForm({
       status: selectedInquiry.status || "new",
       job_type: selectedInquiry.job_type || "",
-      assignee: selectedInquiry.assignee || "미배정",
       call_summary: selectedInquiry.call_summary || "",
       internal_memo: selectedInquiry.internal_memo || "",
       email: selectedInquiry.email || "",
@@ -224,15 +223,15 @@ export default function StaffPage() {
           <header className="crm-page-header crm-page-header-xl">
             <div>
               <div className="section-mini">직원 전용 페이지</div>
-              <h1>고객 상담 관리</h1>
-              <p>고객 정보와 상담 이력을 빠르게 확인하고 다음 담당자에게 자연스럽게 인계할 수 있도록 구성했습니다.</p>
+              <h1>배정 고객 상담 관리</h1>
+              <p>관리자가 배정한 고객만 표시되며, 다른 담당자 고객정보는 볼 수 없습니다.</p>
             </div>
           </header>
 
           {activeTab === "overview" ? (
             <div className="crm-overview-grid owner-overview-grid">
               <div className="crm-summary-grid crm-summary-grid-pro">
-                <SummaryCard title="전체 접수" value={stats.total} subtitle="누적 상담 건수" />
+                <SummaryCard title="내 배정 고객" value={stats.total} subtitle="현재 내가 담당 중인 고객" />
                 <SummaryCard title="신규 접수" value={stats.newCount} subtitle="확인 대기" tone="new" />
                 <SummaryCard title="재통화 예정" value={stats.contactedCount} subtitle="후속 상담 필요" tone="contacted" />
                 <SummaryCard title="처리 완료" value={stats.closedCount} subtitle="상담 종료" tone="closed" />
@@ -242,9 +241,9 @@ export default function StaffPage() {
 
           <div className="crm-customers-layout">
             <section className="crm-panel crm-panel-xl">
-              <div className="crm-section-header"><h3>고객 현황</h3><span>고객명 · 연락처 · 대출상품 · 담당자 기준 검색</span></div>
+              <div className="crm-section-header"><h3>배정 고객 목록</h3><span>고객명 · 연락처 · 대출상품 기준 검색</span></div>
               <div className="crm-toolbar crm-toolbar-xl">
-                <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="고객명, 연락처, 담당자 검색" />
+                <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="고객명, 연락처, 상품 검색" />
                 <select value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>{STATUS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 <select value={filters.loanType} onChange={(e) => setFilters((p) => ({ ...p, loanType: e.target.value }))}>{loanOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 상품" : item}</option>)}</select>
               </div>
@@ -253,13 +252,13 @@ export default function StaffPage() {
                   <thead><tr><th>고객명</th><th>연락처</th><th>대출상품</th><th>담당자</th><th>상태</th><th>접수일시</th></tr></thead>
                   <tbody>
                     {loading ? <tr><td colSpan={6} className="crm-empty-cell">불러오는 중...</td></tr> : null}
-                    {!loading && filteredInquiries.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">검색 결과가 없습니다.</td></tr> : null}
+                    {!loading && filteredInquiries.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">현재 배정된 고객이 없습니다.</td></tr> : null}
                     {!loading && filteredInquiries.map((item) => (
                       <tr key={item.id} onClick={() => setSelectedId(item.id)} className={item.id === selectedId ? "crm-row-selected" : ""}>
                         <td><strong>{item.name}</strong></td>
                         <td>{item.phone}</td>
                         <td>{item.loan_type || "미입력"}</td>
-                        <td>{item.assignee || "미배정"}</td>
+                        <td>{item.assignee || account?.display_name || "미배정"}</td>
                         <td><span className={`crm-status-chip crm-status-${item.status || "new"}`}>{statusLabel(item.status)}</span></td>
                         <td>{formatReviewDateTime(item.created_at)}</td>
                       </tr>
@@ -277,14 +276,14 @@ export default function StaffPage() {
                     <div className="crm-classic-grid-xl">
                       <div className="crm-classic-row"><span>고객명</span><strong>{selectedInquiry.name}</strong></div>
                       <div className="crm-classic-row"><span>연락처</span><strong>{selectedInquiry.phone}</strong></div>
-                      <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
+                      <div className="crm-classic-row"><span>담당자</span><strong>{selectedInquiry.assignee || account?.display_name || "미배정"}</strong></div>
                       <div className="crm-classic-row"><span>대출상품</span><strong>{selectedInquiry.loan_type || "미입력"}</strong></div>
+                      <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
                       <div className="crm-classic-row crm-classic-row-wide"><span>접수 메모</span><strong>{selectedInquiry.memo || "입력된 메모가 없습니다."}</strong></div>
                     </div>
                     <div className="crm-form-grid-xl" style={{ marginTop: 18 }}>
                       <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>{STATUS_OPTIONS.filter((item) => item.value !== "all").map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                       <select value={form.job_type} onChange={(e) => setForm((prev) => ({ ...prev, job_type: e.target.value }))}>{JOB_OPTIONS.map((item) => <option key={item} value={item}>{item || "직군 선택"}</option>)}</select>
-                      <select value={form.assignee} onChange={(e) => setForm((prev) => ({ ...prev, assignee: e.target.value }))}>{assigneeOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select>
                       <input value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="이메일" />
                       <textarea className="crm-field-wide" value={form.call_summary} onChange={(e) => setForm((prev) => ({ ...prev, call_summary: e.target.value }))} placeholder="통화 요약" />
                       <textarea className="crm-field-wide" value={form.internal_memo} onChange={(e) => setForm((prev) => ({ ...prev, internal_memo: e.target.value }))} placeholder="내부 메모" />
@@ -296,7 +295,7 @@ export default function StaffPage() {
               </section>
 
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>상담 이력</h3><span>직원별 처리 메모를 시간순으로 누적합니다.</span></div>
+                <div className="crm-section-header"><h3>상담 이력</h3><span>내가 담당하는 고객의 이력을 누적합니다.</span></div>
                 {!selectedInquiry ? <div className="crm-empty-state small">고객을 선택하면 상담 이력을 작성할 수 있습니다.</div> : (
                   <>
                     <div className="crm-notes-composer">

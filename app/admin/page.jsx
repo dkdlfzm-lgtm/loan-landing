@@ -3,14 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
 
+const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "주부", "프리랜서", "기타"];
+const STATUS_OPTIONS = [
+  { value: "all", label: "전체" },
+  { value: "new", label: "신규접수" },
+  { value: "contacted", label: "재통화예정" },
+  { value: "closed", label: "처리완료" },
+];
+
 const OWNER_TABS = [
-  { key: "overview", label: "전체 요약" },
+  { key: "customers", label: "고객 배정" },
   { key: "performance", label: "실적 관리" },
   { key: "staff", label: "담당자·직원 계정" },
 ];
 
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return <div className={`crm-summary-card crm-tone-${tone}`}><span>{title}</span><strong>{value}</strong><small>{subtitle}</small></div>;
+}
+
+function statusLabel(value) {
+  return STATUS_OPTIONS.find((item) => item.value === value)?.label || value || "미정";
 }
 
 function OwnerLogin({ password, setPassword, error, onSubmit }) {
@@ -21,7 +33,7 @@ function OwnerLogin({ password, setPassword, error, onSubmit }) {
           <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
             <div className="section-mini">사장님 · 관리자 전용</div>
             <h1 className="section-title reviews-page-title">경영 관리 로그인</h1>
-            <p className="card-desc">담당자 운영, 날짜별 실적, 전체 상담 현황을 관리하는 전용 화면입니다.</p>
+            <p className="card-desc">신규 접수 확인, 담당자 배정, 직원 계정 운영을 관리하는 전용 화면입니다.</p>
             <div className="field"><label>관리자 비밀번호</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호 입력" /></div>
             {error ? <div className="api-status error">{error}</div> : null}
             <button type="submit" className="primary-btn">로그인</button>
@@ -38,7 +50,7 @@ function Sidebar({ activeTab, setActiveTab, onLogout }) {
       <div className="crm-sidebar-brand">
         <div className="crm-sidebar-eyebrow">사장님 · 관리자 전용</div>
         <strong>경영 관리 센터</strong>
-        <span>담당자 운영 · 날짜별 실적 · 접수 현황</span>
+        <span>전체 고객 열람 · 담당자 배정 · 직원 계정 관리</span>
       </div>
       <nav className="crm-sidebar-nav">
         {OWNER_TABS.map((tab) => <button key={tab.key} type="button" className={`crm-sidebar-tab ${activeTab === tab.key ? "active" : ""}`} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}
@@ -62,7 +74,7 @@ export default function AdminOwnerPage() {
   const [authenticated, setAuthenticated] = useState(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("customers");
   const [inquiries, setInquiries] = useState([]);
   const [assignees, setAssignees] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -71,9 +83,18 @@ export default function AdminOwnerPage() {
   const [newAccount, setNewAccount] = useState({ username: "", password: "", display_name: "", staff_member_id: "" });
   const [staffMessage, setStaffMessage] = useState(null);
   const [accountMessage, setAccountMessage] = useState(null);
+  const [customerMessage, setCustomerMessage] = useState(null);
   const [metricYear, setMetricYear] = useState("all");
   const [metricMonth, setMetricMonth] = useState("all");
   const [resetPasswords, setResetPasswords] = useState({});
+  const [selectedId, setSelectedId] = useState(null);
+  const [filters, setFilters] = useState({ q: "", status: "all", loanType: "all", assignee: "all" });
+  const [form, setForm] = useState({ status: "new", job_type: "", assignee: "미배정", assigned_staff_account_id: "", call_summary: "", internal_memo: "", email: "" });
+  const [notes, setNotes] = useState([]);
+  const [noteAuthor, setNoteAuthor] = useState("관리자");
+  const [noteContent, setNoteContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [noteSaving, setNoteSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
@@ -86,9 +107,12 @@ export default function AdminOwnerPage() {
       fetch("/api/admin/assignees", { cache: "no-store" }).then((r) => r.json()),
       fetch("/api/admin/staff-accounts", { cache: "no-store" }).then((r) => r.json()),
     ]);
-    setInquiries(inqRes.inquiries || []);
+    const nextInquiries = inqRes.inquiries || [];
+    setInquiries(nextInquiries);
     setAssignees(assRes.assignees || []);
     setAccounts(accRes.accounts || []);
+    if (!selectedId && nextInquiries.length) setSelectedId(nextInquiries[0].id);
+    if (selectedId && !nextInquiries.some((item) => item.id === selectedId)) setSelectedId(nextInquiries[0]?.id || null);
     setLoading(false);
   }
 
@@ -165,17 +189,42 @@ export default function AdminOwnerPage() {
     if (res.ok && data.ok) setAccounts((prev) => prev.filter((item) => item.id !== id));
   }
 
+  const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedId) || null, [inquiries, selectedId]);
+  const activeAssigneeOptions = useMemo(() => assignees.filter((item) => item.status === "active"), [assignees]);
+  const activeAccountOptions = useMemo(() => accounts.filter((item) => item.status === "active"), [accounts]);
+  const accountLabelMap = useMemo(() => {
+    const map = new Map();
+    accounts.forEach((account) => {
+      const linked = assignees.find((assignee) => assignee.id === account.staff_member_id);
+      map.set(account.id, linked?.name || account.display_name || account.username);
+    });
+    return map;
+  }, [accounts, assignees]);
+
+  useEffect(() => {
+    if (!selectedInquiry) return;
+    setForm({
+      status: selectedInquiry.status || "new",
+      job_type: selectedInquiry.job_type || "",
+      assignee: selectedInquiry.assignee || "미배정",
+      assigned_staff_account_id: selectedInquiry.assigned_staff_account_id || "",
+      call_summary: selectedInquiry.call_summary || "",
+      internal_memo: selectedInquiry.internal_memo || "",
+      email: selectedInquiry.email || "",
+    });
+    fetch(`/api/admin/inquiries/${selectedInquiry.id}/notes`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setNotes(d.notes || []))
+      .catch(() => setNotes([]));
+  }, [selectedInquiry]);
+
   const stats = useMemo(() => {
     const total = inquiries.length;
     const activeAssignees = assignees.filter((x) => x.status === "active").length;
     const activeAccounts = accounts.filter((x) => x.status === "active").length;
-    const assigned = inquiries.filter((x) => x.assignee && x.assignee !== "미배정").length;
-    const now = new Date();
-    const thisMonth = inquiries.filter((x) => {
-      const d = new Date(x.created_at);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    }).length;
-    return { total, activeAssignees, activeAccounts, assigned, thisMonth };
+    const assigned = inquiries.filter((x) => x.assigned_staff_account_id).length;
+    const unassigned = inquiries.filter((x) => !x.assigned_staff_account_id).length;
+    return { total, activeAssignees, activeAccounts, assigned, unassigned };
   }, [inquiries, assignees, accounts]);
 
   const yearOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => String(new Date(item.created_at).getFullYear())))).sort((a, b) => b.localeCompare(a))], [inquiries]);
@@ -202,8 +251,63 @@ export default function AdminOwnerPage() {
 
   const yearlyRows = useMemo(() => groupCounts(inquiries, (item) => String(new Date(item.created_at).getFullYear())).sort((a, b) => b.name.localeCompare(a.name)), [inquiries]);
   const monthlyRows = useMemo(() => groupCounts(inquiries, (item) => `${new Date(item.created_at).getFullYear()}-${String(new Date(item.created_at).getMonth() + 1).padStart(2, "0")}`).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 12), [inquiries]);
+  const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
+  const assigneeFilterOptions = useMemo(() => ["all", "unassigned", ...activeAccountOptions.map((item) => item.id)], [activeAccountOptions]);
 
-  const activeAssigneeOptions = assignees.filter((item) => item.status === "active");
+  const filteredInquiries = useMemo(() => inquiries.filter((item) => {
+    const q = filters.q.trim().toLowerCase();
+    if (filters.status !== "all" && item.status !== filters.status) return false;
+    if (filters.loanType !== "all" && item.loan_type !== filters.loanType) return false;
+    if (filters.assignee === "unassigned" && item.assigned_staff_account_id) return false;
+    if (filters.assignee !== "all" && filters.assignee !== "unassigned" && item.assigned_staff_account_id !== filters.assignee) return false;
+    if (!q) return true;
+    return [item.name, item.phone, item.assignee, item.call_summary, item.loan_type].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
+  }), [inquiries, filters]);
+
+  async function handleCustomerSave() {
+    if (!selectedInquiry) return;
+    setSaving(true);
+    setCustomerMessage(null);
+    const res = await fetch(`/api/admin/inquiries/${selectedInquiry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setCustomerMessage({ type: "error", text: data.message || "저장 실패" });
+      setSaving(false);
+      return;
+    }
+    setInquiries((prev) => prev.map((item) => item.id === selectedInquiry.id ? { ...item, ...data.inquiry } : item));
+    setCustomerMessage({ type: "success", text: "고객 정보와 담당자 배정이 저장되었습니다." });
+    setSaving(false);
+  }
+
+  async function handleAddNote() {
+    if (!selectedInquiry || !noteAuthor.trim() || !noteContent.trim()) return;
+    setNoteSaving(true);
+    const res = await fetch(`/api/admin/inquiries/${selectedInquiry.id}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ author: noteAuthor, content: noteContent }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok) {
+      setNotes((prev) => [data.note, ...prev]);
+      setNoteContent("");
+    }
+    setNoteSaving(false);
+  }
+
+  function handleAssignmentChange(accountId) {
+    const normalized = accountId || "";
+    setForm((prev) => ({
+      ...prev,
+      assigned_staff_account_id: normalized,
+      assignee: normalized ? (accountLabelMap.get(normalized) || "미배정") : "미배정",
+    }));
+  }
 
   if (authenticated === null) return <div className="site-wrap"><main className="section"><div className="container">로딩 중...</div></main></div>;
   if (!authenticated) return <OwnerLogin password={password} setPassword={setPassword} error={error} onSubmit={handleLogin} />;
@@ -216,29 +320,106 @@ export default function AdminOwnerPage() {
           <header className="crm-page-header crm-page-header-xl">
             <div>
               <div className="section-mini">사장님 · 관리자 전용</div>
-              <h1>경영 관리 대시보드</h1>
-              <p>담당자 운영 현황과 날짜별 실적을 한눈에 볼 수 있게 정리한 관리자 전용 화면입니다.</p>
+              <h1>전체 고객 관리 및 담당자 배정</h1>
+              <p>관리자는 전체 신규접수를 보고 담당자를 배정할 수 있고, 직원은 자신에게 배정된 고객만 볼 수 있습니다.</p>
             </div>
           </header>
 
-          {activeTab === "overview" ? (
-            <div className="owner-overview-grid">
-              <div className="crm-summary-grid crm-summary-grid-pro">
+          {activeTab === "customers" ? (
+            <>
+              <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
                 <SummaryCard title="전체 접수" value={stats.total} subtitle="누적 상담 건수" />
-                <SummaryCard title="이번 달 접수" value={stats.thisMonth} subtitle="당월 실적" tone="new" />
-                <SummaryCard title="활성 담당자" value={stats.activeAssignees} subtitle="현재 재직 중" tone="contacted" />
-                <SummaryCard title="활성 직원 계정" value={stats.activeAccounts} subtitle="로그인 가능 계정" tone="closed" />
+                <SummaryCard title="배정 완료" value={stats.assigned} subtitle="담당자 배정된 고객" tone="contacted" />
+                <SummaryCard title="미배정" value={stats.unassigned} subtitle="아직 배정 안 된 고객" tone="new" />
+                <SummaryCard title="활성 직원 계정" value={stats.activeAccounts} subtitle="배정 가능한 계정 수" tone="closed" />
               </div>
-              <section className="crm-panel crm-panel-xl">
-                <div className="crm-panel-banner">최근 접수 현황</div>
-                <div className="crm-table-wrap crm-table-modern-wrap">
-                  <table className="crm-table crm-table-modern">
-                    <thead><tr><th>고객명</th><th>대출상품</th><th>담당자</th><th>상태</th><th>접수일시</th></tr></thead>
-                    <tbody>{loading ? <tr><td colSpan={5} className="crm-empty-cell">불러오는 중...</td></tr> : inquiries.slice(0, 12).map((item) => <tr key={item.id}><td>{item.name}</td><td>{item.loan_type || "미입력"}</td><td>{item.assignee || "미배정"}</td><td>{item.status || "new"}</td><td>{formatReviewDateTime(item.created_at)}</td></tr>)}</tbody>
-                  </table>
-                </div>
-              </section>
-            </div>
+              <div className="crm-customers-layout">
+                <section className="crm-panel crm-panel-xl">
+                  <div className="crm-section-header"><h3>전체 고객 현황</h3><span>신규 접수 확인 후 담당자를 배정하세요.</span></div>
+                  <div className="crm-toolbar crm-toolbar-xl">
+                    <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="고객명, 연락처, 담당자 검색" />
+                    <select value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>{STATUS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                    <select value={filters.loanType} onChange={(e) => setFilters((p) => ({ ...p, loanType: e.target.value }))}>{loanOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 상품" : item}</option>)}</select>
+                    <select value={filters.assignee} onChange={(e) => setFilters((p) => ({ ...p, assignee: e.target.value }))}>
+                      <option value="all">전체 담당자</option>
+                      <option value="unassigned">미배정</option>
+                      {activeAccountOptions.map((item) => <option key={item.id} value={item.id}>{accountLabelMap.get(item.id) || item.display_name || item.username}</option>)}
+                    </select>
+                  </div>
+                  <div className="crm-table-wrap crm-table-modern-wrap">
+                    <table className="crm-table crm-table-modern">
+                      <thead><tr><th>고객명</th><th>연락처</th><th>대출상품</th><th>담당자</th><th>상태</th><th>접수일시</th></tr></thead>
+                      <tbody>
+                        {loading ? <tr><td colSpan={6} className="crm-empty-cell">불러오는 중...</td></tr> : null}
+                        {!loading && filteredInquiries.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">검색 결과가 없습니다.</td></tr> : null}
+                        {!loading && filteredInquiries.map((item) => (
+                          <tr key={item.id} onClick={() => setSelectedId(item.id)} className={item.id === selectedId ? "crm-row-selected" : ""}>
+                            <td><strong>{item.name}</strong></td>
+                            <td>{item.phone}</td>
+                            <td>{item.loan_type || "미입력"}</td>
+                            <td>{item.assignee || "미배정"}</td>
+                            <td><span className={`crm-status-chip crm-status-${item.status || "new"}`}>{statusLabel(item.status)}</span></td>
+                            <td>{formatReviewDateTime(item.created_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <section className="crm-detail-shell">
+                  <section className="crm-panel crm-panel-xl">
+                    <div className="crm-section-header"><h3>고객 상세 및 담당자 배정</h3><span>{selectedInquiry ? `${selectedInquiry.name} 고객 관리` : "고객을 선택해주세요."}</span></div>
+                    {!selectedInquiry ? <div className="crm-empty-state">왼쪽 목록에서 고객을 선택하면 배정과 상담기록을 관리할 수 있습니다.</div> : (
+                      <>
+                        <div className="crm-classic-grid-xl">
+                          <div className="crm-classic-row"><span>고객명</span><strong>{selectedInquiry.name}</strong></div>
+                          <div className="crm-classic-row"><span>연락처</span><strong>{selectedInquiry.phone}</strong></div>
+                          <div className="crm-classic-row"><span>현재 담당자</span><strong>{selectedInquiry.assignee || "미배정"}</strong></div>
+                          <div className="crm-classic-row"><span>대출상품</span><strong>{selectedInquiry.loan_type || "미입력"}</strong></div>
+                          <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
+                          <div className="crm-classic-row crm-classic-row-wide"><span>접수 메모</span><strong>{selectedInquiry.memo || "입력된 메모가 없습니다."}</strong></div>
+                        </div>
+                        <div className="crm-form-grid-xl" style={{ marginTop: 18 }}>
+                          <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>{STATUS_OPTIONS.filter((item) => item.value !== "all").map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+                          <select value={form.job_type} onChange={(e) => setForm((prev) => ({ ...prev, job_type: e.target.value }))}>{JOB_OPTIONS.map((item) => <option key={item} value={item}>{item || "직군 선택"}</option>)}</select>
+                          <select value={form.assigned_staff_account_id} onChange={(e) => handleAssignmentChange(e.target.value)}>
+                            <option value="">담당자 미배정</option>
+                            {activeAccountOptions.map((item) => <option key={item.id} value={item.id}>{accountLabelMap.get(item.id) || item.display_name || item.username}</option>)}
+                          </select>
+                          <input value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="이메일" />
+                          <textarea className="crm-field-wide" value={form.call_summary} onChange={(e) => setForm((prev) => ({ ...prev, call_summary: e.target.value }))} placeholder="통화 요약" />
+                          <textarea className="crm-field-wide" value={form.internal_memo} onChange={(e) => setForm((prev) => ({ ...prev, internal_memo: e.target.value }))} placeholder="내부 메모" />
+                        </div>
+                        {customerMessage ? <div className={`api-status ${customerMessage.type}`}>{customerMessage.text}</div> : null}
+                        <button type="button" className="primary-btn crm-save-btn" disabled={saving} onClick={handleCustomerSave}>{saving ? "저장 중..." : "고객 정보 저장"}</button>
+                      </>
+                    )}
+                  </section>
+
+                  <section className="crm-panel crm-panel-xl">
+                    <div className="crm-section-header"><h3>상담 이력</h3><span>관리자도 전체 고객 이력을 확인하고 기록할 수 있습니다.</span></div>
+                    {!selectedInquiry ? <div className="crm-empty-state small">고객을 선택하면 상담 이력을 작성할 수 있습니다.</div> : (
+                      <>
+                        <div className="crm-notes-composer">
+                          <input value={noteAuthor} onChange={(e) => setNoteAuthor(e.target.value)} placeholder="작성자" />
+                          <textarea value={noteContent} onChange={(e) => setNoteContent(e.target.value)} placeholder="상담 내용을 기록하세요" />
+                          <button type="button" className="primary-btn" disabled={noteSaving} onClick={handleAddNote}>{noteSaving ? "저장 중..." : "이력 추가"}</button>
+                        </div>
+                        <div className="crm-note-timeline">
+                          {notes.length === 0 ? <div className="crm-empty-state small">아직 등록된 상담 이력이 없습니다.</div> : notes.map((note) => (
+                            <article key={note.id} className="crm-note-card">
+                              <div className="crm-note-head"><strong>{note.author}</strong><span>{formatReviewDateTime(note.created_at)}</span></div>
+                              <p>{note.content}</p>
+                            </article>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </section>
+                </section>
+              </div>
+            </>
           ) : null}
 
           {activeTab === "performance" ? (
@@ -267,7 +448,7 @@ export default function AdminOwnerPage() {
           {activeTab === "staff" ? (
             <div className="owner-staff-shell">
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>담당자 관리</h3><span>여기서 추가/수정한 담당자는 직원 페이지 고객관리 담당자 선택에도 바로 반영됩니다.</span></div>
+                <div className="crm-section-header"><h3>담당자 관리</h3><span>여기서 추가/수정한 담당자는 직원 계정 연결에도 바로 반영됩니다.</span></div>
                 <form className="crm-inline-form" onSubmit={addAssignee}>
                   <input value={newStaff.name} onChange={(e) => setNewStaff((p) => ({ ...p, name: e.target.value }))} placeholder="신규 담당자 이름" />
                   <input value={newStaff.note} onChange={(e) => setNewStaff((p) => ({ ...p, note: e.target.value }))} placeholder="소속/메모" />
