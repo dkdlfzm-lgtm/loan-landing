@@ -131,6 +131,8 @@ export default function StaffPage() {
     }
   }, [authenticated]);
 
+  const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedId) || null, [inquiries, selectedId]);
+
   useEffect(() => {
     if (!authenticated) return;
     const refresh = () => {
@@ -142,7 +144,17 @@ export default function StaffPage() {
       if (document.visibilityState === "visible") refresh();
     };
     const unsubscribeInquiries = subscribeSupabaseTable({ table: "inquiries", onChange: refresh });
-    const unsubscribeNotes = subscribeSupabaseTable({ table: "inquiry_notes", onChange: () => { if (selectedInquiry?.id) { fetch(`/api/staff/inquiries/${selectedInquiry.id}/notes`, { cache: "no-store" }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => null); } } });
+    const unsubscribeNotes = subscribeSupabaseTable({
+      table: "inquiry_notes",
+      onChange: () => {
+        if (selectedInquiry?.id) {
+          fetch(`/api/staff/inquiries/${selectedInquiry.id}/notes`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((d) => setNotes(d.notes || []))
+            .catch(() => null);
+        }
+      },
+    });
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(interval);
@@ -150,9 +162,7 @@ export default function StaffPage() {
       unsubscribeInquiries?.();
       unsubscribeNotes?.();
     };
-  }, [authenticated, selectedId, selectedInquiry?.id]);
-
-  const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedId) || null, [inquiries, selectedId]);
+  }, [authenticated, selectedId, selectedInquiry]);
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
 
   useEffect(() => {
