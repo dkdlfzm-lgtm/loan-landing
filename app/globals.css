@@ -2766,3 +2766,216 @@ textarea:focus {
     min-width: 0;
   }
 }
+
+
+/* v9.2 home trust polish */
+.quick-search-box-staged {
+  background: linear-gradient(135deg, #0b78bb 0%, #0a8fd5 52%, #0b7dc2 100%);
+  border-radius: 28px;
+  padding: 20px;
+  box-shadow: 0 24px 60px rgba(8, 64, 124, 0.18);
+}
+
+.quick-search-box-staged .select-grid,
+.quick-search-box-staged .staged-grid-bottom {
+  gap: 10px;
+}
+
+.quick-search-box-staged select,
+.quick-search-box-staged input {
+  min-height: 58px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.68);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  padding: 0 18px;
+}
+
+.quick-search-box-staged select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.92) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.92) 50%, transparent 50%);
+  background-position:
+    calc(100% - 24px) calc(50% - 4px),
+    calc(100% - 16px) calc(50% - 4px);
+  background-size: 8px 8px, 8px 8px;
+  background-repeat: no-repeat;
+  padding-right: 42px;
+}
+
+.quick-search-box-staged option {
+  color: #0f172a;
+}
+
+.quick-search-box-staged input::placeholder {
+  color: rgba(255,255,255,0.92);
+  font-weight: 700;
+}
+
+.quick-search-box-staged .search-btn {
+  min-width: 172px;
+  min-height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
+  color: #0b3f73;
+  border: 1px solid rgba(255,255,255,0.88);
+}
+
+.quick-search-actions {
+  margin-top: 14px;
+}
+
+.quick-search-box-staged .selected-text {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.96);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.home-info-grid-3 {
+  grid-template-columns: minmax(360px, 0.96fr) minmax(560px, 1.04fr);
+  align-items: stretch;
+}
+
+.contact-display-card {
+  min-height: 320px;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  padding: 34px 34px 30px;
+}
+
+.contact-display-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #41536d;
+}
+
+.contact-display-main {
+  margin-top: 14px;
+  max-width: 100%;
+  font-size: clamp(34px, 3.1vw, 58px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+
+.contact-display-main-kakao {
+  font-size: clamp(28px, 2.6vw, 46px);
+  line-height: 1.08;
+}
+
+.contact-display-sub {
+  margin-top: 16px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #50657d;
+}
+
+.contact-display-mini {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2e5cf6;
+}
+
+.kakao-symbol {
+  width: 88px;
+  height: 88px;
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+.kakao-display-card {
+  background: linear-gradient(180deg, #fffef8 0%, #fff8d1 100%);
+}
+
+.phone-display-card,
+.kakao-display-card {
+  transition: transform .22s ease, box-shadow .22s ease;
+}
+
+.phone-display-card:hover,
+.kakao-display-card:hover {
+  transform: translateY(-3px);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04), 0 18px 34px rgba(15, 23, 42, 0.08);
+}
+
+.calculator-home-box {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9ff 100%);
+  padding: 34px 30px;
+}
+
+.home-calc-title {
+  margin: 8px 0 0;
+  font-size: 30px;
+  letter-spacing: -0.03em;
+}
+
+.home-calc-box {
+  border-radius: 22px;
+}
+
+.calc-helper {
+  font-size: 13px;
+}
+
+.floating-contact-toolbar {
+  right: 22px;
+  top: 232px;
+  gap: 12px;
+}
+
+.floating-contact-btn {
+  width: 214px;
+  min-height: 72px;
+  padding: 14px 17px;
+  border-radius: 999px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+}
+
+.floating-contact-btn:hover {
+  transform: translateY(-2px) scale(1.01);
+}
+
+.floating-contact-icon {
+  border-radius: 999px;
+}
+
+@media (max-width: 1180px) {
+  .home-info-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .quick-search-box-staged {
+    padding: 16px;
+  }
+
+  .quick-search-box-staged select,
+  .quick-search-box-staged input {
+    min-height: 54px;
+    font-size: 17px;
+  }
+
+  .contact-display-card {
+    min-height: 220px;
+    padding: 26px 24px;
+  }
+
+  .contact-display-main {
+    font-size: 42px;
+  }
+
+  .contact-display-main-kakao {
+    font-size: 34px;
+  }
+}

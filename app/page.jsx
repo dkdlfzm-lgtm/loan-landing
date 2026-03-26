@@ -33,6 +33,16 @@ const statSlides = [
   },
 ];
 
+const loanTypeOptions = [
+  "주택담보대출",
+  "전세퇴거자금",
+  "경매취하자금",
+  "사업자대출",
+  "대환대출",
+  "매매자금대출",
+  "기타",
+];
+
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
   return Math.round(value).toLocaleString("ko-KR");
@@ -66,10 +76,10 @@ export default function LoanLandingPage() {
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState("");
   const [latestReviews, setLatestReviews] = useState([]);
-  const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: "아파트 담보대출" });
+  const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: loanTypeOptions[0] });
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
-  const [resultInquiry, setResultInquiry] = useState({ name: "", phone: "", loanType: "희망 상품 선택", memo: "" });
+  const [resultInquiry, setResultInquiry] = useState({ name: "", phone: "", loanType: loanTypeOptions[0], memo: "" });
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
 
@@ -156,7 +166,8 @@ export default function LoanLandingPage() {
 
   const filteredApartments = apartments;
 
-  const selectedSummary = `${selectedCity} ${selectedDistrict} ${selectedTown} ${selectedApartment}`;
+  const selectedSummary = [selectedCity, selectedDistrict, selectedTown, selectedApartment].filter(Boolean).join(" ");
+  const hasSelectedSummary = Boolean(selectedSummary || selectedArea || selectedUnit);
   const marketSummary = marketResult?.summary;
 
   const priceResult = useMemo(() => {
@@ -287,7 +298,7 @@ export default function LoanLandingPage() {
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "상담접수를 저장하지 못했습니다.");
       setHomeInquiryStatus("상담접수가 완료되었습니다. 확인 후 빠르게 연락드리겠습니다.");
-      setHomeInquiry({ name: "", phone: "", address: "", loanType: "아파트 담보대출" });
+      setHomeInquiry({ name: "", phone: "", address: "", loanType: loanTypeOptions[0] });
     } catch (error) {
       setHomeInquiryStatus(error?.message || "상담접수를 저장하지 못했습니다.");
     } finally {
@@ -322,7 +333,7 @@ export default function LoanLandingPage() {
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "대출 신청을 저장하지 못했습니다.");
       setResultInquiryStatus("대출 신청이 접수되었습니다. 확인 후 빠르게 연락드리겠습니다.");
-      setResultInquiry({ name: "", phone: "", loanType: "희망 상품 선택", memo: "" });
+      setResultInquiry({ name: "", phone: "", loanType: loanTypeOptions[0], memo: "" });
     } catch (error) {
       setResultInquiryStatus(error?.message || "대출 신청을 저장하지 못했습니다.");
     } finally {
@@ -338,7 +349,7 @@ export default function LoanLandingPage() {
             <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">엔드아이에셋대부</div>
-              <div className="brand-sub">아파트 담보대출 · 대환대출 · 생활안정자금 상담</div>
+              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
             </div>
           </div>
 
@@ -383,8 +394,8 @@ export default function LoanLandingPage() {
                   </h1>
 
                   <p className="hero-text">
-                    지역, 단지명, 면적을 차례대로 선택하고 조회를 누르면 결과형 페이지처럼
-                    설명 영역과 상담 신청란이 이어지는 구조로 만든 시안입니다.
+                    필요한 주소 정보와 단지를 차례대로 선택하면 예상 시세와 상담 연결 화면으로
+                    자연스럽게 이어지도록 구성한 고객용 메인 페이지입니다.
                   </p>
 
                   <div className="hero-actions">
@@ -395,7 +406,7 @@ export default function LoanLandingPage() {
 
                 <div className="hero-card">
                   <div className="section-mini">빠른 상담 신청</div>
-                  <h2 className="card-title">간편 접수</h2>
+                  <h2 className="card-title">빠른 상담 접수</h2>
                   <p className="card-desc">
                     성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
                   </p>
@@ -416,10 +427,9 @@ export default function LoanLandingPage() {
                     <div className="field">
                       <label>대출유형</label>
                       <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                        <option>아파트 담보대출</option>
-                        <option>생활안정자금</option>
-                        <option>대환대출</option>
-                        <option>사업자대출</option>
+                        {loanTypeOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
                       </select>
                     </div>
                     {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
@@ -481,13 +491,18 @@ export default function LoanLandingPage() {
                         value={selectedUnit}
                         placeholder="동·호수"
                         onChange={(e) => setSelectedUnit(e.target.value)}
+                        disabled={!selectedArea}
                       />
                     </div>
 
                     <div className="quick-search-actions">
-                      <div className="selected-text">
-                        선택 중: <strong>{selectedSummary || "지역을 선택해주세요"}</strong> {selectedArea ? <>/ <strong>{selectedArea}</strong></> : null}
-                      </div>
+                      {hasSelectedSummary ? (
+                        <div className="selected-text">
+                          선택 항목: <strong>{selectedSummary}</strong>
+                          {selectedArea ? <> / <strong>{selectedArea}</strong></> : null}
+                          {selectedUnit ? <> / <strong>{selectedUnit}</strong></> : null}
+                        </div>
+                      ) : <div />}
                       <button
                         type="button"
                         className="search-btn"
@@ -513,7 +528,7 @@ export default function LoanLandingPage() {
                         <div className="contact-display-title">대표 번호</div>
                         <div className="contact-display-main">070-8018-7437</div>
                         <div className="contact-display-sub">빠른 상담 연결</div>
-                        <div className="contact-display-mini">평일 상담 문의 가능</div>
+                        <div className="contact-display-mini">대표 상담번호로 바로 연결됩니다.</div>
                       </a>
 
                       <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
@@ -527,7 +542,7 @@ export default function LoanLandingPage() {
 
                   <div id="calculator" className="home-info-box calculator-home-box">
                     <div className="section-mini">이율 계산기</div>
-                    <h3 className="home-calc-title">간편 상환 계산</h3>
+                    <h3 className="home-calc-title">간편 이율계산기</h3>
                     <div className="two-col compact-two-col">
                       <input
                         type="text"
@@ -848,10 +863,9 @@ export default function LoanLandingPage() {
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
                       <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
                       <select value={resultInquiry.loanType} onChange={(e) => setResultInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                        <option>희망 상품 선택</option>
-                        <option>아파트 담보대출</option>
-                        <option>생활안정자금</option>
-                        <option>대환대출</option>
+                        {loanTypeOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
                       </select>
                       <textarea rows={4} placeholder="상담 내용을 입력하세요" value={resultInquiry.memo} onChange={(e) => setResultInquiry((prev) => ({ ...prev, memo: e.target.value }))} />
                       {resultInquiryStatus && <div className={`api-status ${resultInquiryStatus.includes("완료") ? "success" : "error"}`}>{resultInquiryStatus}</div>}

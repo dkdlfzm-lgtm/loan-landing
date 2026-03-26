@@ -84,26 +84,28 @@ function getEntries(master, propertyType, city) {
 export function resolvePropertyOptions(master, query = {}) {
   const propertyType = query.propertyType || "아파트";
   const cities = Object.keys(master?.[propertyType] || {});
-  const city = query.city && cities.includes(query.city) ? query.city : cities[0] || "";
-  const entries = getEntries(master, propertyType, city);
+  const city = query.city && cities.includes(query.city) ? query.city : "";
+  const entries = city ? getEntries(master, propertyType, city) : [];
 
-  const districts = unique(entries.map((entry) => entry.district));
-  const district = query.district && districts.includes(query.district) ? query.district : districts[0] || "";
+  const districts = city ? unique(entries.map((entry) => entry.district)) : [];
+  const district = query.district && districts.includes(query.district) ? query.district : "";
 
-  const districtEntries = entries.filter((entry) => entry.district === district);
-  const towns = unique(districtEntries.map((entry) => entry.town));
-  const town = query.town && towns.includes(query.town) ? query.town : towns[0] || "";
+  const districtEntries = district ? entries.filter((entry) => entry.district === district) : [];
+  const towns = district ? unique(districtEntries.map((entry) => entry.town)) : [];
+  const town = query.town && towns.includes(query.town) ? query.town : "";
 
-  const townEntries = districtEntries.filter((entry) => entry.town === town);
+  const townEntries = town ? districtEntries.filter((entry) => entry.town === town) : [];
   const apartmentQuery = String(query.apartmentQuery || "").trim().toLowerCase();
-  const apartments = unique(
-    townEntries
-      .filter((entry) => !apartmentQuery || entry.apartment.toLowerCase().includes(apartmentQuery))
-      .map((entry) => entry.apartment)
-  );
-  const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : apartments[0] || "";
-  const areas = unique(townEntries.find((entry) => entry.apartment === apartment)?.areas || []);
-  const area = query.area && areas.includes(query.area) ? query.area : areas[0] || "";
+  const apartments = town
+    ? unique(
+        townEntries
+          .filter((entry) => !apartmentQuery || entry.apartment.toLowerCase().includes(apartmentQuery))
+          .map((entry) => entry.apartment)
+      )
+    : [];
+  const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : "";
+  const areas = apartment ? unique(townEntries.find((entry) => entry.apartment === apartment)?.areas || []) : [];
+  const area = query.area && areas.includes(query.area) ? query.area : "";
 
   return {
     propertyType,
