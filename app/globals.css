@@ -355,22 +355,18 @@ textarea {
 
 .home-info-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  overflow: hidden;
-  border-radius: 28px;
-  border: 1px solid #e6edf5;
-  background: white;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+  grid-template-columns: 0.82fr 1.18fr;
+  gap: 22px;
+  align-items: stretch;
 }
 
 .home-info-box {
   padding: 34px;
   min-height: 270px;
-}
-
-.home-info-box + .home-info-box {
-  border-left: 1px solid #e6edf5;
+  border-radius: 28px;
+  border: 1px solid #e6edf5;
+  background: white;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
 }
 
 .home-info-head {
@@ -421,65 +417,87 @@ textarea {
   flex-shrink: 0;
 }
 
-.center-box {
+.contact-home-box {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  text-align: center;
 }
 
-.phone-main {
-  font-size: 52px;
-  font-weight: 900;
-  color: #0f172a;
+.contact-button-stack {
+  width: 100%;
+  display: grid;
+  gap: 18px;
 }
 
-.phone-sub {
-  font-size: 32px;
-  font-weight: 500;
-  color: #4b5b70;
-}
-
-.phone-desc {
-  font-size: 17px;
-  font-weight: 800;
-  color: #1f5fd1;
-}
-
-.kakao-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.contact-button-stack-compact {
   gap: 14px;
-  text-align: center;
 }
 
-.talk-circle {
-  width: 84px;
-  height: 84px;
-  border-radius: 999px;
-  background: #341919;
-  color: #facc15;
+.contact-pill {
   display: flex;
   align-items: center;
+  gap: 16px;
+  min-height: 88px;
+  padding: 18px 22px;
+  border-radius: 999px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+
+.contact-pill:hover {
+  transform: translateY(-1px);
+}
+
+.contact-pill-call {
+  background: linear-gradient(180deg, #62ca60 0%, #59bd58 100%);
+  color: #fff;
+}
+
+.contact-pill-kakao {
+  background: linear-gradient(180deg, #ffd900 0%, #ffd100 100%);
+  color: #221f1f;
+}
+
+.contact-pill-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  font-size: 24px;
+  background: rgba(255,255,255,0.2);
+  font-size: 20px;
+  font-weight: 900;
+  flex: 0 0 42px;
+}
+
+.contact-pill-icon-kakao {
+  background: #1f1b18;
+  color: #ffe100;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.contact-pill-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.contact-pill-copy strong {
+  font-size: 28px;
+  line-height: 1.1;
   font-weight: 900;
 }
 
-.kakao-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: #526173;
+.contact-pill-copy small {
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 700;
+  opacity: 0.95;
 }
 
-.kakao-id {
-  font-size: 46px;
-  font-weight: 900;
-  color: #3a1515;
+.contact-pill-copy-dark small {
+  color: rgba(34, 31, 31, 0.76);
 }
 
 /* review */
@@ -1335,16 +1353,7 @@ textarea {
 }
 
 .home-info-grid-3 {
-  grid-template-columns: 1fr 1fr 1.2fr;
-}
-
-.kakao-link-box {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.kakao-link-box:hover {
-  transform: translateY(-3px);
-  box-shadow: inset 0 0 0 1px rgba(31, 95, 209, 0.12);
+  grid-template-columns: 0.78fr 1.22fr;
 }
 
 .calculator-home-box {
@@ -1523,3 +1532,10 @@ textarea {
 @media (max-width: 1360px){.crm-customers-layout,.crm-detail-grid-large,.owner-performance-grid,.crm-summary-grid,.crm-summary-grid-pro{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media (max-width: 1180px){.crm-layout-wide{grid-template-columns:1fr;width:min(100%,calc(100vw - 24px));}.crm-sidebar,.crm-sidebar-large,.crm-sidebar-owner{position:relative;top:0;min-height:auto;}.crm-customers-layout,.crm-detail-grid-large,.owner-performance-grid,.crm-summary-grid,.crm-summary-grid-pro,.crm-toolbar-xl,.crm-inline-form,.crm-form-grid-xl,.crm-notes-composer{grid-template-columns:1fr;}}
 @media (max-width: 720px){.crm-page-header,.crm-page-header-xl,.crm-panel,.crm-panel-xl{padding:20px;}.crm-page-header-xl h1{font-size:28px;}.crm-summary-card strong{font-size:28px;}.crm-sidebar-brand strong{font-size:20px;}}
+
+
+.crm-row-selected { background: #eef5ff; }
+.crm-account-form { display:grid; grid-template-columns: 1fr 1fr 1fr 1fr 180px; gap:12px; margin-bottom:16px; }
+.crm-action-stack { display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; min-width:260px; }
+.crm-action-stack input { min-width: 0; }
+@media (max-width: 1180px){ .crm-account-form{ grid-template-columns:1fr; } .crm-action-stack{ grid-template-columns:1fr; min-width:0; } }

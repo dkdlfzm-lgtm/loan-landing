@@ -541,23 +541,25 @@ export default function LoanLandingPage() {
             <section className="home-info-strip">
               <div className="container">
                 <div className="home-info-grid home-info-grid-3">
-                  <div className="home-info-box center-box">
-                    <h3>대표 번호</h3>
-                    <div className="phone-main">070-8018-7437</div>
-                    <div className="phone-sub">빠른 상담 연결</div>
-                    <div className="phone-desc">평일 상담 문의 가능</div>
-                  </div>
+                  <div className="home-info-box contact-home-box">
+                    <div className="contact-button-stack">
+                      <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
+                        <span className="contact-pill-icon">☎</span>
+                        <span className="contact-pill-copy">
+                          <strong>대표번호</strong>
+                          <small>070-8018-7437</small>
+                        </span>
+                      </a>
 
-                  <a
-                    href="https://open.kakao.com/o/sbaltXmi"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="home-info-box kakao-box kakao-link-box"
-                  >
-                    <div className="talk-circle">TALK</div>
-                    <div className="kakao-title">카카오톡 상담</div>
-                    <div className="kakao-id">Ldk1009</div>
-                  </a>
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
+                        <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
+                        <span className="contact-pill-copy contact-pill-copy-dark">
+                          <strong>카카오상담</strong>
+                          <small>클릭 시 자동으로 연결됩니다.</small>
+                        </span>
+                      </a>
+                    </div>
+                  </div>
 
                   <div id="calculator" className="home-info-box calculator-home-box">
                     <div className="section-mini">이율 계산기</div>
@@ -895,20 +897,20 @@ export default function LoanLandingPage() {
                   <div className="side-card">
                     <div className="section-mini">대표 상담 채널</div>
                     <h3 className="card-title">빠른 연결 안내</h3>
-                    <div className="condition-list quick-channel-list">
-                      <div className="condition-item">
-                        <div className="condition-left">
-                          <div className="condition-name">대표 번호</div>
-                          <div className="condition-desc">070-8018-7437</div>
-                        </div>
-                        <div className="condition-badge condition-blue">전화</div>
-                      </div>
-                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="condition-item quick-channel-link">
-                        <div className="condition-left">
-                          <div className="condition-name">카카오톡 아이디</div>
-                          <div className="condition-desc">Ldk1009</div>
-                        </div>
-                        <div className="condition-badge condition-indigo">오픈채팅</div>
+                    <div className="contact-button-stack contact-button-stack-compact">
+                      <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
+                        <span className="contact-pill-icon">☎</span>
+                        <span className="contact-pill-copy">
+                          <strong>대표번호</strong>
+                          <small>070-8018-7437</small>
+                        </span>
+                      </a>
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
+                        <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
+                        <span className="contact-pill-copy contact-pill-copy-dark">
+                          <strong>카카오상담</strong>
+                          <small>클릭 시 자동으로 연결됩니다.</small>
+                        </span>
                       </a>
                     </div>
                   </div>
