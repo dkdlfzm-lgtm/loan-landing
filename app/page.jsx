@@ -55,6 +55,7 @@ export default function LoanLandingPage() {
   const [selectedApartment, setSelectedApartment] = useState("");
   const [apartmentQuery, setApartmentQuery] = useState("");
   const [showApartmentList, setShowApartmentList] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [catalogSource, setCatalogSource] = useState("");
@@ -91,7 +92,6 @@ export default function LoanLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
-          apartmentQuery,
           area: selectedArea,
         });
 
@@ -124,7 +124,7 @@ export default function LoanLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, apartmentQuery, selectedArea]);
+  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,14 +235,7 @@ export default function LoanLandingPage() {
   };
 
   const handleMarketSearch = async () => {
-    const finalApartment = filteredApartments.includes(apartmentQuery)
-      ? apartmentQuery
-      : filteredApartments[0] || selectedApartment;
-
-    if (finalApartment && finalApartment !== selectedApartment) {
-      setSelectedApartment(finalApartment);
-      setApartmentQuery(finalApartment);
-    }
+    const finalApartment = selectedApartment;
 
     setMarketLoading(true);
     setMarketError("");
@@ -316,7 +309,7 @@ export default function LoanLandingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...resultInquiry,
-          address: [selectedCity, selectedDistrict, selectedTown, selectedApartment].filter(Boolean).join(" "),
+          address: [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedUnit].filter(Boolean).join(" "),
           sourcePage: "price-result",
           propertyType,
           city: selectedCity,
@@ -445,27 +438,22 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="quick-search-box quick-search-box-staged">
-                    <div className="quick-search-meta">
-                      <span>{catalogLoading ? "전국 단지 마스터 불러오는 중..." : `목록 소스: ${catalogSource || "미확인"}`}</span>
-                      <span>{catalogNote || "선택 후 조회를 누르면 결과 페이지로 이동합니다."}</span>
-                    </div>
-
                     <div className="select-grid select-grid-3">
-                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }}>
                         <option value="">광역시/도</option>
                         {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
 
-                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }} disabled={!selectedCity}>
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }} disabled={!selectedCity}>
                         <option value="">시/군/구</option>
                         {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
 
-                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }} disabled={!selectedDistrict}>
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }} disabled={!selectedDistrict}>
                         <option value="">읍/면/동</option>
                         {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
@@ -473,14 +461,15 @@ export default function LoanLandingPage() {
                       </select>
                     </div>
 
-                    <div className="select-grid select-grid-main staged-grid-bottom">
-                      <select value={propertyType} onChange={(e) => { setPropertyType(e.target.value); setSelectedCity(""); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); }}>
-                        <option>아파트</option>
-                        <option>오피스텔</option>
-                        <option>빌라(연립/다세대)</option>
+                    <div className="select-grid select-grid-3 staged-grid-bottom">
+                      <select value={selectedApartment} onChange={(e) => { setSelectedApartment(e.target.value); setApartmentQuery(e.target.value); setSelectedArea(""); }} disabled={!selectedTown}>
+                        <option value="">아파트</option>
+                        {apartments.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
                       </select>
 
-                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)} disabled={!selectedTown}>
+                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)} disabled={!selectedApartment}>
                         <option value="">면적</option>
                         {areas.map((area) => (
                           <option key={area} value={area}>{area}</option>
@@ -489,39 +478,10 @@ export default function LoanLandingPage() {
 
                       <input
                         type="text"
-                        value={apartmentQuery}
-                        placeholder="동 · 호수 또는 단지명 검색"
-                        onChange={(e) => {
-                          setApartmentQuery(e.target.value);
-                          setSelectedApartment("");
-                          setShowApartmentList(true);
-                        }}
-                        onFocus={() => setShowApartmentList(true)}
-                        disabled={!selectedTown}
+                        value={selectedUnit}
+                        placeholder="동·호수"
+                        onChange={(e) => setSelectedUnit(e.target.value)}
                       />
-                    </div>
-
-                    {showApartmentList && filteredApartments.length > 0 && (
-                      <div className="apartment-dropdown apartment-dropdown-home">
-                        {filteredApartments.slice(0, 8).map((name) => (
-                          <button
-                            key={name}
-                            type="button"
-                            className={`apartment-option ${selectedApartment === name ? "active" : ""}`}
-                            onClick={() => {
-                              setSelectedApartment(name);
-                              setApartmentQuery(name);
-                              setShowApartmentList(false);
-                            }}
-                          >
-                            {name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="selected-text search-guide-text">
-                      선택 전에는 기본 화면만 보이고, 조회 버튼을 누르면 결과가 표시됩니다.
                     </div>
 
                     <div className="quick-search-actions">
@@ -532,7 +492,7 @@ export default function LoanLandingPage() {
                         type="button"
                         className="search-btn"
                         onClick={handleMarketSearch}
-                        disabled={marketLoading || !selectedCity || !selectedDistrict || !selectedTown || !selectedArea}
+                        disabled={marketLoading || !selectedCity || !selectedDistrict || !selectedTown || !selectedApartment || !selectedArea}
                       >
                         {marketLoading ? "조회 중..." : "시세 조회하기"}
                       </button>
@@ -551,7 +511,7 @@ export default function LoanLandingPage() {
                     <div className="contact-split-grid">
                       <a href="tel:070-8018-7437" className="contact-display-card phone-display-card">
                         <div className="contact-display-title">대표 번호</div>
-                        <div className="contact-display-main">070-<br />8018-<br />7437</div>
+                        <div className="contact-display-main">070-8018-7437</div>
                         <div className="contact-display-sub">빠른 상담 연결</div>
                         <div className="contact-display-mini">평일 상담 문의 가능</div>
                       </a>
