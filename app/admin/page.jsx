@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
+import { subscribeSupabaseTable } from "../../lib/realtime-browser";
 
 const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "주부", "프리랜서", "기타"];
 const STATUS_OPTIONS = [
@@ -140,10 +141,16 @@ export default function AdminOwnerPage() {
     const onVisible = () => {
       if (document.visibilityState === "visible") refresh();
     };
+    const unsubscribeInquiries = subscribeSupabaseTable({ table: "inquiries", onChange: refresh });
+    const unsubscribeAccounts = subscribeSupabaseTable({ table: "staff_accounts", onChange: refresh });
+    const unsubscribeAssignees = subscribeSupabaseTable({ table: "staff_members", onChange: refresh });
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
+      unsubscribeInquiries?.();
+      unsubscribeAccounts?.();
+      unsubscribeAssignees?.();
     };
   }, [authenticated, selectedId]);
 
@@ -362,11 +369,21 @@ export default function AdminOwnerPage() {
                 <SummaryCard title="미배정" value={stats.unassigned} subtitle="아직 배정 안 된 고객" tone="new" />
                 <SummaryCard title="활성 직원 계정" value={stats.activeAccounts} subtitle="배정 가능한 계정 수" tone="closed" />
               </div>
-              <div className="crm-customers-layout">
+              <div className="crm-assignment-banner">
+                <div>
+                  <strong>담당자 배정이 가장 중요합니다.</strong>
+                  <span>신규접수나 미배정 고객을 먼저 확인한 뒤 담당자를 지정하면, 해당 직원 페이지에 바로 노출됩니다.</span>
+                </div>
+                <div className="crm-assignment-banner-stats">
+                  <b>{stats.unassigned}</b>
+                  <small>현재 미배정 고객</small>
+                </div>
+              </div>
+              <div className="crm-customers-layout crm-customers-layout-expanded">
                 <section className="crm-panel crm-panel-xl">
                   <div className="crm-section-header"><h3>전체 고객 현황</h3><span>신규 접수 확인 후 담당자를 배정하세요.</span></div>
                   <div className="crm-sync-status">{isRefreshing ? "자동 새로고침 중..." : lastSyncedAt ? `최근 동기화 ${formatReviewDateTime(lastSyncedAt)}` : "동기화 대기 중"}</div>
-                  <div className="crm-toolbar crm-toolbar-xl">
+                  <div className="crm-toolbar crm-toolbar-xl crm-toolbar-4">
                     <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="고객명, 연락처, 담당자 검색" />
                     <select value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>{STATUS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                     <select value={filters.loanType} onChange={(e) => setFilters((p) => ({ ...p, loanType: e.target.value }))}>{loanOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 상품" : item}</option>)}</select>
@@ -376,8 +393,9 @@ export default function AdminOwnerPage() {
                       {activeAccountOptions.map((item) => <option key={item.id} value={item.id}>{accountLabelMap.get(item.id) || item.display_name || item.username}</option>)}
                     </select>
                   </div>
-                  <div className="crm-table-wrap crm-table-modern-wrap">
-                    <table className="crm-table crm-table-modern">
+                  <div className="crm-table-wrap crm-table-modern-wrap crm-table-no-scroll">
+                    <table className="crm-table crm-table-modern crm-table-fixed">
+                      <colgroup><col style={{ width: "14%" }} /><col style={{ width: "14%" }} /><col style={{ width: "18%" }} /><col style={{ width: "16%" }} /><col style={{ width: "12%" }} /><col style={{ width: "26%" }} /></colgroup>
                       <thead><tr><th>고객명</th><th>연락처</th><th>대출상품</th><th>담당자</th><th>상태</th><th>접수일시</th></tr></thead>
                       <tbody>
                         {loading ? <tr><td colSpan={6} className="crm-empty-cell">불러오는 중...</td></tr> : null}
@@ -410,7 +428,15 @@ export default function AdminOwnerPage() {
                           <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
                           <div className="crm-classic-row crm-classic-row-wide"><span>접수 메모</span><strong>{selectedInquiry.memo || "입력된 메모가 없습니다."}</strong></div>
                         </div>
-                        <div className="crm-form-grid-xl" style={{ marginTop: 18 }}>
+                        <div className="crm-assignment-focus-card">
+                          <div className="crm-assignment-focus-head">
+                            <div>
+                              <strong>담당자 배정 / 변경</strong>
+                              <span>여기서 담당자를 지정하면 해당 직원 계정 화면에 바로 표시됩니다.</span>
+                            </div>
+                            <div className={`crm-badge-pill ${form.assigned_staff_account_id ? "assigned" : "unassigned"}`}>{form.assigned_staff_account_id ? "배정 완료" : "미배정"}</div>
+                          </div>
+                          <div className="crm-form-grid-xl crm-form-grid-assign" style={{ marginTop: 18 }}>
                           <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>{STATUS_OPTIONS.filter((item) => item.value !== "all").map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                           <select value={form.job_type} onChange={(e) => setForm((prev) => ({ ...prev, job_type: e.target.value }))}>{JOB_OPTIONS.map((item) => <option key={item} value={item}>{item || "직군 선택"}</option>)}</select>
                           <select value={form.assigned_staff_account_id} onChange={(e) => handleAssignmentChange(e.target.value)}>
@@ -421,8 +447,9 @@ export default function AdminOwnerPage() {
                           <textarea className="crm-field-wide" value={form.call_summary} onChange={(e) => setForm((prev) => ({ ...prev, call_summary: e.target.value }))} placeholder="통화 요약" />
                           <textarea className="crm-field-wide" value={form.internal_memo} onChange={(e) => setForm((prev) => ({ ...prev, internal_memo: e.target.value }))} placeholder="내부 메모" />
                         </div>
+                        </div>
                         {customerMessage ? <div className={`api-status ${customerMessage.type}`}>{customerMessage.text}</div> : null}
-                        <button type="button" className="primary-btn crm-save-btn" disabled={saving} onClick={handleCustomerSave}>{saving ? "저장 중..." : "고객 정보 저장"}</button>
+                        <button type="button" className="primary-btn crm-save-btn crm-save-btn-accent" disabled={saving} onClick={handleCustomerSave}>{saving ? "저장 중..." : "담당자 배정 및 고객 정보 저장"}</button>
                       </>
                     )}
                   </section>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
+import { subscribeSupabaseTable } from "../../lib/realtime-browser";
 
 const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "주부", "프리랜서", "기타"];
 const STATUS_OPTIONS = [
@@ -140,12 +141,16 @@ export default function StaffPage() {
     const onVisible = () => {
       if (document.visibilityState === "visible") refresh();
     };
+    const unsubscribeInquiries = subscribeSupabaseTable({ table: "inquiries", onChange: refresh });
+    const unsubscribeNotes = subscribeSupabaseTable({ table: "inquiry_notes", onChange: () => { if (selectedInquiry?.id) { fetch(`/api/staff/inquiries/${selectedInquiry.id}/notes`, { cache: "no-store" }).then((r) => r.json()).then((d) => setNotes(d.notes || [])).catch(() => null); } } });
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
+      unsubscribeInquiries?.();
+      unsubscribeNotes?.();
     };
-  }, [authenticated, selectedId]);
+  }, [authenticated, selectedId, selectedInquiry?.id]);
 
   const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedId) || null, [inquiries, selectedId]);
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
@@ -265,17 +270,18 @@ export default function StaffPage() {
             </div>
           ) : null}
 
-          <div className="crm-customers-layout">
+          <div className="crm-customers-layout crm-customers-layout-expanded">
             <section className="crm-panel crm-panel-xl">
               <div className="crm-section-header"><h3>배정 고객 목록</h3><span>고객명 · 연락처 · 대출상품 기준 검색</span></div>
               <div className="crm-sync-status">{isRefreshing ? "자동 새로고침 중..." : lastSyncedAt ? `최근 동기화 ${formatReviewDateTime(lastSyncedAt)}` : "동기화 대기 중"}</div>
-              <div className="crm-toolbar crm-toolbar-xl">
+              <div className="crm-toolbar crm-toolbar-xl crm-toolbar-3">
                 <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="고객명, 연락처, 상품 검색" />
                 <select value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>{STATUS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
                 <select value={filters.loanType} onChange={(e) => setFilters((p) => ({ ...p, loanType: e.target.value }))}>{loanOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 상품" : item}</option>)}</select>
               </div>
-              <div className="crm-table-wrap crm-table-modern-wrap">
-                <table className="crm-table crm-table-modern">
+              <div className="crm-table-wrap crm-table-modern-wrap crm-table-no-scroll">
+                <table className="crm-table crm-table-modern crm-table-fixed">
+                  <colgroup><col style={{ width: "14%" }} /><col style={{ width: "14%" }} /><col style={{ width: "18%" }} /><col style={{ width: "16%" }} /><col style={{ width: "12%" }} /><col style={{ width: "26%" }} /></colgroup>
                   <thead><tr><th>고객명</th><th>연락처</th><th>대출상품</th><th>담당자</th><th>상태</th><th>접수일시</th></tr></thead>
                   <tbody>
                     {loading ? <tr><td colSpan={6} className="crm-empty-cell">불러오는 중...</td></tr> : null}
