@@ -2405,3 +2405,336 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* v9 home page refresh */
+.brand-logo-wrap {
+  gap: 14px;
+}
+
+.brand-logo {
+  width: 108px;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.brand-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.quick-search-box-staged {
+  background: linear-gradient(180deg, #0e8ed0 0%, #0b84c4 100%);
+}
+
+.quick-search-box-staged .quick-search-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: rgba(255,255,255,0.86);
+  font-size: 13px;
+}
+
+.quick-search-box-staged select,
+.quick-search-box-staged input {
+  min-height: 64px;
+  border-radius: 0;
+  border: 2px solid rgba(255,255,255,0.88);
+  background: transparent;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.quick-search-box-staged select:disabled,
+.quick-search-box-staged input:disabled {
+  opacity: 0.55;
+}
+
+.quick-search-box-staged input::placeholder {
+  color: rgba(255,255,255,0.92);
+}
+
+.quick-search-box-staged .search-btn {
+  min-width: 180px;
+  min-height: 58px;
+  border-radius: 14px;
+  background: #fff;
+  color: #0b4d8a;
+  box-shadow: 0 16px 30px rgba(2, 28, 61, 0.2);
+}
+
+.quick-search-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.search-guide-text {
+  margin-top: 18px;
+  color: rgba(255,255,255,0.82);
+}
+
+.staged-grid-bottom {
+  margin-top: 12px;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.contact-home-box-split {
+  padding: 0;
+  overflow: hidden;
+}
+
+.contact-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100%;
+}
+
+.contact-display-card {
+  min-height: 390px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 22px;
+}
+
+.phone-display-card {
+  border-right: 1px solid #d9e2ef;
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+}
+
+.kakao-display-card {
+  background: linear-gradient(180deg, #fffdfa 0%, #fff9de 100%);
+}
+
+.contact-display-title {
+  color: #0f2043;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.contact-display-main {
+  margin-top: 22px;
+  font-size: 72px;
+  line-height: 1.06;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #0f1733;
+}
+
+.contact-display-main-kakao {
+  font-size: 60px;
+  color: #531300;
+}
+
+.contact-display-sub {
+  margin-top: 20px;
+  font-size: 24px;
+  font-weight: 900;
+  color: #516983;
+}
+
+.contact-display-mini {
+  margin-top: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #2b64ff;
+}
+
+.kakao-symbol {
+  width: 110px;
+  height: 110px;
+  border-radius: 999px;
+  background: #3b1414;
+  color: #ffe100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.calculator-home-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.calc-helper {
+  margin-top: 14px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.floating-contact-toolbar {
+  position: fixed;
+  right: 18px;
+  top: 220px;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.floating-contact-btn {
+  width: 210px;
+  min-height: 72px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: 999px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+.floating-contact-btn-call {
+  background: linear-gradient(180deg, #64cb64 0%, #5abd58 100%);
+  color: #fff;
+}
+
+.floating-contact-btn-kakao {
+  background: linear-gradient(180deg, #ffdc19 0%, #ffd400 100%);
+  color: #221f1f;
+}
+
+.floating-contact-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  font-weight: 900;
+}
+
+.floating-contact-icon-kakao {
+  background: #201a16;
+  color: #ffe100;
+  font-size: 11px;
+}
+
+.floating-contact-btn span:last-child {
+  display: grid;
+  gap: 4px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.floating-contact-btn small {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.legal-meta {
+  align-items: flex-start;
+  line-height: 1.8;
+}
+
+.legal-copy {
+  margin-top: 16px;
+}
+
+@media (max-width: 1360px) {
+  .floating-contact-toolbar {
+    right: 10px;
+  }
+
+  .floating-contact-btn {
+    width: 190px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .hero-grid,
+  .home-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-display-card {
+    min-height: 280px;
+  }
+
+  .contact-display-main {
+    font-size: 52px;
+  }
+
+  .contact-display-main-kakao {
+    font-size: 44px;
+  }
+
+  .quick-search-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .floating-contact-toolbar {
+    right: 14px;
+    top: auto;
+    bottom: 22px;
+  }
+}
+
+@media (max-width: 768px) {
+  .brand-copy {
+    display: none;
+  }
+
+  .brand-logo {
+    width: 86px;
+  }
+
+  .select-grid-3,
+  .select-grid-main,
+  .staged-grid-bottom,
+  .contact-split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-display-card {
+    min-height: 220px;
+  }
+
+  .phone-display-card {
+    border-right: 0;
+    border-bottom: 1px solid #d9e2ef;
+  }
+
+  .contact-display-title {
+    font-size: 18px;
+  }
+
+  .contact-display-main {
+    font-size: 46px;
+  }
+
+  .contact-display-main-kakao {
+    font-size: 36px;
+  }
+
+  .contact-display-sub {
+    font-size: 18px;
+  }
+
+  .floating-contact-toolbar {
+    position: fixed;
+    right: 10px;
+    left: 10px;
+    bottom: 10px;
+    top: auto;
+  }
+
+  .floating-contact-btn {
+    width: 100%;
+  }
+}

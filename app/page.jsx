@@ -39,10 +39,10 @@ function formatNumber(value) {
 }
 
 export default function LoanLandingPage() {
-  const [loanAmount, setLoanAmount] = useState("30000000");
-  const [interestRate, setInterestRate] = useState("5.5");
+  const [loanAmount, setLoanAmount] = useState("0");
+  const [interestRate, setInterestRate] = useState("0");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("36");
+  const [loanMonths, setLoanMonths] = useState("0");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -341,11 +341,11 @@ export default function LoanLandingPage() {
     <div className="site-wrap">
       <header className="header">
         <div className="container header-inner">
-          <div className="brand">
-            <div className="brand-icon">대</div>
-            <div>
-              <div className="brand-title">대출상담 브랜드명</div>
-              <div className="brand-sub">빠른 상담 접수 랜딩페이지</div>
+          <div className="brand brand-logo-wrap">
+            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+            <div className="brand-copy">
+              <div className="brand-title">엔드아이에셋대부</div>
+              <div className="brand-sub">아파트 담보대출 · 대환대출 · 생활안정자금 상담</div>
             </div>
           </div>
 
@@ -358,6 +358,17 @@ export default function LoanLandingPage() {
           </nav>
         </div>
       </header>
+
+      <div className="floating-contact-toolbar">
+        <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call">
+          <span className="floating-contact-icon">☎</span>
+          <span>대표번호<small>070-8018-7437</small></span>
+        </a>
+        <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
+          <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
+          <span>카카오상담<small>카카오톡 ID : ANDi7437</small></span>
+        </a>
+      </div>
 
       <main>
         {currentView === "home" && (
@@ -433,59 +444,61 @@ export default function LoanLandingPage() {
                     <h2 className="section-title">오늘의 부동산 시세와 예상 한도가 궁금하세요?</h2>
                   </div>
 
-                  <div className="quick-search-box">
+                  <div className="quick-search-box quick-search-box-staged">
                     <div className="quick-search-meta">
                       <span>{catalogLoading ? "전국 단지 마스터 불러오는 중..." : `목록 소스: ${catalogSource || "미확인"}`}</span>
-                      <span>{catalogNote}</span>
+                      <span>{catalogNote || "선택 후 조회를 누르면 결과 페이지로 이동합니다."}</span>
                     </div>
+
                     <div className="select-grid select-grid-3">
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                        <option value="">광역시/도</option>
+                        {cities.map((city) => (
+                          <option key={city} value={city}>{city}</option>
+                        ))}
+                      </select>
+
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }} disabled={!selectedCity}>
+                        <option value="">시/군/구</option>
+                        {districts.map((district) => (
+                          <option key={district} value={district}>{district}</option>
+                        ))}
+                      </select>
+
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }} disabled={!selectedDistrict}>
+                        <option value="">읍/면/동</option>
+                        {towns.map((town) => (
+                          <option key={town} value={town}>{town}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="select-grid select-grid-main staged-grid-bottom">
                       <select value={propertyType} onChange={(e) => { setPropertyType(e.target.value); setSelectedCity(""); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); }}>
                         <option>아파트</option>
                         <option>오피스텔</option>
                         <option>빌라(연립/다세대)</option>
                       </select>
 
-                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
-                        {cities.map((city) => (
-                          <option key={city} value={city}>{city}</option>
-                        ))}
-                      </select>
-
-                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
-                        {districts.map((district) => (
-                          <option key={district} value={district}>{district}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="select-grid select-grid-main">
-                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
-                        {towns.map((town) => (
-                          <option key={town} value={town}>{town}</option>
+                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)} disabled={!selectedTown}>
+                        <option value="">면적</option>
+                        {areas.map((area) => (
+                          <option key={area} value={area}>{area}</option>
                         ))}
                       </select>
 
                       <input
                         type="text"
                         value={apartmentQuery}
-                        placeholder="단지 선택"
+                        placeholder="동 · 호수 또는 단지명 검색"
                         onChange={(e) => {
                           setApartmentQuery(e.target.value);
                           setSelectedApartment("");
-                          setSelectedArea("");
                           setShowApartmentList(true);
                         }}
                         onFocus={() => setShowApartmentList(true)}
+                        disabled={!selectedTown}
                       />
-
-                      <button
-                        type="button"
-                        className="search-btn"
-                        onClick={handleMarketSearch}
-                        disabled={marketLoading}
-                      >
-                        {marketLoading ? "조회 중..." : "실시간 조회"}
-                      </button>
                     </div>
 
                     {showApartmentList && filteredApartments.length > 0 && (
@@ -498,7 +511,6 @@ export default function LoanLandingPage() {
                             onClick={() => {
                               setSelectedApartment(name);
                               setApartmentQuery(name);
-                              setSelectedArea("");
                               setShowApartmentList(false);
                             }}
                           >
@@ -508,31 +520,25 @@ export default function LoanLandingPage() {
                       </div>
                     )}
 
-                    <div className="select-grid select-grid-main select-grid-bottom">
-                      <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
-                        {areas.map((area) => (
-                          <option key={area} value={area}>{area}</option>
-                        ))}
-                      </select>
-
-                      <input
-                        type="text"
-                        value={selectedSummary}
-                        readOnly
-                        className="selected-summary-input"
-                      />
-
-                      <div className="api-status-pill">
-                        {marketResult?.source === "reb-openapi" ? "실API 연결" : "API + 예시 fallback"}
-                      </div>
+                    <div className="selected-text search-guide-text">
+                      선택 전에는 기본 화면만 보이고, 조회 버튼을 누르면 결과가 표시됩니다.
                     </div>
 
-                    <div className="selected-text">
-                      선택 중: <strong>{selectedSummary}</strong> / <strong>{selectedArea}</strong>
+                    <div className="quick-search-actions">
+                      <div className="selected-text">
+                        선택 중: <strong>{selectedSummary || "지역을 선택해주세요"}</strong> {selectedArea ? <>/ <strong>{selectedArea}</strong></> : null}
+                      </div>
+                      <button
+                        type="button"
+                        className="search-btn"
+                        onClick={handleMarketSearch}
+                        disabled={marketLoading || !selectedCity || !selectedDistrict || !selectedTown || !selectedArea}
+                      >
+                        {marketLoading ? "조회 중..." : "시세 조회하기"}
+                      </button>
                     </div>
 
                     {marketError && <div className="api-status error">{marketError}</div>}
-                    <div className="api-status">한국부동산원 API 연동 구조이며, 키가 없으면 예시 데이터가 함께 표시됩니다.</div>
                   </div>
                 </div>
               </div>
@@ -541,22 +547,20 @@ export default function LoanLandingPage() {
             <section className="home-info-strip">
               <div className="container">
                 <div className="home-info-grid home-info-grid-3">
-                  <div className="home-info-box contact-home-box">
-                    <div className="contact-button-stack">
-                      <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
-                        <span className="contact-pill-icon">☎</span>
-                        <span className="contact-pill-copy">
-                          <strong>대표번호</strong>
-                          <small>070-8018-7437</small>
-                        </span>
+                  <div className="home-info-box contact-home-box contact-home-box-split">
+                    <div className="contact-split-grid">
+                      <a href="tel:070-8018-7437" className="contact-display-card phone-display-card">
+                        <div className="contact-display-title">대표 번호</div>
+                        <div className="contact-display-main">070-<br />8018-<br />7437</div>
+                        <div className="contact-display-sub">빠른 상담 연결</div>
+                        <div className="contact-display-mini">평일 상담 문의 가능</div>
                       </a>
 
-                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
-                        <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
-                        <span className="contact-pill-copy contact-pill-copy-dark">
-                          <strong>카카오상담</strong>
-                          <small>클릭 시 자동으로 연결됩니다.</small>
-                        </span>
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
+                        <div className="kakao-symbol">TALK</div>
+                        <div className="contact-display-title">카카오톡 상담</div>
+                        <div className="contact-display-main contact-display-main-kakao">ANDi7437</div>
+                        <div className="contact-display-mini">클릭하면 오픈채팅으로 연결됩니다.</div>
                       </a>
                     </div>
                   </div>
@@ -595,6 +599,7 @@ export default function LoanLandingPage() {
                       <div className="calc-label">예상 월 상환액</div>
                       <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
                     </div>
+                    <div className="calc-helper">금액과 이율, 기간을 직접 입력해 월 상환 예상액을 확인해보세요.</div>
                   </div>
                 </div>
               </div>
@@ -909,7 +914,7 @@ export default function LoanLandingPage() {
                         <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
                         <span className="contact-pill-copy contact-pill-copy-dark">
                           <strong>카카오상담</strong>
-                          <small>클릭 시 자동으로 연결됩니다.</small>
+                          <small>카카오톡 ID : ANDi7437</small>
                         </span>
                       </a>
                     </div>
@@ -955,16 +960,17 @@ export default function LoanLandingPage() {
             </div>
 
             <div className="legal-meta">
-              <span>상호명 : 시안용 입력칸</span>
-              <span>사업자등록번호 : 000-00-00000</span>
-              <span>사업장소재지 : 주소 입력칸</span>
-              <span>대표자명 : 대표자 입력칸</span>
-              <span>광고등록번호 : 0000-0000 / 000-0000-0000</span>
-              <span>대부업등록기관 : 등록기관 입력칸</span>
-              <span>대부업번호 : 등록번호 입력칸</span>
+              <span>상호 : 엔드아이에셋대부</span>
+              <span>대표자(성명) : 최종원</span>
+              <span>대표전화 : 070-8018-7437</span>
+              <span>사업자등록번호 : 739-08-03168</span>
+              <span>대부중개업 등록번호 : 2025-서울서초-0084</span>
+              <span>대부업 등록번호 : 2025-서울서초-0083(대부업)</span>
+              <span>사업자주소 : 서울특별시 서초구 서초중앙로 114, 일광빌딩 지하2층 B204호</span>
+              <span>등록기관 : 서초구청 일자리경제과 (02-2155-8752)</span>
             </div>
 
-            <div className="legal-copy">© 시안용 업체명. All Rights Reserved.</div>
+            <div className="legal-copy">© 엔드아이에셋대부. All Rights Reserved.</div>
           </div>
         </section>
       </main>
