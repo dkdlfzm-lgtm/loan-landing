@@ -10,6 +10,7 @@ const STATUS_OPTIONS = [
   { value: "contacted", label: "재통화예정" },
   { value: "closed", label: "처리완료" },
 ];
+const AUTO_REFRESH_MS = 5000;
 
 function statusLabel(value) {
   return STATUS_OPTIONS.find((item) => item.value === value)?.label || value || "미정";
@@ -87,6 +88,8 @@ export default function StaffPage() {
   const [saving, setSaving] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   useEffect(() => {
     fetch("/api/staff/session", { cache: "no-store" })
@@ -99,17 +102,23 @@ export default function StaffPage() {
       .catch(() => setAuthenticated(false));
   }, []);
 
-  async function loadData() {
-    setLoading(true);
-    const res = await fetch("/api/staff/inquiries", { cache: "no-store" });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.message || "데이터를 불러오지 못했습니다.");
-    setInquiries(data.inquiries || []);
-    if (!selectedId && data.inquiries?.length) setSelectedId(data.inquiries[0].id);
-    if (selectedId && !data.inquiries?.some((item) => item.id === selectedId)) {
-      setSelectedId(data.inquiries?.[0]?.id || null);
+  async function loadData({ silent = false } = {}) {
+    if (silent) setIsRefreshing(true);
+    else setLoading(true);
+    try {
+      const res = await fetch("/api/staff/inquiries", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "데이터를 불러오지 못했습니다.");
+      setInquiries(data.inquiries || []);
+      if (!selectedId && data.inquiries?.length) setSelectedId(data.inquiries[0].id);
+      if (selectedId && !data.inquiries?.some((item) => item.id === selectedId)) {
+        setSelectedId(data.inquiries?.[0]?.id || null);
+      }
+      setLastSyncedAt(new Date());
+    } finally {
+      if (silent) setIsRefreshing(false);
+      else setLoading(false);
     }
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -120,6 +129,23 @@ export default function StaffPage() {
       });
     }
   }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    const refresh = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      loadData({ silent: true }).catch(() => null);
+    };
+    const interval = window.setInterval(refresh, AUTO_REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [authenticated, selectedId]);
 
   const selectedInquiry = useMemo(() => inquiries.find((item) => item.id === selectedId) || null, [inquiries, selectedId]);
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
@@ -242,6 +268,7 @@ export default function StaffPage() {
           <div className="crm-customers-layout">
             <section className="crm-panel crm-panel-xl">
               <div className="crm-section-header"><h3>배정 고객 목록</h3><span>고객명 · 연락처 · 대출상품 기준 검색</span></div>
+              <div className="crm-sync-status">{isRefreshing ? "자동 새로고침 중..." : lastSyncedAt ? `최근 동기화 ${formatReviewDateTime(lastSyncedAt)}` : "동기화 대기 중"}</div>
               <div className="crm-toolbar crm-toolbar-xl">
                 <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="고객명, 연락처, 상품 검색" />
                 <select value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>{STATUS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>

@@ -16,6 +16,7 @@ const OWNER_TABS = [
   { key: "performance", label: "실적 관리" },
   { key: "staff", label: "담당자·직원 계정" },
 ];
+const AUTO_REFRESH_MS = 5000;
 
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return <div className={`crm-summary-card crm-tone-${tone}`}><span>{title}</span><strong>{value}</strong><small>{subtitle}</small></div>;
@@ -95,28 +96,56 @@ export default function AdminOwnerPage() {
   const [noteContent, setNoteContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [noteSaving, setNoteSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
   }, []);
 
-  async function loadData() {
-    setLoading(true);
-    const [inqRes, assRes, accRes] = await Promise.all([
-      fetch("/api/admin/inquiries", { cache: "no-store" }).then((r) => r.json()),
-      fetch("/api/admin/assignees", { cache: "no-store" }).then((r) => r.json()),
-      fetch("/api/admin/staff-accounts", { cache: "no-store" }).then((r) => r.json()),
-    ]);
-    const nextInquiries = inqRes.inquiries || [];
-    setInquiries(nextInquiries);
-    setAssignees(assRes.assignees || []);
-    setAccounts(accRes.accounts || []);
-    if (!selectedId && nextInquiries.length) setSelectedId(nextInquiries[0].id);
-    if (selectedId && !nextInquiries.some((item) => item.id === selectedId)) setSelectedId(nextInquiries[0]?.id || null);
-    setLoading(false);
+  async function loadData({ silent = false } = {}) {
+    if (silent) setIsRefreshing(true);
+    else setLoading(true);
+    try {
+      const [inqRes, assRes, accRes] = await Promise.all([
+        fetch("/api/admin/inquiries", { cache: "no-store" }).then((r) => r.json()),
+        fetch("/api/admin/assignees", { cache: "no-store" }).then((r) => r.json()),
+        fetch("/api/admin/staff-accounts", { cache: "no-store" }).then((r) => r.json()),
+      ]);
+      const nextInquiries = inqRes.inquiries || [];
+      setInquiries(nextInquiries);
+      setAssignees(assRes.assignees || []);
+      setAccounts(accRes.accounts || []);
+      if (!selectedId && nextInquiries.length) setSelectedId(nextInquiries[0].id);
+      if (selectedId && !nextInquiries.some((item) => item.id === selectedId)) setSelectedId(nextInquiries[0]?.id || null);
+      setLastSyncedAt(new Date());
+    } finally {
+      if (silent) setIsRefreshing(false);
+      else setLoading(false);
+    }
   }
 
-  useEffect(() => { if (authenticated) loadData().catch(() => setLoading(false)); }, [authenticated]);
+  useEffect(() => {
+    if (!authenticated) return;
+    loadData().catch(() => setLoading(false));
+  }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    const refresh = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      loadData({ silent: true }).catch(() => null);
+    };
+    const interval = window.setInterval(refresh, AUTO_REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [authenticated, selectedId]);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -336,6 +365,7 @@ export default function AdminOwnerPage() {
               <div className="crm-customers-layout">
                 <section className="crm-panel crm-panel-xl">
                   <div className="crm-section-header"><h3>전체 고객 현황</h3><span>신규 접수 확인 후 담당자를 배정하세요.</span></div>
+                  <div className="crm-sync-status">{isRefreshing ? "자동 새로고침 중..." : lastSyncedAt ? `최근 동기화 ${formatReviewDateTime(lastSyncedAt)}` : "동기화 대기 중"}</div>
                   <div className="crm-toolbar crm-toolbar-xl">
                     <input value={filters.q} onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))} placeholder="고객명, 연락처, 담당자 검색" />
                     <select value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}>{STATUS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>

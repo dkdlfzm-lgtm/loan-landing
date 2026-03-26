@@ -1539,3 +1539,4 @@ textarea {
 .crm-action-stack { display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; min-width:260px; }
 .crm-action-stack input { min-width: 0; }
 @media (max-width: 1180px){ .crm-account-form{ grid-template-columns:1fr; } .crm-action-stack{ grid-template-columns:1fr; min-width:0; } }
+.crm-sync-status{margin:10px 0 16px;font-size:13px;color:#64748b;font-weight:700;}
