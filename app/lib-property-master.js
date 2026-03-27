@@ -1,55 +1,19 @@
-import { getApartments, getAreas, getCities, getDistricts, getTowns } from "./lib-market-options";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 function unique(values = []) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function buildFallbackMaster() {
-  const propertyTypes = ["아파트", "오피스텔", "빌라(연립/다세대)"];
-  const master = {};
-
-  for (const propertyType of propertyTypes) {
-    master[propertyType] = {};
-    const cities = getCities(propertyType);
-    for (const city of cities) {
-      const entries = [];
-      const districts = getDistricts(propertyType, city);
-      for (const district of districts) {
-        const towns = getTowns(propertyType, city, district);
-        for (const town of towns) {
-          const apartments = getApartments(propertyType, city, district, town);
-          for (const apartment of apartments) {
-            entries.push({
-              district,
-              town,
-              apartment,
-              areas: getAreas(propertyType, city, district, town, apartment),
-            });
-          }
-        }
-      }
-      master[propertyType][city] = entries;
-    }
-  }
-
-  return master;
-}
-
 let memoryCache = null;
 let cacheExpiry = 0;
 
-async function fetchRemoteMaster() {
-  const url = process.env.PROPERTY_MASTER_URL;
-  if (!url) return null;
-
-  const response = await fetch(url, { next: { revalidate: 3600 } });
-  if (!response.ok) {
-    throw new Error(`PROPERTY_MASTER_URL 호출 실패 (${response.status})`);
-  }
-
-  const payload = await response.json();
+async function loadLocalMaster() {
+  const localPath = path.join(process.cwd(), "public", "property-master.json");
+  const raw = await fs.readFile(localPath, "utf-8");
+  const payload = JSON.parse(raw);
   if (!payload || typeof payload !== "object") {
-    throw new Error("PROPERTY_MASTER_URL 응답 형식이 올바르지 않습니다.");
+    throw new Error("property-master.json 형식이 올바르지 않습니다.");
   }
   return payload;
 }
@@ -57,24 +21,23 @@ async function fetchRemoteMaster() {
 export async function loadPropertyMaster() {
   const now = Date.now();
   if (memoryCache && cacheExpiry > now) {
-    return { master: memoryCache, source: process.env.PROPERTY_MASTER_URL ? "remote-cache" : "fallback-cache" };
+    return { master: memoryCache, source: "local-cache" };
   }
 
   try {
-    const remote = await fetchRemoteMaster();
-    if (remote) {
-      memoryCache = remote;
-      cacheExpiry = now + 1000 * 60 * 30;
-      return { master: remote, source: "remote" };
-    }
+    const local = await loadLocalMaster();
+    memoryCache = local;
+    cacheExpiry = now + 1000 * 60 * 30;
+    return { master: local, source: "local" };
   } catch (error) {
-    console.warn("[property-master] remote load failed:", error?.message || error);
+    if (error?.code === "ENOENT") {
+      const empty = { "아파트": {}, "오피스텔": {}, "빌라(연립/다세대)": {} };
+      memoryCache = empty;
+      cacheExpiry = now + 1000 * 60 * 5;
+      return { master: empty, source: "missing" };
+    }
+    throw error;
   }
-
-  const fallback = buildFallbackMaster();
-  memoryCache = fallback;
-  cacheExpiry = now + 1000 * 60 * 10;
-  return { master: fallback, source: "fallback" };
 }
 
 function getEntries(master, propertyType, city) {
@@ -83,15 +46,15 @@ function getEntries(master, propertyType, city) {
 
 export function resolvePropertyOptions(master, query = {}) {
   const propertyType = query.propertyType || "아파트";
-  const cities = Object.keys(master?.[propertyType] || {});
+  const cities = Object.keys(master?.[propertyType] || {}).sort((a, b) => a.localeCompare(b, "ko"));
   const city = query.city && cities.includes(query.city) ? query.city : "";
   const entries = city ? getEntries(master, propertyType, city) : [];
 
-  const districts = city ? unique(entries.map((entry) => entry.district)) : [];
+  const districts = city ? unique(entries.map((entry) => entry.district)).sort((a, b) => a.localeCompare(b, "ko")) : [];
   const district = query.district && districts.includes(query.district) ? query.district : "";
 
   const districtEntries = district ? entries.filter((entry) => entry.district === district) : [];
-  const towns = district ? unique(districtEntries.map((entry) => entry.town)) : [];
+  const towns = district ? unique(districtEntries.map((entry) => entry.town)).sort((a, b) => a.localeCompare(b, "ko")) : [];
   const town = query.town && towns.includes(query.town) ? query.town : "";
 
   const townEntries = town ? districtEntries.filter((entry) => entry.town === town) : [];
@@ -101,10 +64,16 @@ export function resolvePropertyOptions(master, query = {}) {
         townEntries
           .filter((entry) => !apartmentQuery || entry.apartment.toLowerCase().includes(apartmentQuery))
           .map((entry) => entry.apartment)
-      )
+      ).sort((a, b) => a.localeCompare(b, "ko"))
     : [];
   const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : "";
-  const areas = apartment ? unique(townEntries.find((entry) => entry.apartment === apartment)?.areas || []) : [];
+  const areas = apartment
+    ? unique(
+        townEntries
+          .filter((entry) => entry.apartment === apartment)
+          .flatMap((entry) => entry.areas || [])
+      )
+    : [];
   const area = query.area && areas.includes(query.area) ? query.area : "";
 
   return {

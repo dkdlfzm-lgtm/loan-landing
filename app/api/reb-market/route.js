@@ -38,7 +38,7 @@ function buildFallbackSummary({ propertyType, city, district, town, apartment, a
   return {
     title: apartment || `${town} 대표 단지`,
     address: [city, district, town].filter(Boolean).join(" "),
-    area: area || "84.96㎡",
+    area: area || "선택 면적",
     tradeDate: "최근 조회 기준",
     latestPrice: formatEok(latest),
     range: `${formatEok(low)} ~ ${formatEok(high)}`,
@@ -103,7 +103,6 @@ async function fetchRebSummary(query, fallback) {
   url.searchParams.set("pIndex", "1");
   url.searchParams.set("pSize", "30");
 
-  // R-ONE 개발가이드 기준 기본 파라미터 형식. 실제 통계표에 필요한 추가 인자는 환경에 맞게 더 넣을 수 있습니다.
   if (process.env.REB_DTACYCLE_CD) url.searchParams.set("DTACYCLE_CD", process.env.REB_DTACYCLE_CD);
   if (process.env.REB_WRTTIME_ID) url.searchParams.set("WRTTIME_IDTFR_ID", process.env.REB_WRTTIME_ID);
 
@@ -125,12 +124,19 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = {
     propertyType: searchParams.get("propertyType") || "아파트",
-    city: searchParams.get("city") || "경기도",
-    district: searchParams.get("district") || "구리시",
-    town: searchParams.get("town") || "수택동",
-    apartment: searchParams.get("apartment") || "LG원앙",
-    area: searchParams.get("area") || "84.96㎡",
+    city: searchParams.get("city") || "",
+    district: searchParams.get("district") || "",
+    town: searchParams.get("town") || "",
+    apartment: searchParams.get("apartment") || "",
+    area: searchParams.get("area") || "",
   };
+
+  if (!query.city || !query.district || !query.town || !query.apartment || !query.area) {
+    return NextResponse.json(
+      { ok: false, message: "시도, 시군구, 읍면동, 아파트, 면적을 모두 선택해 주세요." },
+      { status: 400 }
+    );
+  }
 
   const fallback = buildFallbackSummary(query);
 

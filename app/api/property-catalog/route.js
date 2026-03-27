@@ -16,6 +16,8 @@ export async function GET(request) {
   try {
     const { master, source } = await loadPropertyMaster();
     const result = resolvePropertyOptions(master, query);
+    const isEmptySource = source === "missing";
+
     return NextResponse.json({
       ok: true,
       source,
@@ -34,10 +36,7 @@ export async function GET(request) {
         areas: result.areas,
       },
       counts: result.counts,
-      note:
-        source === "fallback" || source === "fallback-cache"
-          ? "현재는 내장 샘플 목록입니다. PROPERTY_MASTER_URL을 연결하면 전국 단지 마스터 기준으로 바뀝니다."
-          : "외부 단지 마스터 기준으로 동작 중입니다.",
+      warning: isEmptySource ? "public/property-master.json 파일이 아직 없습니다. 생성한 전국 목록 파일을 public 폴더에 넣어주세요." : "",
     });
   } catch (error) {
     return NextResponse.json({ ok: false, message: error?.message || "단지 목록을 불러오지 못했습니다." }, { status: 500 });
