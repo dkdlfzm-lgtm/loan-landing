@@ -50,10 +50,9 @@ function formatNumber(value) {
 
 export default function LoanLandingPage() {
   const [loanAmount, setLoanAmount] = useState("0");
-  const RATE_BY_REPAYMENT = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
-  const [interestRate, setInterestRate] = useState(RATE_BY_REPAYMENT["원리금균등"]);
+  const [interestRate, setInterestRate] = useState("0");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("360");
+  const [loanMonths, setLoanMonths] = useState("0");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -89,10 +88,6 @@ export default function LoanLandingPage() {
   const towns = catalogOptions.towns;
   const apartments = catalogOptions.apartments;
   const areas = catalogOptions.areas;
-
-  useEffect(() => {
-    setInterestRate(RATE_BY_REPAYMENT[repaymentType] || "");
-  }, [repaymentType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +188,7 @@ export default function LoanLandingPage() {
         estimateLimit: marketSummary.estimateLimit || "상담 후 산정",
         description:
           marketSummary.description ||
-          "한국부동산원 API 기준으로 조회한 값을 기반으로 예상 조건과 상담 연결 흐름을 보여주는 화면입니다.",
+          "조회하신 시세를 바탕으로 예상 한도와 상담 방향을 안내해드립니다.",
       };
     }
 
@@ -207,7 +202,7 @@ export default function LoanLandingPage() {
       range: "8억 3,000만원 ~ 8억 9,000만원",
       estimateLimit: "최대 6억 1,000만원 가능",
       description:
-        "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다.",
+        "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인할 수 있습니다.",
     };
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
@@ -393,19 +388,19 @@ export default function LoanLandingPage() {
 
               <div className="container hero-grid">
                 <div className="hero-left">
-                  <div className="hero-pill">선택형 시세조회 · 빠른 상담 연결</div>
+                  <div className="hero-pill">아파트 시세조회 · 맞춤 대출상담</div>
 
                   <h1 className="hero-title">
-                    아파트 시세조회부터
+                    아파트 시세를 빠르게 확인하고
                     <br />
-                    대출 상담 신청까지
+                    내 조건에 맞는
                     <br />
-                    한 번에 연결되는 구조
+                    대출 상담까지 받아보세요
                   </h1>
 
                   <p className="hero-text">
-                    필요한 주소 정보와 단지를 차례대로 선택하면 예상 시세와 상담 연결 화면으로
-                    자연스럽게 이어지도록 구성한 고객용 메인 페이지입니다.
+                    지역과 단지, 면적을 선택하면 최근 시세와 예상 한도를 확인하고
+                    바로 상담 접수까지 진행할 수 있습니다.
                   </p>
 
                   <div className="hero-actions">
@@ -786,24 +781,27 @@ export default function LoanLandingPage() {
               </div>
 
               <div className="result-page-hero">
-                <div>
-                  <div className="section-mini light-mini">시세조회 결과 · {marketResult?.source === "reb-openapi" ? "한국부동산원 API" : "예시 데이터 fallback"}</div>
+                <div className="result-hero-main">
+                  <div className="section-mini light-mini">시세조회 결과</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
                   <p className="result-page-sub">
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
                   </p>
                 </div>
-                <a href="#contact" className="white-pill-btn">상담 신청</a>
+
+                <div className="result-hero-side">
+                  <a href="#contact" className="white-pill-btn">상담 신청</a>
+                  <div className="result-hero-trade-card">
+                    <div className="result-hero-trade-label">최근 실거래가</div>
+                    <div className="result-hero-trade-price">{priceResult.latestPrice}</div>
+                    <div className="result-hero-trade-meta">거래일 {priceResult.tradeDate} · {priceResult.range}</div>
+                  </div>
+                </div>
               </div>
 
               <div className="result-page-grid">
                 <div className="result-main-card">
-                  <div className="info-grid result-info-grid">
-                    <div className="info-card">
-                      <div className="info-label">최근 실거래가</div>
-                      <div className="info-value">{priceResult.latestPrice}</div>
-                      <div className="info-sub">기준일 {priceResult.tradeDate}</div>
-                    </div>
+                  <div className="info-grid result-info-grid result-info-grid-3">
                     <div className="info-card">
                       <div className="info-label">최근 거래 범위</div>
                       <div className="info-value">{priceResult.range}</div>
@@ -817,7 +815,7 @@ export default function LoanLandingPage() {
                     <div className="info-card">
                       <div className="info-label">예상 가능 한도</div>
                       <div className="info-value">{priceResult.estimateLimit}</div>
-                      <div className="info-sub">상담 후 세부조건 반영</div>
+                      <div className="info-sub">개인 조건에 따라 달라질 수 있습니다.</div>
                     </div>
                   </div>
 
@@ -853,8 +851,8 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="desc-card">
-                    <div className="section-mini">설명 영역</div>
-                    <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
+                    <div className="section-mini">상담 안내</div>
+                    <h3 className="desc-title">선택하신 시세 정보를 바탕으로 맞춤 상담을 도와드립니다.</h3>
                     <p className="desc-text">{priceResult.description}</p>
 
                     <div className="tag-wrap">
@@ -869,17 +867,17 @@ export default function LoanLandingPage() {
 
                 <div className="result-side-col">
                   <div id="contact" className="side-card">
-                    <div className="section-mini">대출 신청 작성란</div>
+                    <div className="section-mini">상담 신청</div>
                     <h3 className="card-title">지금 바로 상담 신청</h3>
                     <p className="card-desc">
-                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
+                      조회하신 단지 정보를 기준으로 담당자가 빠르게 상담을 도와드립니다.
                     </p>
 
                     <form className="form-stack" onSubmit={submitResultInquiry}>
                       <input type="text" placeholder="성함" value={resultInquiry.name} onChange={(e) => setResultInquiry((prev) => ({ ...prev, name: e.target.value }))} />
                       <input type="text" placeholder="연락처" value={resultInquiry.phone} onChange={(e) => setResultInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
-                      <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
+                      <input type="text" value={`${selectedCity} ${selectedDistrict} ${selectedTown}`} readOnly />
                       <select value={resultInquiry.loanType} onChange={(e) => setResultInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
                         {loanTypeOptions.map((option) => (
                           <option key={option} value={option}>{option}</option>
@@ -931,11 +929,11 @@ export default function LoanLandingPage() {
               </details>
               <details className="faq-item">
                 <summary>조건 안내는 확정 조건인가요?</summary>
-                <p>아니요. 현재는 예시 조건이며 실제 가능 여부와 금리는 상담 후 달라질 수 있습니다.</p>
+                <p>실제 가능 여부와 적용 금리는 개인 조건 및 심사 결과에 따라 달라질 수 있습니다.</p>
               </details>
               <details className="faq-item">
                 <summary>이율 계산기는 실시간으로 바뀌나요?</summary>
-                <p>네. 입력값을 바꾸면 예상 월 상환액과 총 상환 예상액이 즉시 변경됩니다.</p>
+                <p>네. 입력값을 변경하면 예상 월 상환액과 총 상환 예상액이 자동으로 다시 계산됩니다.</p>
               </details>
             </div>
           </div>

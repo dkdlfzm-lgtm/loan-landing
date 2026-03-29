@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
@@ -8,11 +8,10 @@ function formatNumber(value) {
 }
 
 export default function PriceResultPage() {
-  const RATE_BY_REPAYMENT = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
-  const [loanAmount, setLoanAmount] = useState("0");
-  const [interestRate, setInterestRate] = useState(RATE_BY_REPAYMENT["원리금균등"]);
+  const [loanAmount, setLoanAmount] = useState("30000000");
+  const [interestRate, setInterestRate] = useState("5.5");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("360");
+  const [loanMonths, setLoanMonths] = useState("36");
 
   const params =
     typeof window !== "undefined"
@@ -25,10 +24,6 @@ export default function PriceResultPage() {
   const apartment = params.get("apartment") || "LG원앙";
   const area = params.get("area") || "84.96㎡";
 
-  useEffect(() => {
-    setInterestRate(RATE_BY_REPAYMENT[repaymentType] || "");
-  }, [repaymentType]);
-
   const priceResult = {
     title: apartment,
     address: `${city} ${district} ${town}`,
@@ -39,7 +34,7 @@ export default function PriceResultPage() {
     range: "8억 3,000만원 ~ 8억 9,000만원",
     estimateLimit: "최대 6억 1,000만원 가능",
     description:
-      "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다.",
+      "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인할 수 있습니다.",
   };
 
   const calcResult = useMemo(() => {
@@ -97,24 +92,26 @@ export default function PriceResultPage() {
           </div>
 
           <div className="result-page-hero">
-            <div>
+            <div className="result-hero-main">
               <div className="section-mini light-mini">시세조회 결과</div>
               <h2 className="result-page-title">{priceResult.title}</h2>
               <p className="result-page-sub">
                 {priceResult.address} · {priceResult.area} · {priceResult.floor}
               </p>
             </div>
-            <a href="#contact" className="white-pill-btn">상담 신청</a>
+            <div className="result-hero-side">
+              <a href="#contact" className="white-pill-btn">상담 신청</a>
+              <div className="result-hero-trade-card">
+                <div className="result-hero-trade-label">최근 실거래가</div>
+                <div className="result-hero-trade-price">{priceResult.latestPrice}</div>
+                <div className="result-hero-trade-meta">거래일 {priceResult.tradeDate} · {priceResult.range}</div>
+              </div>
+            </div>
           </div>
 
           <div className="result-page-grid">
             <div className="result-main-card">
-              <div className="info-grid result-info-grid">
-                <div className="info-card">
-                  <div className="info-label">최근 실거래가</div>
-                  <div className="info-value">{priceResult.latestPrice}</div>
-                  <div className="info-sub">기준일 {priceResult.tradeDate}</div>
-                </div>
+              <div className="info-grid result-info-grid result-info-grid-3">
                 <div className="info-card">
                   <div className="info-label">최근 거래 범위</div>
                   <div className="info-value">{priceResult.range}</div>
@@ -128,7 +125,7 @@ export default function PriceResultPage() {
                 <div className="info-card">
                   <div className="info-label">예상 가능 한도</div>
                   <div className="info-value">{priceResult.estimateLimit}</div>
-                  <div className="info-sub">상담 후 세부조건 반영</div>
+                  <div className="info-sub">개인 조건에 따라 달라질 수 있습니다.</div>
                 </div>
               </div>
 
@@ -164,8 +161,8 @@ export default function PriceResultPage() {
               </div>
 
               <div className="desc-card">
-                <div className="section-mini">설명 영역</div>
-                <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
+                <div className="section-mini">상담 안내</div>
+                <h3 className="desc-title">선택하신 시세 정보를 바탕으로 맞춤 상담을 도와드립니다.</h3>
                 <p className="desc-text">{priceResult.description}</p>
 
                 <div className="tag-wrap">
@@ -180,20 +177,20 @@ export default function PriceResultPage() {
 
             <div className="result-side-col">
               <div id="contact" className="side-card">
-                <div className="section-mini">대출 신청 작성란</div>
+                <div className="section-mini">상담 신청</div>
                 <h3 className="card-title">지금 바로 상담 신청</h3>
                 <p className="card-desc">
-                  조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
+                  조회하신 단지 정보를 기준으로 담당자가 빠르게 상담을 도와드립니다.
                 </p>
 
                 <form className="form-stack">
                   <input type="text" placeholder="성함" />
                   <input type="text" placeholder="연락처" />
                   <input type="text" value={`${apartment} / ${area}`} readOnly />
-                  <select defaultValue="희망 상품 선택">
-                    <option>희망 상품 선택</option>
-                    <option>아파트 담보대출</option>
-                    <option>생활안정자금</option>
+                  <input type="text" value={priceResult.address} readOnly />
+                  <select defaultValue="주택담보대출">
+                    <option>주택담보대출</option>
+                    <option>전세퇴거자금</option>
                     <option>대환대출</option>
                   </select>
                   <textarea rows={4} placeholder="상담 내용을 입력하세요" />

@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "대출 상담 홈페이지",
-  description: "대출 상담 접수형 랜딩페이지 예시",
+  title: "엔드아이에셋대부",
+  description: "주택담보대출 · 대환대출 · 전세퇴거자금 상담",
 };
 
 export default function RootLayout({ children }) {

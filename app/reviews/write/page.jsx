@@ -3,8 +3,28 @@
 import Link from "next/link";
 import { useState } from "react";
 
+function ReviewsHeader() {
+  return (
+    <header className="header">
+      <div className="container header-inner">
+        <div className="brand brand-logo-wrap">
+          <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+          <div className="brand-copy">
+            <div className="brand-title">엔드아이에셋대부</div>
+            <div className="brand-sub">이용후기 작성</div>
+          </div>
+        </div>
+        <nav className="nav">
+          <Link href="/">홈</Link>
+          <Link href="/reviews">이용후기</Link>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
 export default function ReviewWritePage() {
-  const [form, setForm] = useState({ name: "", password: "", email: "", title: "", content: "" });
+  const [form, setForm] = useState({ name: "", password: "", title: "", content: "" });
   const [error, setError] = useState("");
   const [savedReviewId, setSavedReviewId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -13,7 +33,7 @@ export default function ReviewWritePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.password || !form.email || !form.title || !form.content) {
+    if (!form.name || !form.password || !form.title || !form.content) {
       setError("모든 항목을 입력해주세요.");
       return;
     }
@@ -29,7 +49,7 @@ export default function ReviewWritePage() {
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "이용후기를 등록하지 못했습니다.");
       setSavedReviewId(data.review?.id || "");
-      setForm({ name: "", password: "", email: "", title: "", content: "" });
+      setForm({ name: "", password: "", title: "", content: "" });
     } catch (err) {
       setError(err.message || "이용후기를 등록하지 못했습니다.");
     } finally {
@@ -39,28 +59,14 @@ export default function ReviewWritePage() {
 
   return (
     <div className="site-wrap reviews-page-wrap">
-      <header className="header">
-        <div className="container header-inner">
-          <div className="brand">
-            <div className="brand-icon">대</div>
-            <div>
-              <div className="brand-title">대출상담 브랜드명</div>
-              <div className="brand-sub">이용후기 작성</div>
-            </div>
-          </div>
-          <nav className="nav">
-            <Link href="/">홈</Link>
-            <Link href="/reviews">이용후기</Link>
-          </nav>
-        </div>
-      </header>
+      <ReviewsHeader />
 
       <main className="section reviews-main-section">
         <div className="container reviews-shell">
           <div className="review-write-card">
             <div className="section-mini">이용후기 작성</div>
-            <h1 className="section-title reviews-page-title">후기 내용을 남겨주세요</h1>
-            <p className="card-desc">작성된 후기는 첫 화면 이용후기 영역과 후기 게시판에 함께 표시됩니다.</p>
+            <h1 className="section-title reviews-page-title">상담 후기를 남겨주세요</h1>
+            <p className="card-desc">작성하신 후기는 확인 후 이용후기 게시판에 노출됩니다.</p>
 
             <form className="form-stack" onSubmit={handleSubmit}>
               <div className="two-col compact-two-col">
@@ -72,11 +78,6 @@ export default function ReviewWritePage() {
                   <label>비밀번호</label>
                   <input type="password" value={form.password} onChange={(e) => handleChange("password", e.target.value)} placeholder="비밀번호 입력" />
                 </div>
-              </div>
-
-              <div className="field">
-                <label>이메일</label>
-                <input type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} placeholder="이메일 입력" />
               </div>
 
               <div className="field">

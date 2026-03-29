@@ -4,6 +4,27 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDate } from "../lib-reviews";
 
+function ReviewsHeader({ subTitle = "이용후기" }) {
+  return (
+    <header className="header">
+      <div className="container header-inner">
+        <div className="brand brand-logo-wrap">
+          <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+          <div className="brand-copy">
+            <div className="brand-title">엔드아이에셋대부</div>
+            <div className="brand-sub">{subTitle}</div>
+          </div>
+        </div>
+        <nav className="nav">
+          <Link href="/">홈</Link>
+          <Link href="/reviews">이용후기</Link>
+          <Link href="/reviews/write" className="nav-btn">작성하기</Link>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState([]);
   const [query, setQuery] = useState("");
@@ -34,29 +55,14 @@ export default function ReviewsPage() {
 
   return (
     <div className="site-wrap reviews-page-wrap">
-      <header className="header">
-        <div className="container header-inner">
-          <div className="brand">
-            <div className="brand-icon">대</div>
-            <div>
-              <div className="brand-title">대출상담 브랜드명</div>
-              <div className="brand-sub">이용후기 게시판</div>
-            </div>
-          </div>
-          <nav className="nav">
-            <Link href="/">홈</Link>
-            <Link href="/reviews">이용후기</Link>
-            <Link href="/reviews/write" className="nav-btn">작성하기</Link>
-          </nav>
-        </div>
-      </header>
+      <ReviewsHeader subTitle="실제 상담 이용후기" />
 
       <main className="section reviews-main-section">
         <div className="container reviews-shell">
           <div className="reviews-topbar">
             <div>
               <div className="section-mini">이용후기</div>
-              <h1 className="section-title reviews-page-title">실제 이용후기를 확인해보세요</h1>
+              <h1 className="section-title reviews-page-title">상담을 진행하신 고객님의 후기를 확인해보세요</h1>
             </div>
             <Link href="/reviews/write" className="primary-btn reviews-write-btn">작성하기</Link>
           </div>
@@ -76,7 +82,7 @@ export default function ReviewsPage() {
           <div className="reviews-board-head">
             <span className="reviews-col-title">제목</span>
             <span className="reviews-col-meta">조회수</span>
-            <span className="reviews-col-meta">작성날짜</span>
+            <span className="reviews-col-meta">작성일</span>
           </div>
 
           <div className="reviews-board-list">
