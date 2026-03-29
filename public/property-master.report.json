@@ -1,0 +1,152 @@
+{
+  "apartment": {
+    "total": 44079,
+    "missingAreas": 9297,
+    "byCity": {
+      "서울특별시": {
+        "total": 8187,
+        "missingAreas": 948
+      },
+      "부산광역시": {
+        "total": 3921,
+        "missingAreas": 350
+      },
+      "대구광역시": {
+        "total": 2097,
+        "missingAreas": 372
+      },
+      "인천광역시": {
+        "total": 2208,
+        "missingAreas": 319
+      },
+      "광주광역시": {
+        "total": 1506,
+        "missingAreas": 300
+      },
+      "대전광역시": {
+        "total": 1053,
+        "missingAreas": 142
+      },
+      "울산광역시": {
+        "total": 1468,
+        "missingAreas": 195
+      },
+      "경기도": {
+        "total": 8786,
+        "missingAreas": 2760
+      },
+      "충청북도": {
+        "total": 1380,
+        "missingAreas": 558
+      },
+      "충청남도": {
+        "total": 1899,
+        "missingAreas": 580
+      },
+      "전라남도": {
+        "total": 1648,
+        "missingAreas": 430
+      },
+      "경상북도": {
+        "total": 2787,
+        "missingAreas": 541
+      },
+      "경상남도": {
+        "total": 3259,
+        "missingAreas": 754
+      },
+      "제주특별자치도": {
+        "total": 912,
+        "missingAreas": 97
+      },
+      "강원특별자치도": {
+        "total": 1595,
+        "missingAreas": 380
+      },
+      "전북특별자치도": {
+        "total": 1373,
+        "missingAreas": 571
+      }
+    }
+  },
+  "officetel": {
+    "total": 5831,
+    "missingAreas": 367,
+    "byCity": {
+      "서울특별시": {
+        "total": 1793,
+        "missingAreas": 278
+      },
+      "부산광역시": {
+        "total": 720,
+        "missingAreas": 14
+      },
+      "대구광역시": {
+        "total": 133,
+        "missingAreas": 0
+      },
+      "인천광역시": {
+        "total": 782,
+        "missingAreas": 14
+      },
+      "광주광역시": {
+        "total": 103,
+        "missingAreas": 1
+      },
+      "대전광역시": {
+        "total": 88,
+        "missingAreas": 0
+      },
+      "울산광역시": {
+        "total": 132,
+        "missingAreas": 1
+      },
+      "경기도": {
+        "total": 1303,
+        "missingAreas": 51
+      },
+      "강원특별자치도": {
+        "total": 58,
+        "missingAreas": 1
+      },
+      "충청북도": {
+        "total": 29,
+        "missingAreas": 0
+      },
+      "충청남도": {
+        "total": 90,
+        "missingAreas": 3
+      },
+      "전북특별자치도": {
+        "total": 26,
+        "missingAreas": 0
+      },
+      "전라남도": {
+        "total": 78,
+        "missingAreas": 0
+      },
+      "경상북도": {
+        "total": 110,
+        "missingAreas": 1
+      },
+      "경상남도": {
+        "total": 239,
+        "missingAreas": 2
+      },
+      "제주특별자치도": {
+        "total": 147,
+        "missingAreas": 1
+      }
+    }
+  },
+  "enrichStats": {
+    "tradeAdded": 54651,
+    "rentAdded": 22194,
+    "tradeMatched": 490334,
+    "rentMatched": 961306,
+    "tradeFallbackCreated": 16978,
+    "rentFallbackCreated": 6844,
+    "tradeUnmatched": 23137,
+    "rentUnmatched": 24210
+  }
+}

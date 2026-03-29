@@ -5,6 +5,71 @@ function unique(values = []) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function normalizeAptName(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/\(.*?\)/g, "")
+    .replace(/아파트$/g, "")
+    .replace(/[·.,/\-]/g, "");
+}
+
+function normalizeAreaValue(area) {
+  const match = String(area ?? "").match(/\d+(?:\.\d+)?/);
+  if (!match) return "";
+  const num = Number(match[0]);
+  if (!Number.isFinite(num) || num <= 0) return "";
+  const fixed = Number(num.toFixed(2));
+  return `${Number.isInteger(fixed) ? fixed : fixed}㎡`;
+}
+
+function sortAreas(areas = []) {
+  return unique(areas.map(normalizeAreaValue)).sort((a, b) => {
+    const an = Number(String(a).replace(/㎡/g, ""));
+    const bn = Number(String(b).replace(/㎡/g, ""));
+    return an - bn;
+  });
+}
+
+function normalizePayload(payload) {
+  const result = { "아파트": {}, "오피스텔": {}, "빌라(연립/다세대)": {} };
+
+  if (Array.isArray(payload)) {
+    const bucket = result["아파트"];
+    for (const row of payload) {
+      const city = row.city || row.sido || "";
+      if (!city) continue;
+      if (!bucket[city]) bucket[city] = [];
+      bucket[city].push({
+        ...row,
+        district: row.district || row.sigungu || "",
+        town: row.town || row.dong || "",
+        apartment: row.apartment || row.name || "",
+        areas: sortAreas(row.areas || []),
+      });
+    }
+    return result;
+  }
+
+  for (const type of Object.keys(result)) {
+    const cities = payload?.[type] || {};
+    for (const [city, rows] of Object.entries(cities)) {
+      result[type][city] = Array.isArray(rows)
+        ? rows.map((row) => ({
+            ...row,
+            district: row.district || row.sigungu || "",
+            town: row.town || row.dong || "",
+            apartment: row.apartment || row.name || "",
+            areas: sortAreas(row.areas || []),
+          }))
+        : [];
+    }
+  }
+
+  return result;
+}
+
 let memoryCache = null;
 let cacheExpiry = 0;
 
@@ -15,7 +80,7 @@ async function loadLocalMaster() {
   if (!payload || typeof payload !== "object") {
     throw new Error("property-master.json 형식이 올바르지 않습니다.");
   }
-  return payload;
+  return normalizePayload(payload);
 }
 
 export async function loadPropertyMaster() {
@@ -59,21 +124,29 @@ export function resolvePropertyOptions(master, query = {}) {
 
   const townEntries = town ? districtEntries.filter((entry) => entry.town === town) : [];
   const apartmentQuery = String(query.apartmentQuery || "").trim().toLowerCase();
+
+  const entriesWithAreas = townEntries.filter((entry) => Array.isArray(entry.areas) && entry.areas.length > 0);
+  const apartmentSourceEntries = entriesWithAreas.length > 0 ? entriesWithAreas : townEntries;
+
   const apartments = town
     ? unique(
-        townEntries
+        apartmentSourceEntries
           .filter((entry) => !apartmentQuery || entry.apartment.toLowerCase().includes(apartmentQuery))
           .map((entry) => entry.apartment)
       ).sort((a, b) => a.localeCompare(b, "ko"))
     : [];
+
   const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : "";
-  const areas = apartment
-    ? unique(
-        townEntries
-          .filter((entry) => entry.apartment === apartment)
-          .flatMap((entry) => entry.areas || [])
-      )
-    : [];
+
+  let areaEntries = apartment ? townEntries.filter((entry) => entry.apartment === apartment) : [];
+  let areas = apartment ? sortAreas(areaEntries.flatMap((entry) => entry.areas || [])) : [];
+
+  if (apartment && areas.length === 0) {
+    const normalized = normalizeAptName(apartment);
+    const similarEntries = townEntries.filter((entry) => normalizeAptName(entry.apartment) === normalized);
+    areas = sortAreas(similarEntries.flatMap((entry) => entry.areas || []));
+  }
+
   const area = query.area && areas.includes(query.area) ? query.area : "";
 
   return {

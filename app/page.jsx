@@ -102,6 +102,7 @@ export default function LoanLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
+          apartmentQuery,
           area: selectedArea,
         });
 
@@ -164,7 +165,11 @@ export default function LoanLandingPage() {
     return () => clearInterval(timer);
   }, [currentView]);
 
-  const filteredApartments = apartments;
+  const filteredApartments = useMemo(() => {
+    const q = apartmentQuery.trim().toLowerCase();
+    if (!q) return apartments;
+    return apartments.filter((name) => name.toLowerCase().includes(q));
+  }, [apartments, apartmentQuery]);
 
   const selectedSummary = [selectedCity, selectedDistrict, selectedTown, selectedApartment].filter(Boolean).join(" ");
   const hasSelectedSummary = Boolean(selectedSummary || selectedArea || selectedUnit);
@@ -684,16 +689,19 @@ export default function LoanLandingPage() {
                     <div className="result-search-label">지역 선택</div>
                     <div className="result-form-grid result-form-grid-3">
                       <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                        <option value="">광역시/도</option>
                         {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
                       <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                        <option value="">시/군/구</option>
                         {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
                       <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
+                        <option value="">읍/면/동</option>
                         {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
                         ))}
@@ -736,6 +744,7 @@ export default function LoanLandingPage() {
                       </div>
 
                       <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
+                        <option value="">면적</option>
                         {areas.map((area) => (
                           <option key={area} value={area}>{area}</option>
                         ))}
