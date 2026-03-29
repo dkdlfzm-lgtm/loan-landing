@@ -1878,26 +1878,52 @@ textarea:focus {
   border-color: #a7f3d0;
 }
 
-.crm-status-absent,
-.crm-status-callback,
-.crm-status-hold,
-.crm-status-in_progress,
-.crm-status-preapproved {
+.crm-status-default {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.crm-status-absent {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fdba74;
+}
+
+.crm-status-recall {
   background: #eff6ff;
   color: #1d4ed8;
-  border-color: #bfdbfe;
+  border-color: #93c5fd;
+}
+
+.crm-status-hold {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border-color: #c4b5fd;
 }
 
 .crm-status-rejected {
   background: #fef2f2;
   color: #b91c1c;
-  border-color: #fecaca;
+  border-color: #fca5a5;
+}
+
+.crm-status-progress {
+  background: #ecfeff;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+
+.crm-status-preapproved {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fcd34d;
 }
 
 .crm-status-approved {
   background: #ecfdf5;
   color: #047857;
-  border-color: #a7f3d0;
+  border-color: #86efac;
 }
 
 .crm-classic-grid-xl {

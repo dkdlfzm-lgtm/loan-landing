@@ -4,17 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
 import { subscribeSupabaseTable } from "../../lib/realtime-browser";
 
-const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "주부", "프리랜서", "기타"];
+const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "프리랜서", "무직"];
 const STATUS_OPTIONS = [
   { value: "all", label: "전체" },
-  { value: "new", label: "신규접수" },
-  { value: "absent", label: "부재" },
-  { value: "callback", label: "재통화예정" },
-  { value: "hold", label: "보류" },
-  { value: "rejected", label: "부결" },
-  { value: "in_progress", label: "진행중" },
-  { value: "preapproved", label: "가승인" },
-  { value: "approved", label: "승인" },
+  { value: "신규접수", label: "신규접수" },
+  { value: "부재", label: "부재" },
+  { value: "재통화예정", label: "재통화예정" },
+  { value: "보류", label: "보류" },
+  { value: "부결", label: "부결" },
+  { value: "진행중", label: "진행중" },
+  { value: "가승인", label: "가승인" },
+  { value: "승인", label: "승인" },
 ];
 
 const OWNER_TABS = [
@@ -30,6 +30,22 @@ function SummaryCard({ title, value, subtitle, tone = "default" }) {
 
 function statusLabel(value) {
   return STATUS_OPTIONS.find((item) => item.value === value)?.label || value || "미정";
+}
+
+function statusClassName(value) {
+  const map = {
+    신규접수: "crm-status-new",
+    부재: "crm-status-absent",
+    재통화예정: "crm-status-recall",
+    보류: "crm-status-hold",
+    부결: "crm-status-rejected",
+    진행중: "crm-status-progress",
+    가승인: "crm-status-preapproved",
+    승인: "crm-status-approved",
+    active: "crm-status-progress",
+    inactive: "crm-status-rejected",
+  };
+  return map[value] || "crm-status-default";
 }
 
 function OwnerLogin({ password, setPassword, error, onSubmit }) {
@@ -96,7 +112,7 @@ export default function AdminOwnerPage() {
   const [resetPasswords, setResetPasswords] = useState({});
   const [selectedId, setSelectedId] = useState(null);
   const [filters, setFilters] = useState({ q: "", status: "all", loanType: "all", assignee: "all" });
-  const [form, setForm] = useState({ status: "new", job_type: "", assignee: "미배정", assigned_staff_account_id: "", call_summary: "", internal_memo: "", email: "" });
+  const [form, setForm] = useState({ status: "신규접수", job_type: "", assignee: "미배정", assigned_staff_account_id: "", call_summary: "", internal_memo: "" });
   const [notes, setNotes] = useState([]);
   const [noteAuthor, setNoteAuthor] = useState("관리자");
   const [noteContent, setNoteContent] = useState("");
@@ -245,13 +261,12 @@ export default function AdminOwnerPage() {
   useEffect(() => {
     if (!selectedInquiry) return;
     setForm({
-      status: selectedInquiry.status || "new",
+      status: selectedInquiry.status || "신규접수",
       job_type: selectedInquiry.job_type || "",
       assignee: selectedInquiry.assignee || "미배정",
       assigned_staff_account_id: selectedInquiry.assigned_staff_account_id || "",
       call_summary: selectedInquiry.call_summary || "",
       internal_memo: selectedInquiry.internal_memo || "",
-      email: selectedInquiry.email || "",
     });
     fetch(`/api/admin/inquiries/${selectedInquiry.id}/notes`, { cache: "no-store" })
       .then((r) => r.json())
@@ -280,12 +295,11 @@ export default function AdminOwnerPage() {
     const map = new Map();
     filtered.forEach((item) => {
       const name = item.assignee || "미배정";
-      const prev = map.get(name) || { name, total: 0, newCount: 0, progressCount: 0, approvedCount: 0, rejectedCount: 0 };
+      const prev = map.get(name) || { name, total: 0, newCount: 0, contactedCount: 0, closedCount: 0 };
       prev.total += 1;
-      if (item.status === "new") prev.newCount += 1;
-      if (["in_progress", "callback", "hold", "absent", "preapproved"].includes(item.status)) prev.progressCount += 1;
-      if (item.status === "approved") prev.approvedCount += 1;
-      if (item.status === "rejected") prev.rejectedCount += 1;
+      if (item.status === "신규접수") prev.newCount += 1;
+      if (item.status === "진행중" || item.status === "재통화예정" || item.status === "가승인") prev.contactedCount += 1;
+      if (item.status === "승인") prev.closedCount += 1;
       map.set(name, prev);
     });
     return [...map.values()].sort((a, b) => b.total - a.total);
@@ -412,7 +426,7 @@ export default function AdminOwnerPage() {
                             <td>{item.phone}</td>
                             <td>{item.loan_type || "미입력"}</td>
                             <td>{item.assignee || "미배정"}</td>
-                            <td><span className={`crm-status-chip crm-status-${item.status || "new"}`}>{statusLabel(item.status)}</span></td>
+                            <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{statusLabel(item.status)}</span></td>
                             <td>{formatReviewDateTime(item.created_at)}</td>
                           </tr>
                         ))}
@@ -449,7 +463,7 @@ export default function AdminOwnerPage() {
                             <option value="">담당자 미배정</option>
                             {activeAccountOptions.map((item) => <option key={item.id} value={item.id}>{accountLabelMap.get(item.id) || item.display_name || item.username}</option>)}
                           </select>
-                                                    <textarea className="crm-field-wide" value={form.call_summary} onChange={(e) => setForm((prev) => ({ ...prev, call_summary: e.target.value }))} placeholder="통화 요약" />
+                          <textarea className="crm-field-wide" value={form.call_summary} onChange={(e) => setForm((prev) => ({ ...prev, call_summary: e.target.value }))} placeholder="통화 요약" />
                           <textarea className="crm-field-wide" value={form.internal_memo} onChange={(e) => setForm((prev) => ({ ...prev, internal_memo: e.target.value }))} placeholder="내부 메모" />
                         </div>
                         </div>
@@ -491,12 +505,12 @@ export default function AdminOwnerPage() {
                 <div className="crm-toolbar crm-toolbar-xl">
                   <select value={metricYear} onChange={(e) => setMetricYear(e.target.value)}>{yearOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 연도" : `${item}년`}</option>)}</select>
                   <select value={metricMonth} onChange={(e) => setMetricMonth(e.target.value)}><option value="all">전체 월</option>{Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}월</option>)}</select>
-                  <div className="crm-muted-box">조건 선택 시 담당자별 신규/진행중/승인 건수를 즉시 집계합니다.</div>
+                  <div className="crm-muted-box">조건 선택 시 담당자별 신규/재통화/처리완료 건수를 즉시 집계합니다.</div>
                 </div>
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern">
-                    <thead><tr><th>담당자</th><th>전체</th><th>신규접수</th><th>진행중</th><th>승인</th></tr></thead>
-                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={5} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.name}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td></tr>)}</tbody>
+                    <thead><tr><th>담당자</th><th>전체</th><th>신규</th><th>재통화예정</th><th>처리완료</th></tr></thead>
+                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={5} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.name}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.contactedCount}</td><td>{row.closedCount}</td></tr>)}</tbody>
                   </table>
                 </div>
               </section>
@@ -520,7 +534,7 @@ export default function AdminOwnerPage() {
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern">
                     <thead><tr><th>이름</th><th>상태</th><th>메모</th><th>등록일</th><th>관리</th></tr></thead>
-                    <tbody>{assignees.map((item) => <tr key={item.id}><td><strong>{item.name}</strong></td><td><span className={`crm-status-chip ${item.status === "active" ? "crm-status-contacted" : "crm-status-closed"}`}>{item.status === "active" ? "재직" : "퇴사"}</span></td><td>{item.note || "-"}</td><td>{formatReviewDateTime(item.created_at)}</td><td><div className="crm-action-row"><button type="button" className="secondary-btn small" onClick={() => patchAssignee(item.id, { status: item.status === "active" ? "inactive" : "active" })}>{item.status === "active" ? "퇴사 처리" : "재직 전환"}</button><button type="button" className="secondary-btn small danger" onClick={() => deleteAssignee(item.id)}>삭제</button></div></td></tr>)}</tbody>
+                    <tbody>{assignees.map((item) => <tr key={item.id}><td><strong>{item.name}</strong></td><td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{item.status === "active" ? "재직" : "퇴사"}</span></td><td>{item.note || "-"}</td><td>{formatReviewDateTime(item.created_at)}</td><td><div className="crm-action-row"><button type="button" className="secondary-btn small" onClick={() => patchAssignee(item.id, { status: item.status === "active" ? "inactive" : "active" })}>{item.status === "active" ? "퇴사 처리" : "재직 전환"}</button><button type="button" className="secondary-btn small danger" onClick={() => deleteAssignee(item.id)}>삭제</button></div></td></tr>)}</tbody>
                   </table>
                 </div>
               </section>
@@ -549,7 +563,7 @@ export default function AdminOwnerPage() {
                             <td><strong>{item.display_name || item.username}</strong></td>
                             <td>{item.username}</td>
                             <td>{linked?.name || "-"}</td>
-                            <td><span className={`crm-status-chip ${item.status === "active" ? "crm-status-contacted" : "crm-status-closed"}`}>{item.status === "active" ? "사용중" : "중지"}</span></td>
+                            <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{item.status === "active" ? "사용중" : "중지"}</span></td>
                             <td>
                               <div className="crm-action-stack">
                                 <input type="password" value={resetPasswords[item.id] || ""} onChange={(e) => setResetPasswords((prev) => ({ ...prev, [item.id]: e.target.value }))} placeholder="새 비밀번호" />

@@ -4,22 +4,36 @@ import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
 import { subscribeSupabaseTable } from "../../lib/realtime-browser";
 
-const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "주부", "프리랜서", "기타"];
+const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "프리랜서", "무직"];
 const STATUS_OPTIONS = [
   { value: "all", label: "전체" },
-  { value: "new", label: "신규접수" },
-  { value: "absent", label: "부재" },
-  { value: "callback", label: "재통화예정" },
-  { value: "hold", label: "보류" },
-  { value: "rejected", label: "부결" },
-  { value: "in_progress", label: "진행중" },
-  { value: "preapproved", label: "가승인" },
-  { value: "approved", label: "승인" },
+  { value: "신규접수", label: "신규접수" },
+  { value: "부재", label: "부재" },
+  { value: "재통화예정", label: "재통화예정" },
+  { value: "보류", label: "보류" },
+  { value: "부결", label: "부결" },
+  { value: "진행중", label: "진행중" },
+  { value: "가승인", label: "가승인" },
+  { value: "승인", label: "승인" },
 ];
 const AUTO_REFRESH_MS = 5000;
 
 function statusLabel(value) {
   return STATUS_OPTIONS.find((item) => item.value === value)?.label || value || "미정";
+}
+
+function statusClassName(value) {
+  const map = {
+    신규접수: "crm-status-new",
+    부재: "crm-status-absent",
+    재통화예정: "crm-status-recall",
+    보류: "crm-status-hold",
+    부결: "crm-status-rejected",
+    진행중: "crm-status-progress",
+    가승인: "crm-status-preapproved",
+    승인: "crm-status-approved",
+  };
+  return map[value] || "crm-status-default";
 }
 
 function LoginView({ form, setForm, loginError, handleLogin }) {
@@ -87,7 +101,7 @@ export default function StaffPage() {
   const [inquiries, setInquiries] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [filters, setFilters] = useState({ q: "", status: "all", loanType: "all" });
-  const [form, setForm] = useState({ status: "new", job_type: "", call_summary: "", internal_memo: "", email: "" });
+  const [form, setForm] = useState({ status: "신규접수", job_type: "", call_summary: "", internal_memo: "", email: "" });
   const [notes, setNotes] = useState([]);
   const [noteAuthor, setNoteAuthor] = useState("");
   const [noteContent, setNoteContent] = useState("");
@@ -173,7 +187,7 @@ export default function StaffPage() {
   useEffect(() => {
     if (!selectedInquiry) return;
     setForm({
-      status: selectedInquiry.status || "new",
+      status: selectedInquiry.status || "신규접수",
       job_type: selectedInquiry.job_type || "",
       call_summary: selectedInquiry.call_summary || "",
       internal_memo: selectedInquiry.internal_memo || "",
@@ -195,9 +209,9 @@ export default function StaffPage() {
 
   const stats = useMemo(() => ({
     total: inquiries.length,
-    newCount: inquiries.filter((x) => x.status === "new").length,
-    progressCount: inquiries.filter((x) => ["absent", "callback", "hold", "in_progress", "preapproved"].includes(x.status)).length,
-    approvedCount: inquiries.filter((x) => x.status === "approved").length,
+    newCount: inquiries.filter((x) => x.status === "신규접수").length,
+    contactedCount: inquiries.filter((x) => ["진행중", "재통화예정", "가승인"].includes(x.status)).length,
+    closedCount: inquiries.filter((x) => x.status === "승인").length,
   }), [inquiries]);
 
   async function handleLogin(e) {
@@ -279,8 +293,8 @@ export default function StaffPage() {
               <div className="crm-summary-grid crm-summary-grid-pro">
                 <SummaryCard title="내 배정 고객" value={stats.total} subtitle="현재 내가 담당 중인 고객" />
                 <SummaryCard title="신규 접수" value={stats.newCount} subtitle="확인 대기" tone="new" />
-                <SummaryCard title="진행중" value={stats.progressCount} subtitle="후속 상담 진행" tone="contacted" />
-                <SummaryCard title="승인" value={stats.approvedCount} subtitle="승인 완료 고객" tone="closed" />
+                <SummaryCard title="재통화 예정" value={stats.contactedCount} subtitle="후속 상담 필요" tone="contacted" />
+                <SummaryCard title="처리 완료" value={stats.closedCount} subtitle="상담 종료" tone="closed" />
               </div>
             </div>
           ) : null}
@@ -307,7 +321,7 @@ export default function StaffPage() {
                         <td>{item.phone}</td>
                         <td>{item.loan_type || "미입력"}</td>
                         <td>{item.assignee || account?.display_name || "미배정"}</td>
-                        <td><span className={`crm-status-chip crm-status-${item.status || "new"}`}>{statusLabel(item.status)}</span></td>
+                        <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{statusLabel(item.status)}</span></td>
                         <td>{formatReviewDateTime(item.created_at)}</td>
                       </tr>
                     ))}
