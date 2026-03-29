@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
@@ -8,10 +8,11 @@ function formatNumber(value) {
 }
 
 export default function PriceResultPage() {
-  const [loanAmount, setLoanAmount] = useState("30000000");
-  const [interestRate, setInterestRate] = useState("5.5");
+  const RATE_BY_REPAYMENT = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
+  const [loanAmount, setLoanAmount] = useState("0");
+  const [interestRate, setInterestRate] = useState(RATE_BY_REPAYMENT["원리금균등"]);
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("36");
+  const [loanMonths, setLoanMonths] = useState("360");
 
   const params =
     typeof window !== "undefined"
@@ -23,6 +24,10 @@ export default function PriceResultPage() {
   const town = params.get("town") || "수택동";
   const apartment = params.get("apartment") || "LG원앙";
   const area = params.get("area") || "84.96㎡";
+
+  useEffect(() => {
+    setInterestRate(RATE_BY_REPAYMENT[repaymentType] || "");
+  }, [repaymentType]);
 
   const priceResult = {
     title: apartment,

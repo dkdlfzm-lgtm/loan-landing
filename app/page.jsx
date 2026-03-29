@@ -50,9 +50,10 @@ function formatNumber(value) {
 
 export default function LoanLandingPage() {
   const [loanAmount, setLoanAmount] = useState("0");
-  const [interestRate, setInterestRate] = useState("0");
+  const RATE_BY_REPAYMENT = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
+  const [interestRate, setInterestRate] = useState(RATE_BY_REPAYMENT["원리금균등"]);
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("0");
+  const [loanMonths, setLoanMonths] = useState("360");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -88,6 +89,10 @@ export default function LoanLandingPage() {
   const towns = catalogOptions.towns;
   const apartments = catalogOptions.apartments;
   const areas = catalogOptions.areas;
+
+  useEffect(() => {
+    setInterestRate(RATE_BY_REPAYMENT[repaymentType] || "");
+  }, [repaymentType]);
 
   useEffect(() => {
     let cancelled = false;

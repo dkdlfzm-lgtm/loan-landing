@@ -1878,6 +1878,28 @@ textarea:focus {
   border-color: #a7f3d0;
 }
 
+.crm-status-absent,
+.crm-status-callback,
+.crm-status-hold,
+.crm-status-in_progress,
+.crm-status-preapproved {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.crm-status-rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.crm-status-approved {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
 .crm-classic-grid-xl {
   gap: 16px;
 }
