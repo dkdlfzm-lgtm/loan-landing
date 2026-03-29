@@ -3,26 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 
-function ReviewsHeader() {
-  return (
-    <header className="header">
-      <div className="container header-inner">
-        <div className="brand brand-logo-wrap">
-          <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
-          <div className="brand-copy">
-            <div className="brand-title">엔드아이에셋대부</div>
-            <div className="brand-sub">이용후기 작성</div>
-          </div>
-        </div>
-        <nav className="nav">
-          <Link href="/">홈</Link>
-          <Link href="/reviews">이용후기</Link>
-        </nav>
-      </div>
-    </header>
-  );
-}
-
 export default function ReviewWritePage() {
   const [form, setForm] = useState({ name: "", password: "", title: "", content: "" });
   const [error, setError] = useState("");
@@ -58,15 +38,29 @@ export default function ReviewWritePage() {
   };
 
   return (
-    <div className="site-wrap reviews-page-wrap">
-      <ReviewsHeader />
+    <div className="site-wrap reviews-page-wrap premium-reviews-wrap">
+      <header className="header">
+        <div className="container header-inner">
+          <Link href="/" className="brand brand-logo-wrap brand-home-link">
+            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+            <div className="brand-copy">
+              <div className="brand-title">엔드아이에셋대부</div>
+              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
+            </div>
+          </Link>
+          <nav className="nav">
+            <Link href="/">홈</Link>
+            <Link href="/reviews">이용후기</Link>
+          </nav>
+        </div>
+      </header>
 
-      <main className="section reviews-main-section">
-        <div className="container reviews-shell">
-          <div className="review-write-card">
+      <main className="section reviews-main-section premium-reviews-main">
+        <div className="container reviews-shell premium-reviews-shell">
+          <div className="review-write-card premium-write-card">
             <div className="section-mini">이용후기 작성</div>
             <h1 className="section-title reviews-page-title">상담 후기를 남겨주세요</h1>
-            <p className="card-desc">작성하신 후기는 확인 후 이용후기 게시판에 노출됩니다.</p>
+            <p className="card-desc">남겨주신 후기는 확인 후 이용후기 게시판에 노출됩니다.</p>
 
             <form className="form-stack" onSubmit={handleSubmit}>
               <div className="two-col compact-two-col">

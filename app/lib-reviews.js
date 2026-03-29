@@ -17,3 +17,11 @@ export function maskEmail(email) {
   const masked = id.length <= 2 ? `${id[0] || ""}*` : `${id.slice(0, 2)}***`;
   return `${masked}@${domain}`;
 }
+
+export function maskName(name) {
+  const text = String(name || "").trim();
+  if (!text) return "고객님";
+  if (text.length === 1) return `${text}*`;
+  if (text.length === 2) return `${text[0]}*`;
+  return `${text[0]}${"*".repeat(Math.max(1, text.length - 2))}${text[text.length - 1]}`;
+}

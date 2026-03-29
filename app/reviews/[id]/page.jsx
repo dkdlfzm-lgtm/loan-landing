@@ -2,28 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatReviewDateTime } from "../../lib-reviews";
-
-function ReviewsHeader() {
-  return (
-    <header className="header">
-      <div className="container header-inner">
-        <div className="brand brand-logo-wrap">
-          <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
-          <div className="brand-copy">
-            <div className="brand-title">엔드아이에셋대부</div>
-            <div className="brand-sub">이용후기 상세</div>
-          </div>
-        </div>
-        <nav className="nav">
-          <Link href="/">홈</Link>
-          <Link href="/reviews">이용후기</Link>
-          <Link href="/reviews/write" className="nav-btn">작성하기</Link>
-        </nav>
-      </div>
-    </header>
-  );
-}
+import { formatReviewDateTime, maskName } from "../../lib-reviews";
 
 export default function ReviewDetailPage({ params }) {
   const reviewId = decodeURIComponent(params.id);
@@ -49,7 +28,9 @@ export default function ReviewDetailPage({ params }) {
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [reviewId]);
 
   if (loading) {
@@ -60,30 +41,45 @@ export default function ReviewDetailPage({ params }) {
   }
 
   return (
-    <div className="site-wrap reviews-page-wrap">
-      <ReviewsHeader />
+    <div className="site-wrap reviews-page-wrap premium-reviews-wrap">
+      <header className="header">
+        <div className="container header-inner">
+          <Link href="/" className="brand brand-logo-wrap brand-home-link">
+            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+            <div className="brand-copy">
+              <div className="brand-title">엔드아이에셋대부</div>
+              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
+            </div>
+          </Link>
+          <nav className="nav">
+            <Link href="/">홈</Link>
+            <Link href="/reviews">이용후기</Link>
+            <Link href="/reviews/write" className="nav-btn">후기 작성</Link>
+          </nav>
+        </div>
+      </header>
 
-      <main className="section reviews-main-section">
-        <div className="container reviews-shell">
+      <main className="section reviews-main-section premium-reviews-main">
+        <div className="container reviews-shell premium-reviews-shell">
           {error && <div className="api-status error">{error}</div>}
 
-          <div className="review-detail-card">
-            <div className="review-detail-top">
+          <article className="review-detail-card premium-detail-card">
+            <div className="review-detail-top premium-detail-top">
               <div>
-                <div className="section-mini">이용후기</div>
-                <h1 className="review-detail-title">{review.title}</h1>
+                <div className="section-mini">고객 이용후기</div>
+                <h1 className="review-detail-title premium-detail-title">{review.title}</h1>
               </div>
               <Link href="/reviews" className="white-pill-btn review-back-link">목록으로</Link>
             </div>
 
-            <div className="review-detail-meta">
-              <span>작성자 {review.name}</span>
+            <div className="review-detail-meta premium-detail-meta">
+              <span>작성자 {maskName(review.name)}</span>
               <span>조회수 {Number(review.views || 0)}</span>
               <span>작성일 {formatReviewDateTime(review.createdAt)}</span>
             </div>
 
-            <div className="review-detail-content">{review.content}</div>
-          </div>
+            <div className="review-detail-content premium-detail-content">{review.content}</div>
+          </article>
         </div>
       </main>
     </div>
