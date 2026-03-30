@@ -1,13 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { DEFAULT_SITE_SETTINGS } from "../../lib/site-settings";
 
 export default function ReviewWritePage() {
   const [form, setForm] = useState({ name: "", password: "", title: "", content: "" });
   const [error, setError] = useState("");
   const [savedReviewId, setSavedReviewId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/site-settings", { cache: "no-store" });
+        const data = await response.json();
+        if (!cancelled && data?.settings) setSiteSettings((prev) => ({ ...prev, ...data.settings }));
+      } catch {}
+    }
+    loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -37,15 +54,18 @@ export default function ReviewWritePage() {
     }
   };
 
+  const brandName = siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name;
+  const brandSubtitle = siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle;
+
   return (
     <div className="site-wrap reviews-page-wrap premium-reviews-wrap">
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+            <img src="/andi-logo.jpg" alt={brandName} className="brand-logo" />
             <div className="brand-copy">
-              <div className="brand-title">엔드아이에셋대부</div>
-              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
+              <div className="brand-title">{brandName}</div>
+              <div className="brand-sub">{brandSubtitle}</div>
             </div>
           </Link>
           <nav className="nav">

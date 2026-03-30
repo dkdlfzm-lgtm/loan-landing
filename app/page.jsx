@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDate, maskName } from "./lib-reviews";
+import { DEFAULT_SITE_SETTINGS } from "../lib/site-settings";
 
 const statSlides = [
   {
@@ -33,6 +34,8 @@ const statSlides = [
   },
 ];
 
+const REPAYMENT_RATE_DEFAULTS = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
+
 const loanTypeOptions = [
   "주택담보대출",
   "전세퇴거자금",
@@ -50,9 +53,10 @@ function formatNumber(value) {
 
 export default function LoanLandingPage() {
   const [loanAmount, setLoanAmount] = useState("0");
-  const [interestRate, setInterestRate] = useState("0");
+  const [interestRate, setInterestRate] = useState(REPAYMENT_RATE_DEFAULTS["원리금균등"]);
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("0");
+  const [loanMonths, setLoanMonths] = useState("360");
+  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -136,6 +140,26 @@ export default function LoanLandingPage() {
       cancelled = true;
     };
   }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/site-settings", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || data?.ok === false) throw new Error(data?.message || "설정을 불러오지 못했습니다.");
+        if (!cancelled && data?.settings) setSiteSettings((prev) => ({ ...prev, ...data.settings }));
+      } catch {}
+    }
+    loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    setInterestRate(REPAYMENT_RATE_DEFAULTS[repaymentType] || "");
+  }, [repaymentType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -346,15 +370,22 @@ export default function LoanLandingPage() {
     }
   };
 
+
+  const brandName = siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name;
+  const brandSubtitle = siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle;
+  const phoneNumber = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
+  const kakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
+  const kakaoUrl = siteSettings.kakao_url || DEFAULT_SITE_SETTINGS.kakao_url;
+  const heroTitleLines = String(siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title).split("\n").filter(Boolean);
   return (
     <div className="site-wrap">
       <header className="header">
         <div className="container header-inner">
           <a href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+            <img src="/andi-logo.jpg" alt={brandName} className="brand-logo" />
             <div className="brand-copy">
-              <div className="brand-title">엔드아이에셋대부</div>
-              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
+              <div className="brand-title">{brandName}</div>
+              <div className="brand-sub">{brandSubtitle}</div>
             </div>
           </a>
 
@@ -363,19 +394,19 @@ export default function LoanLandingPage() {
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
             <a href="/reviews">이용후기</a>
-            <a href="#contact" className="nav-btn">상담 신청</a>
+            <a href="#contact" className="nav-btn">{siteSettings.consult_button_text}</a>
           </nav>
         </div>
       </header>
 
       <div className="floating-contact-toolbar">
-        <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call">
+        <a href={`tel:${phoneNumber}`} className="floating-contact-btn floating-contact-btn-call">
           <span className="floating-contact-icon">☎</span>
-          <span>대표번호<small>070-8018-7437</small></span>
+          <span>대표번호<small>{phoneNumber}</small></span>
         </a>
-        <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
+        <a href={kakaoUrl} target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
           <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
-          <span>카카오상담<small>카카오톡 ID : ANDi7437</small></span>
+          <span>카카오상담<small>카카오톡 ID : {kakaoId}</small></span>
         </a>
       </div>
 
@@ -388,29 +419,27 @@ export default function LoanLandingPage() {
 
               <div className="container hero-grid">
                 <div className="hero-left">
-                  <div className="hero-pill">선택형 시세조회 · 빠른 상담 연결</div>
+                  <div className="hero-pill">{siteSettings.hero_badge}</div>
 
-                  <h1 className="hero-title">
-                    아파트 시세조회부터
-                    <br />
-                    대출 상담 신청까지
-                    <br />
-                    한 번에 연결되는 구조
-                  </h1>
+                  <h1 className="hero-title">{heroTitleLines.map((line, index) => (
+                    <span key={`${line}-${index}`}>
+                      {line}
+                      {index < heroTitleLines.length - 1 ? <br /> : null}
+                    </span>
+                  ))}</h1>
 
                   <p className="hero-text">
-                    필요한 주소 정보와 단지를 차례대로 선택하면 예상 시세와 상담 연결 화면으로
-                    자연스럽게 이어지도록 구성한 고객용 메인 페이지입니다.
+                    {siteSettings.hero_description}
                   </p>
 
                   <div className="hero-actions">
-                    <a href="#quick-search" className="btn btn-white">빠른 시세조회</a>
-                    <a href="#contact" className="btn btn-outline">무료 상담 신청</a>
+                    <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta}</a>
+                    <a href="#contact" className="btn btn-outline">{siteSettings.hero_secondary_cta}</a>
                   </div>
                 </div>
 
                 <div className="hero-card">
-                  <div className="section-mini">빠른 상담 신청</div>
+                  <div className="section-mini">빠른 {siteSettings.consult_button_text}</div>
                   <h2 className="card-title">빠른 상담 접수</h2>
                   <p className="card-desc">
                     성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
@@ -438,7 +467,7 @@ export default function LoanLandingPage() {
                       </select>
                     </div>
                     {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
-                    <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
+                    <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : `${siteSettings.consult_button_text}하기`}</button>
                   </form>
                 </div>
               </div>
@@ -448,7 +477,7 @@ export default function LoanLandingPage() {
               <div className="container">
                 <div className="white-panel">
                   <div className="section-center">
-                    <div className="section-mini">빠른 시세조회</div>
+                    <div className="section-mini">{siteSettings.hero_primary_cta}</div>
                     <h2 className="section-title">오늘의 부동산 시세와 예상 한도가 궁금하세요?</h2>
                   </div>
 
@@ -529,7 +558,7 @@ export default function LoanLandingPage() {
                 <div className="home-info-grid home-info-grid-3">
                   <div className="home-info-box contact-home-box contact-home-box-split">
                     <div className="contact-split-grid contact-split-grid-soft">
-                      <a href="tel:070-8018-7437" className="contact-display-card phone-display-card">
+                      <a href={`tel:${phoneNumber}`} className="contact-display-card phone-display-card">
                         <div className="contact-display-badge">대표번호</div>
                         <div className="contact-display-icon phone-display-icon">☎</div>
                         <div className="contact-display-title">전화 상담</div>
@@ -538,11 +567,11 @@ export default function LoanLandingPage() {
                         <div className="contact-display-mini">대표 상담번호로 바로 연결됩니다.</div>
                       </a>
 
-                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
+                      <a href={kakaoUrl} target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
                         <div className="contact-display-badge contact-display-badge-kakao">카카오톡</div>
                         <div className="kakao-symbol">TALK</div>
                         <div className="contact-display-title">카카오톡 상담</div>
-                        <div className="contact-display-main contact-display-main-kakao"><span>ANDi7437</span></div>
+                        <div className="contact-display-main contact-display-main-kakao"><span>{kakaoId}</span></div>
                         <div className="contact-display-sub">오픈채팅 바로 연결</div>
                         <div className="contact-display-mini">클릭하면 상담창으로 이동합니다.</div>
                       </a>
@@ -789,7 +818,7 @@ export default function LoanLandingPage() {
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
                   </p>
                 </div>
-                <a href="#contact" className="white-pill-btn">상담 신청</a>
+                <a href="#contact" className="white-pill-btn">{siteSettings.consult_button_text}</a>
               </div>
 
               <div className="result-page-grid">
@@ -866,7 +895,7 @@ export default function LoanLandingPage() {
                 <div className="result-side-col">
                   <div id="contact" className="side-card">
                     <div className="section-mini">대출 신청 작성란</div>
-                    <h3 className="card-title">지금 바로 상담 신청</h3>
+                    <h3 className="card-title">지금 바로 {siteSettings.consult_button_text}</h3>
                     <p className="card-desc">
                       조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
                     </p>
@@ -891,18 +920,18 @@ export default function LoanLandingPage() {
                     <div className="section-mini">대표 상담 채널</div>
                     <h3 className="card-title">빠른 연결 안내</h3>
                     <div className="contact-button-stack contact-button-stack-compact">
-                      <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
+                      <a href={`tel:${phoneNumber}`} className="contact-pill contact-pill-call">
                         <span className="contact-pill-icon">☎</span>
                         <span className="contact-pill-copy">
                           <strong>대표번호</strong>
-                          <small>070-8018-7437</small>
+                          <small>{phoneNumber}</small>
                         </span>
                       </a>
-                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
+                      <a href={kakaoUrl} target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
                         <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
                         <span className="contact-pill-copy contact-pill-copy-dark">
                           <strong>카카오상담</strong>
-                          <small>카카오톡 ID : ANDi7437</small>
+                          <small>카카오톡 ID : {kakaoId}</small>
                         </span>
                       </a>
                     </div>
@@ -923,7 +952,7 @@ export default function LoanLandingPage() {
             <div className="faq-list">
               <details className="faq-item">
                 <summary>시세조회 후 바로 대출 상담도 가능한가요?</summary>
-                <p>네. 결과 페이지 오른쪽에 상담 신청란을 함께 배치해 바로 접수할 수 있습니다.</p>
+                <p>네. 결과 페이지 오른쪽에 {siteSettings.consult_button_text}란을 함께 배치해 바로 접수할 수 있습니다.</p>
               </details>
               <details className="faq-item">
                 <summary>조건 안내는 확정 조건인가요?</summary>
@@ -948,9 +977,9 @@ export default function LoanLandingPage() {
             </div>
 
             <div className="legal-meta">
-              <span>상호 : 엔드아이에셋대부</span>
+              <span>상호 : {brandName}</span>
               <span>대표자(성명) : 최종원</span>
-              <span>대표전화 : 070-8018-7437</span>
+              <span>대표전화 : {phoneNumber}</span>
               <span>사업자등록번호 : 739-08-03168</span>
               <span>대부중개업 등록번호 : 2025-서울서초-0084</span>
               <span>대부업 등록번호 : 2025-서울서초-0083(대부업)</span>
@@ -958,7 +987,7 @@ export default function LoanLandingPage() {
               <span>등록기관 : 서초구청 일자리경제과 (02-2155-8752)</span>
             </div>
 
-            <div className="legal-copy">© 엔드아이에셋대부. All Rights Reserved.</div>
+            <div className="legal-copy">© {brandName}. All Rights Reserved.</div>
           </div>
         </section>
       </main>

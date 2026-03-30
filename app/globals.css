@@ -3354,3 +3354,7 @@ textarea:focus {
     align-items: flex-start;
   }
 }
+
+.crm-settings-panel{max-width:980px;}
+.crm-settings-grid-cta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
+@media (max-width: 900px){.crm-settings-grid-cta{grid-template-columns:1fr;}}

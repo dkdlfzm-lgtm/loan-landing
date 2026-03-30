@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DEFAULT_SITE_SETTINGS } from "../../../lib/site-settings";
 import { formatReviewDateTime, maskName } from "../../lib-reviews";
 
 export default function ReviewDetailPage({ params }) {
@@ -9,6 +10,20 @@ export default function ReviewDetailPage({ params }) {
   const [review, setReview] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/site-settings", { cache: "no-store" });
+        const data = await response.json();
+        if (!cancelled && data?.settings) setSiteSettings((prev) => ({ ...prev, ...data.settings }));
+      } catch {}
+    }
+    loadSettings();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +48,9 @@ export default function ReviewDetailPage({ params }) {
     };
   }, [reviewId]);
 
+  const brandName = siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name;
+  const brandSubtitle = siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle;
+
   if (loading) {
     return <div className="site-wrap reviews-page-wrap"><main className="section reviews-main-section"><div className="container reviews-shell"><div className="white-panel">후기를 불러오는 중입니다.</div></div></main></div>;
   }
@@ -45,10 +63,10 @@ export default function ReviewDetailPage({ params }) {
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
+            <img src="/andi-logo.jpg" alt={brandName} className="brand-logo" />
             <div className="brand-copy">
-              <div className="brand-title">엔드아이에셋대부</div>
-              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
+              <div className="brand-title">{brandName}</div>
+              <div className="brand-sub">{brandSubtitle}</div>
             </div>
           </Link>
           <nav className="nav">

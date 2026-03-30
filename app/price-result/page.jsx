@@ -1,17 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
   return Math.round(value).toLocaleString("ko-KR");
 }
 
+const REPAYMENT_RATE_DEFAULTS = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
+
 export default function PriceResultPage() {
-  const [loanAmount, setLoanAmount] = useState("30000000");
-  const [interestRate, setInterestRate] = useState("5.5");
+  const [loanAmount, setLoanAmount] = useState("0");
+  const [interestRate, setInterestRate] = useState(REPAYMENT_RATE_DEFAULTS["원리금균등"]);
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("36");
+  const [loanMonths, setLoanMonths] = useState("360");
 
   const params =
     typeof window !== "undefined"
@@ -36,6 +38,10 @@ export default function PriceResultPage() {
     description:
       "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인할 수 있습니다.",
   };
+
+  useEffect(() => {
+    setInterestRate(REPAYMENT_RATE_DEFAULTS[repaymentType] || "");
+  }, [repaymentType]);
 
   const calcResult = useMemo(() => {
     const principal = Number(String(loanAmount).replace(/,/g, ""));
