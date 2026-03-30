@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DEFAULT_SITE_SETTINGS } from "../../../lib/site-settings";
+import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../../../lib/site-settings";
 
 export default function ReviewWritePage() {
   const [form, setForm] = useState({ name: "", password: "", title: "", content: "" });
   const [error, setError] = useState("");
   const [savedReviewId, setSavedReviewId] = useState("");
   const [saving, setSaving] = useState(false);
-  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [siteSettings, setSiteSettings] = useState(() => readCachedSiteSettings());
 
   useEffect(() => {
     let cancelled = false;
@@ -17,7 +17,11 @@ export default function ReviewWritePage() {
       try {
         const response = await fetch("/api/site-settings", { cache: "no-store" });
         const data = await response.json();
-        if (!cancelled && data?.settings) setSiteSettings((prev) => ({ ...prev, ...data.settings }));
+        if (!cancelled && data?.settings) {
+          const nextSettings = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
+          setSiteSettings(nextSettings);
+          cacheSiteSettings(nextSettings);
+        }
       } catch {}
     }
     loadSettings();

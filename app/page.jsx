@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDate, maskName } from "./lib-reviews";
-import { DEFAULT_SITE_SETTINGS } from "../lib/site-settings";
+import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../lib/site-settings";
 
 const statSlides = [
   {
@@ -56,7 +57,7 @@ export default function LoanLandingPage() {
   const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
   const [loanMonths, setLoanMonths] = useState("");
-  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [siteSettings, setSiteSettings] = useState(() => readCachedSiteSettings());
   const [popupVisible, setPopupVisible] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
 
@@ -150,7 +151,11 @@ export default function LoanLandingPage() {
         const response = await fetch("/api/site-settings", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok || data?.ok === false) throw new Error(data?.message || "설정을 불러오지 못했습니다.");
-        if (!cancelled && data?.settings) setSiteSettings((prev) => ({ ...prev, ...data.settings }));
+        if (!cancelled && data?.settings) {
+          const nextSettings = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
+          setSiteSettings(nextSettings);
+          cacheSiteSettings(nextSettings);
+        }
       } catch {}
     }
     loadSettings();
@@ -487,13 +492,13 @@ export default function LoanLandingPage() {
       ) : null}
       <header className="header">
         <div className="container header-inner">
-          <a href="/" className="brand brand-logo-wrap brand-home-link">
+          <Link href="/" className="brand brand-logo-wrap brand-home-link">
             <img src={logoUrl} alt={brandName} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>
             </div>
-          </a>
+          </Link>
 
           <nav className="nav">
             <a href="#intro">홈</a>
