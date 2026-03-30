@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DEFAULT_SITE_SETTINGS } from "../../lib/site-settings";
+import { DEFAULT_SITE_SETTINGS } from "../../../lib/site-settings";
 
 export default function ReviewWritePage() {
   const [form, setForm] = useState({ name: "", password: "", title: "", content: "" });

@@ -18,10 +18,11 @@ export function maskEmail(email) {
   return `${masked}@${domain}`;
 }
 
+
 export function maskName(name) {
-  const text = String(name || "").trim();
-  if (!text) return "고객님";
-  if (text.length === 1) return `${text}*`;
-  if (text.length === 2) return `${text[0]}*`;
-  return `${text[0]}${"*".repeat(Math.max(1, text.length - 2))}${text[text.length - 1]}`;
+  const value = String(name || "").trim();
+  if (!value) return "익명";
+  if (value.length <= 1) return value;
+  if (value.length == 2) return `${value[0]}*`;
+  return `${value[0]}*${value[value.length - 1]}`;
 }
