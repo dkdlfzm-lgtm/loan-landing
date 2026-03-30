@@ -10,6 +10,7 @@ function formatNumber(value) {
 const REPAYMENT_RATE_DEFAULTS = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
 
 export default function PriceResultPage() {
+  useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
@@ -98,7 +99,7 @@ export default function PriceResultPage() {
             </button>
           </div>
 
-          <div className="result-page-hero">
+          <div className="result-page-hero" data-reveal>
             <div className="result-hero-main">
               <div className="section-mini light-mini">시세조회 결과</div>
               <h2 className="result-page-title">{priceResult.title}</h2>
@@ -116,7 +117,7 @@ export default function PriceResultPage() {
             </div>
           </div>
 
-          <div className="result-page-grid">
+          <div className="result-page-grid" data-reveal>
             <div className="result-main-card">
               <div className="info-grid result-info-grid result-info-grid-3">
                 <div className="info-card">

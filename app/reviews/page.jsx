@@ -7,18 +7,32 @@ import { formatReviewDate, maskName } from "../lib-reviews";
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
+function useScrollReveal() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nodes = Array.from(document.querySelectorAll("[data-reveal]"));
+    if (!nodes.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function ReviewsPage() {
+  useScrollReveal();
   const [reviews, setReviews] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [siteSettings, setSiteSettings] = useState(() => readCachedSiteSettings());
-  const [logoReady, setLogoReady] = useState(false);
-
-  useEffect(() => {
-    setLogoReady(true);
-  }, []);
-
+  
   useEffect(() => {
     let cancelled = false;
     async function loadSettings() {
@@ -68,7 +82,7 @@ export default function ReviewsPage() {
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src={logoReady ? logoUrl : TRANSPARENT_PIXEL} alt={brandName} className={`brand-logo ${logoReady ? "" : "is-placeholder"}`} />
+            <img src={logoUrl || TRANSPARENT_PIXEL} alt={brandName} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>
@@ -84,7 +98,7 @@ export default function ReviewsPage() {
 
       <main className="section reviews-main-section premium-reviews-main">
         <div className="container reviews-shell premium-reviews-shell">
-          <section className="reviews-hero-panel">
+          <section className="reviews-hero-panel" data-reveal>
             <div>
               <div className="section-mini">고객 이용후기</div>
               <h1 className="section-title reviews-page-title">실제 상담 후기를 확인해보세요</h1>
@@ -96,7 +110,7 @@ export default function ReviewsPage() {
             </div>
           </section>
 
-          <div className="reviews-search-panel premium-reviews-search">
+          <div className="reviews-search-panel premium-reviews-search" data-reveal>
             <input
               type="text"
               placeholder="제목이나 내용으로 검색"
@@ -111,7 +125,7 @@ export default function ReviewsPage() {
             {loading && <div className="white-panel">이용후기를 불러오는 중입니다.</div>}
             {!loading && filteredReviews.length === 0 && <div className="white-panel">등록된 이용후기가 없습니다.</div>}
             {!loading && filteredReviews.map((review) => (
-              <Link key={review.id} href={`/reviews/${review.id}`} className="premium-review-card">
+              <Link key={review.id} href={`/reviews/${review.id}`} className="premium-review-card" data-reveal>
                 <div className="premium-review-card-top">
                   <span className="premium-review-badge">이용후기</span>
                   <span className="premium-review-date">{formatReviewDate(review.createdAt)}</span>

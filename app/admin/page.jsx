@@ -23,6 +23,7 @@ const OWNER_TABS = [
   { key: "staff", label: "담당자·직원 계정" },
 ];
 const AUTO_REFRESH_MS = 5000;
+
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return <div className={`crm-summary-card crm-tone-${tone}`}><span>{title}</span><strong>{value}</strong><small>{subtitle}</small></div>;
 }
@@ -117,8 +118,6 @@ export default function AdminOwnerPage() {
   const [noteAuthor, setNoteAuthor] = useState("관리자");
   const [noteContent, setNoteContent] = useState("");
   const [saving, setSaving] = useState(false);
-  const [performanceMeta, setPerformanceMeta] = useState({});
-  const [performanceSavedId, setPerformanceSavedId] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
@@ -138,20 +137,8 @@ export default function AdminOwnerPage() {
       ]);
       const nextInquiries = inqRes.inquiries || [];
       setInquiries(nextInquiries);
-      const nextAssignees = assRes.assignees || [];
-      const nextAccounts = accRes.accounts || [];
-      setAssignees(nextAssignees);
-      setAccounts(nextAccounts);
-
-      try {
-        const perfRes = await fetch("/api/admin/performance-targets", { cache: "no-store" });
-        const perfData = await perfRes.json();
-        if (perfRes.ok && perfData?.ok) {
-          const perfMap = Object.fromEntries((perfData.targets || []).map((item) => [item.staff_account_id, { goal: Number(item.goal || 0), memo: item.memo || "" }]));
-          setPerformanceMeta(perfMap);
-        }
-      } catch {}
-
+      setAssignees(assRes.assignees || []);
+      setAccounts(accRes.accounts || []);
       if (!selectedId && nextInquiries.length) setSelectedId(nextInquiries[0].id);
       if (selectedId && !nextInquiries.some((item) => item.id === selectedId)) setSelectedId(nextInquiries[0]?.id || null);
       setLastSyncedAt(new Date());
@@ -165,7 +152,6 @@ export default function AdminOwnerPage() {
     if (!authenticated) return;
     loadData().catch(() => setLoading(false));
   }, [authenticated]);
-
 
   useEffect(() => {
     if (!authenticated) return;
@@ -326,56 +312,13 @@ export default function AdminOwnerPage() {
       if (item.status === "승인") row.approvedCount += 1;
     });
 
-    return [...seed.values()].map((row) => {
-      const meta = performanceMeta[row.id] || {};
-      const goal = Number(meta.goal || 0);
-      const memo = meta.memo || "";
-      return {
-        ...row,
-        goal,
-        memo,
-        approvalRate: row.total ? Math.round((row.approvedCount / row.total) * 100) : 0,
-        achievementRate: goal > 0 ? Math.round((row.approvedCount / goal) * 100) : 0,
-      };
-    }).sort((a, b) => b.approvedCount - a.approvedCount || b.total - a.total || a.name.localeCompare(b.name));
-  }, [inquiries, metricYear, metricMonth, activeAccountOptions, accountLabelMap, performanceMeta]);
+    return [...seed.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [inquiries, metricYear, metricMonth, activeAccountOptions, accountLabelMap]);
 
   const yearlyRows = useMemo(() => groupCounts(inquiries, (item) => String(new Date(item.created_at).getFullYear())).sort((a, b) => b.name.localeCompare(a.name)), [inquiries]);
   const monthlyRows = useMemo(() => groupCounts(inquiries, (item) => `${new Date(item.created_at).getFullYear()}-${String(new Date(item.created_at).getMonth() + 1).padStart(2, "0")}`).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 12), [inquiries]);
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
   const assigneeFilterOptions = useMemo(() => ["all", "unassigned", ...activeAccountOptions.map((item) => item.id)], [activeAccountOptions]);
-
-  const performanceSummary = useMemo(() => ({
-    totalApproved: performanceRows.reduce((sum, row) => sum + row.approvedCount, 0),
-    totalGoal: performanceRows.reduce((sum, row) => sum + Number(row.goal || 0), 0),
-    topCloser: performanceRows[0]?.name || "-",
-  }), [performanceRows]);
-
-  function updatePerformanceField(id, key, value) {
-    setPerformanceSavedId("");
-    setPerformanceMeta((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: value } }));
-  }
-
-  async function savePerformanceRow(id) {
-    const payload = performanceMeta[id] || {};
-    try {
-      const res = await fetch("/api/admin/performance-targets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ staff_account_id: id, goal: Number(payload.goal || 0), memo: payload.memo || "" }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "실적 목표 저장 실패");
-      setPerformanceMeta((prev) => ({
-        ...prev,
-        [id]: { goal: Number(data.target?.goal || 0), memo: data.target?.memo || "" },
-      }));
-      setPerformanceSavedId(id);
-      window.setTimeout(() => setPerformanceSavedId((current) => current === id ? "" : current), 1800);
-    } catch (error) {
-      setCustomerMessage({ type: "error", text: error.message || "실적 목표 저장 실패" });
-    }
-  }
 
   const filteredInquiries = useMemo(() => inquiries.filter((item) => {
     const q = filters.q.trim().toLowerCase();
@@ -569,23 +512,17 @@ export default function AdminOwnerPage() {
 
           {activeTab === "performance" ? (
             <div className="owner-performance-shell">
-              <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
-                <SummaryCard title="활성 직원" value={performanceRows.length} subtitle="실적 집계 대상 계정" />
-                <SummaryCard title="총 승인 건수" value={performanceSummary.totalApproved} subtitle="선택 기간 기준" tone="closed" />
-                <SummaryCard title="목표 합계" value={performanceSummary.totalGoal || 0} subtitle="직원별 목표 승인 건수" tone="contacted" />
-                <SummaryCard title="상위 담당자" value={performanceSummary.topCloser} subtitle="승인 건수 기준" tone="new" />
-              </div>
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>담당자별 실적</h3><span>활성 직원 계정에 실제 배정된 고객만 반영되며, 목표와 메모를 저장하면 전체 관리자 화면에 동기화됩니다.</span></div>
+                <div className="crm-section-header"><h3>담당자별 실적</h3><span>년/월 기준으로 담당자별 상담 건수를 확인합니다.</span></div>
                 <div className="crm-toolbar crm-toolbar-xl">
                   <select value={metricYear} onChange={(e) => setMetricYear(e.target.value)}>{yearOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 연도" : `${item}년`}</option>)}</select>
                   <select value={metricMonth} onChange={(e) => setMetricMonth(e.target.value)}><option value="all">전체 월</option>{Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}월</option>)}</select>
-                  <div className="crm-muted-box">목표/메모 수정 후 저장하면 모든 관리자 환경에 반영됩니다.</div>
+                  <div className="crm-muted-box">활성 직원 계정에 실제 배정된 고객만 실적으로 집계합니다.</div>
                 </div>
                 <div className="crm-table-wrap crm-table-modern-wrap">
-                  <table className="crm-table crm-table-modern crm-performance-table">
-                    <thead><tr><th>직원 계정</th><th>전체</th><th>신규</th><th>재통화예정</th><th>진행중·가승인</th><th>승인</th><th>승인율</th><th>목표</th><th>달성률</th><th>메모</th><th>저장</th></tr></thead>
-                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={11} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.recallCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td><td><span className="crm-performance-rate">{row.approvalRate}%</span></td><td><input className="crm-table-input" type="number" min="0" value={performanceMeta[row.id]?.goal ?? row.goal ?? ""} onChange={(e) => updatePerformanceField(row.id, "goal", e.target.value)} placeholder="목표" /></td><td><span className={`crm-performance-rate ${row.achievementRate >= 100 ? "is-strong" : ""}`}>{row.goal > 0 ? `${row.achievementRate}%` : "-"}</span></td><td><input className="crm-table-input" value={performanceMeta[row.id]?.memo ?? row.memo ?? ""} onChange={(e) => updatePerformanceField(row.id, "memo", e.target.value)} placeholder="메모" /></td><td><button type="button" className="secondary-btn small" onClick={() => savePerformanceRow(row.id)}>{performanceSavedId === row.id ? "저장됨" : "저장"}</button></td></tr>)}</tbody>
+                  <table className="crm-table crm-table-modern">
+                    <thead><tr><th>직원 계정</th><th>전체</th><th>신규</th><th>재통화예정</th><th>진행중·가승인</th><th>승인</th></tr></thead>
+                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.recallCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td></tr>)}</tbody>
                   </table>
                 </div>
               </section>

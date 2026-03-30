@@ -39,6 +39,24 @@ const REPAYMENT_RATE_DEFAULTS = { "원리금균등": "5.2", "원금균등": "5.0
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
+function useScrollReveal() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nodes = Array.from(document.querySelectorAll("[data-reveal]"));
+    if (!nodes.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+}
+
 const loanTypeOptions = [
   "주택담보대출",
   "전세퇴거자금",
@@ -55,13 +73,13 @@ function formatNumber(value) {
 }
 
 export default function LoanLandingPage() {
+  useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
   const [loanMonths, setLoanMonths] = useState("");
   const [siteSettings, setSiteSettings] = useState(() => readCachedSiteSettings());
-  const [logoReady, setLogoReady] = useState(false);
-  const [popupVisible, setPopupVisible] = useState(false);
+    const [popupVisible, setPopupVisible] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
 
   const [propertyType, setPropertyType] = useState("아파트");
@@ -98,10 +116,6 @@ export default function LoanLandingPage() {
   const towns = catalogOptions.towns;
   const apartments = catalogOptions.apartments;
   const areas = catalogOptions.areas;
-
-  useEffect(() => {
-    setLogoReady(true);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -500,7 +514,7 @@ export default function LoanLandingPage() {
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src={logoReady ? logoUrl : TRANSPARENT_PIXEL} alt={brandName} className={`brand-logo ${logoReady ? "" : "is-placeholder"}`} />
+            <img src={logoUrl || TRANSPARENT_PIXEL} alt={brandName} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>
@@ -540,7 +554,7 @@ export default function LoanLandingPage() {
       <main>
         {currentView === "home" && (
           <>
-            <section id="intro" className="hero" style={heroStyle}>
+            <section id="intro" className="hero" data-reveal style={heroStyle}>
               <div className="hero-glow hero-glow-1" />
               <div className="hero-glow hero-glow-2" />
 
@@ -605,7 +619,7 @@ export default function LoanLandingPage() {
               </div>
             </section>
 
-            <section id="quick-search" className="section">
+            <section id="quick-search" className="section" data-reveal>
               <div className="container">
                 <div className="white-panel">
                   <div className="section-center">
@@ -957,7 +971,7 @@ export default function LoanLandingPage() {
                 </div>
               </div>
 
-              <div className="result-page-hero">
+              <div className="result-page-hero" data-reveal>
                 <div>
                   <div className="section-mini light-mini">시세조회 결과</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
@@ -968,7 +982,7 @@ export default function LoanLandingPage() {
                 <a href="#contact" className="white-pill-btn">{siteSettings.consult_button_text}</a>
               </div>
 
-              <div className="result-page-grid">
+              <div className="result-page-grid" data-reveal>
                 <div className="result-main-card">
                   <div className="info-grid result-info-grid">
                     <div className="info-card">

@@ -6,18 +6,32 @@ import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
+function useScrollReveal() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nodes = Array.from(document.querySelectorAll("[data-reveal]"));
+    if (!nodes.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function ReviewWritePage() {
+  useScrollReveal();
   const [form, setForm] = useState({ name: "", password: "", title: "", content: "" });
   const [error, setError] = useState("");
   const [savedReviewId, setSavedReviewId] = useState("");
   const [saving, setSaving] = useState(false);
   const [siteSettings, setSiteSettings] = useState(() => readCachedSiteSettings());
-  const [logoReady, setLogoReady] = useState(false);
-
-  useEffect(() => {
-    setLogoReady(true);
-  }, []);
-
+  
   useEffect(() => {
     let cancelled = false;
     async function loadSettings() {
@@ -74,7 +88,7 @@ export default function ReviewWritePage() {
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src={logoReady ? logoUrl : TRANSPARENT_PIXEL} alt={brandName} className={`brand-logo ${logoReady ? "" : "is-placeholder"}`} />
+            <img src={logoUrl || TRANSPARENT_PIXEL} alt={brandName} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>
@@ -89,7 +103,7 @@ export default function ReviewWritePage() {
 
       <main className="section reviews-main-section premium-reviews-main">
         <div className="container reviews-shell premium-reviews-shell">
-          <div className="review-write-card premium-write-card">
+          <div className="review-write-card premium-write-card" data-reveal>
             <div className="section-mini">이용후기 작성</div>
             <h1 className="section-title reviews-page-title">상담 후기를 남겨주세요</h1>
             <p className="card-desc">남겨주신 후기는 확인 후 이용후기 게시판에 노출됩니다.</p>

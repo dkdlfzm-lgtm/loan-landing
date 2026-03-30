@@ -7,18 +7,32 @@ import { formatReviewDateTime, maskName } from "../../lib-reviews";
 
 const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
+function useScrollReveal() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nodes = Array.from(document.querySelectorAll("[data-reveal]"));
+    if (!nodes.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    nodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function ReviewDetailPage({ params }) {
+  useScrollReveal();
   const reviewId = decodeURIComponent(params.id);
   const [review, setReview] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [siteSettings, setSiteSettings] = useState(() => readCachedSiteSettings());
-  const [logoReady, setLogoReady] = useState(false);
-
-  useEffect(() => {
-    setLogoReady(true);
-  }, []);
-
+  
   useEffect(() => {
     let cancelled = false;
     async function loadSettings() {
@@ -75,7 +89,7 @@ export default function ReviewDetailPage({ params }) {
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src={logoReady ? logoUrl : TRANSPARENT_PIXEL} alt={brandName} className={`brand-logo ${logoReady ? "" : "is-placeholder"}`} />
+            <img src={logoUrl || TRANSPARENT_PIXEL} alt={brandName} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>
@@ -93,7 +107,7 @@ export default function ReviewDetailPage({ params }) {
         <div className="container reviews-shell premium-reviews-shell">
           {error && <div className="api-status error">{error}</div>}
 
-          <article className="review-detail-card premium-detail-card">
+          <article className="review-detail-card premium-detail-card" data-reveal>
             <div className="review-detail-top premium-detail-top">
               <div>
                 <div className="section-mini">고객 이용후기</div>

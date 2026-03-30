@@ -189,6 +189,14 @@ export default function ManagePage() {
     reader.readAsDataURL(file);
   }
 
+  function handleHeroBackgroundFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => updateField("hero_background_url", String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
+
   const heroTitleLines = useMemo(() => String(siteSettings.hero_title || "").split("\n").filter(Boolean), [siteSettings.hero_title]);
   const heroFeatures = [siteSettings.hero_feature_1, siteSettings.hero_feature_2, siteSettings.hero_feature_3].filter((item) => String(item || "").trim());
   const heroStyle = siteSettings.hero_background_url
@@ -254,12 +262,14 @@ export default function ManagePage() {
                         </div>
                         <div className="two-col compact-two-col manage-logo-grid">
                           <div className="field">
-                            <label>로고 이미지 경로/URL</label>
-                            <input value={siteSettings.logo_url || ""} onChange={(e) => updateField("logo_url", e.target.value)} placeholder="/andi-logo.jpg 또는 이미지 URL" />
-                          </div>
-                          <div className="field">
                             <label>로고 이미지 업로드</label>
                             <input type="file" accept="image/*" onChange={handleLogoFile} />
+                            <div className="manage-upload-note">이미지는 업로드 방식으로만 변경됩니다.</div>
+                          </div>
+                          <div className="field manage-upload-actions">
+                            <label>현재 로고 상태</label>
+                            <div className="manage-upload-status">{siteSettings.logo_url ? "업로드된 로고가 적용 중입니다." : "기본 로고가 적용 중입니다."}</div>
+                            <button type="button" className="secondary-btn manage-clear-btn" onClick={() => updateField("logo_url", DEFAULT_SITE_SETTINGS.logo_url)}>기본 로고로 되돌리기</button>
                           </div>
                         </div>
                         <div className="manage-logo-preview-card">
@@ -307,9 +317,17 @@ export default function ManagePage() {
                           <h2 className="manage-section-title">첫 화면 문구와 배경</h2>
                         </div>
                       </div>
-                      <div className="field">
-                        <label>메인 배경 이미지 경로/URL</label>
-                        <input value={siteSettings.hero_background_url || ""} onChange={(e) => updateField("hero_background_url", e.target.value)} placeholder="비워두면 기본 그라데이션" />
+                      <div className="two-col compact-two-col manage-logo-grid">
+                        <div className="field">
+                          <label>메인 배경 이미지 업로드</label>
+                          <input type="file" accept="image/*" onChange={handleHeroBackgroundFile} />
+                          <div className="manage-upload-note">배경 이미지는 업로드 후 바로 미리보기에 반영됩니다.</div>
+                        </div>
+                        <div className="field manage-upload-actions">
+                          <label>현재 배경 상태</label>
+                          <div className="manage-upload-status">{siteSettings.hero_background_url ? "업로드된 배경 이미지가 적용 중입니다." : "기본 그라데이션이 적용 중입니다."}</div>
+                          <button type="button" className="secondary-btn manage-clear-btn" onClick={() => updateField("hero_background_url", "")}>기본 배경으로 되돌리기</button>
+                        </div>
                       </div>
                       <div className="field">
                         <label>메인 배지 문구</label>
