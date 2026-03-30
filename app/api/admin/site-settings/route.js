@@ -28,6 +28,12 @@ const FIELD_CONFIG = [
   ["popup_description", "text"],
   ["popup_button_text", "text"],
   ["popup_button_url", "text"],
+  ["middle_banner_enabled", "boolean"],
+  ["middle_banner_badge", "text"],
+  ["middle_banner_title", "text"],
+  ["middle_banner_description", "text"],
+  ["middle_banner_button_text", "text"],
+  ["middle_banner_button_url", "text"],
 ];
 
 const SELECT_FIELDS = FIELD_CONFIG.map(([field]) => field).concat("updated_at").join(",");

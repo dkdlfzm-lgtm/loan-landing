@@ -52,10 +52,10 @@ function formatNumber(value) {
 }
 
 export default function LoanLandingPage() {
-  const [loanAmount, setLoanAmount] = useState("0");
-  const [interestRate, setInterestRate] = useState(REPAYMENT_RATE_DEFAULTS["원리금균등"]);
+  const [loanAmount, setLoanAmount] = useState("");
+  const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("360");
+  const [loanMonths, setLoanMonths] = useState("");
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [popupVisible, setPopupVisible] = useState(false);
 
@@ -160,8 +160,10 @@ export default function LoanLandingPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const hidden = window.sessionStorage.getItem("homePopupDismissed") === "1";
-    setPopupVisible(Boolean(siteSettings.popup_enabled) && !hidden);
+    const hiddenSession = window.sessionStorage.getItem("homePopupDismissed") === "1";
+    const hiddenUntil = Number(window.localStorage.getItem("homePopupHiddenUntil") || 0);
+    const hiddenDay = hiddenUntil && Date.now() < hiddenUntil;
+    setPopupVisible(Boolean(siteSettings.popup_enabled) && !hiddenSession && !hiddenDay);
   }, [siteSettings.popup_enabled]);
 
   useEffect(() => {
@@ -172,8 +174,31 @@ export default function LoanLandingPage() {
   }, [siteSettings.popup_enabled]);
 
   useEffect(() => {
-    setInterestRate(REPAYMENT_RATE_DEFAULTS[repaymentType] || "");
-  }, [repaymentType]);
+    if (typeof window === "undefined") return;
+    const hiddenUntil = window.localStorage.getItem("homePopupHiddenUntil");
+    if (hiddenUntil && Date.now() > Number(hiddenUntil)) {
+      window.localStorage.removeItem("homePopupHiddenUntil");
+    }
+  }, []);
+
+  function handleRepaymentTypeChange(value) {
+    setRepaymentType(value);
+    setInterestRate(REPAYMENT_RATE_DEFAULTS[value] || "");
+    if (!loanMonths) setLoanMonths("360");
+  }
+
+  function closePopupForSession() {
+    setPopupVisible(false);
+    if (typeof window !== "undefined") window.sessionStorage.setItem("homePopupDismissed", "1");
+  }
+
+  function closePopupForDay() {
+    setPopupVisible(false);
+    if (typeof window !== "undefined") {
+      const until = Date.now() + 24 * 60 * 60 * 1000;
+      window.localStorage.setItem("homePopupHiddenUntil", String(until));
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -403,13 +428,16 @@ export default function LoanLandingPage() {
   return (
     <div className="site-wrap">
       {popupEnabled && popupVisible ? (
-        <div className="site-popup-backdrop" onClick={() => { setPopupVisible(false); if (typeof window !== "undefined") window.sessionStorage.setItem("homePopupDismissed", "1"); }}>
-          <div className="site-popup-card" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="site-popup-close" onClick={() => { setPopupVisible(false); if (typeof window !== "undefined") window.sessionStorage.setItem("homePopupDismissed", "1"); }} aria-label="팝업 닫기">×</button>
+        <div className="site-popup-float-wrap">
+          <div className="site-popup-card site-popup-card-floating">
+            <button type="button" className="site-popup-close" onClick={closePopupForSession} aria-label="팝업 닫기">×</button>
             <div className="section-mini">안내</div>
             <h2>{siteSettings.popup_title}</h2>
             <p>{siteSettings.popup_description}</p>
-            <a href={siteSettings.popup_button_url || "#contact"} className="primary-btn">{siteSettings.popup_button_text || "상담 바로가기"}</a>
+            <div className="site-popup-actions">
+              <a href={siteSettings.popup_button_url || "#contact"} className="primary-btn">{siteSettings.popup_button_text || "상담 바로가기"}</a>
+              <button type="button" className="secondary-btn site-popup-day-btn" onClick={closePopupForDay}>하루 동안 그만보기</button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -604,6 +632,21 @@ export default function LoanLandingPage() {
               </div>
             </section>
 
+            {Boolean(siteSettings.middle_banner_enabled) ? (
+              <section className="home-middle-banner-section">
+                <div className="container">
+                  <div className="home-middle-banner">
+                    <div className="home-middle-banner-copy">
+                      <div className="section-mini">{siteSettings.middle_banner_badge}</div>
+                      <h3>{siteSettings.middle_banner_title}</h3>
+                      <p>{siteSettings.middle_banner_description}</p>
+                    </div>
+                    <a href={siteSettings.middle_banner_button_url || "#contact"} className="primary-btn">{siteSettings.middle_banner_button_text || "상담 문의하기"}</a>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+
             <section className="home-info-strip">
               <div className="container">
                 <div className="home-info-grid home-info-grid-3">
@@ -647,7 +690,7 @@ export default function LoanLandingPage() {
                       />
                     </div>
                     <div className="two-col compact-two-col">
-                      <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
+                      <select value={repaymentType} onChange={(e) => handleRepaymentTypeChange(e.target.value)}>
                         <option>원리금균등</option>
                         <option>원금균등</option>
                         <option>만기일시상환</option>

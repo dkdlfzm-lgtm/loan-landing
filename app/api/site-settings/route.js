@@ -27,6 +27,12 @@ const SELECT_FIELDS = [
   "popup_description",
   "popup_button_text",
   "popup_button_url",
+  "middle_banner_enabled",
+  "middle_banner_badge",
+  "middle_banner_title",
+  "middle_banner_description",
+  "middle_banner_button_text",
+  "middle_banner_button_url",
   "updated_at",
 ].join(",");
 
