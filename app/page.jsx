@@ -57,6 +57,7 @@ export default function LoanLandingPage() {
   const [repaymentType, setRepaymentType] = useState("원리금균등");
   const [loanMonths, setLoanMonths] = useState("360");
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [popupVisible, setPopupVisible] = useState(false);
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -156,6 +157,19 @@ export default function LoanLandingPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hidden = window.sessionStorage.getItem("homePopupDismissed") === "1";
+    setPopupVisible(Boolean(siteSettings.popup_enabled) && !hidden);
+  }, [siteSettings.popup_enabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!siteSettings.popup_enabled) {
+      window.sessionStorage.removeItem("homePopupDismissed");
+    }
+  }, [siteSettings.popup_enabled]);
 
   useEffect(() => {
     setInterestRate(REPAYMENT_RATE_DEFAULTS[repaymentType] || "");
@@ -380,8 +394,25 @@ export default function LoanLandingPage() {
   const logoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
   const reviewSectionEnabled = Boolean(siteSettings.reviews_enabled);
   const heroFeatures = [siteSettings.hero_feature_1, siteSettings.hero_feature_2, siteSettings.hero_feature_3].filter((item) => String(item || "").trim());
+  const heroBackgroundUrl = siteSettings.hero_background_url || DEFAULT_SITE_SETTINGS.hero_background_url;
+  const noticeEnabled = Boolean(siteSettings.notice_enabled);
+  const popupEnabled = Boolean(siteSettings.popup_enabled);
+  const heroStyle = heroBackgroundUrl
+    ? { backgroundImage: `linear-gradient(135deg, rgba(10, 15, 27, 0.78), rgba(31, 41, 55, 0.62)), url(${heroBackgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : undefined;
   return (
     <div className="site-wrap">
+      {popupEnabled && popupVisible ? (
+        <div className="site-popup-backdrop" onClick={() => { setPopupVisible(false); if (typeof window !== "undefined") window.sessionStorage.setItem("homePopupDismissed", "1"); }}>
+          <div className="site-popup-card" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="site-popup-close" onClick={() => { setPopupVisible(false); if (typeof window !== "undefined") window.sessionStorage.setItem("homePopupDismissed", "1"); }} aria-label="팝업 닫기">×</button>
+            <div className="section-mini">안내</div>
+            <h2>{siteSettings.popup_title}</h2>
+            <p>{siteSettings.popup_description}</p>
+            <a href={siteSettings.popup_button_url || "#contact"} className="primary-btn">{siteSettings.popup_button_text || "상담 바로가기"}</a>
+          </div>
+        </div>
+      ) : null}
       <header className="header">
         <div className="container header-inner">
           <a href="/" className="brand brand-logo-wrap brand-home-link">
@@ -402,6 +433,15 @@ export default function LoanLandingPage() {
         </div>
       </header>
 
+      {noticeEnabled && String(siteSettings.notice_text || "").trim() ? (
+        <div className="site-notice-bar">
+          <div className="container site-notice-inner">
+            <strong>공지</strong>
+            <span>{siteSettings.notice_text}</span>
+          </div>
+        </div>
+      ) : null}
+
       <div className="floating-contact-toolbar">
         <a href={`tel:${phoneNumber}`} className="floating-contact-btn floating-contact-btn-call">
           <span className="floating-contact-icon">☎</span>
@@ -416,7 +456,7 @@ export default function LoanLandingPage() {
       <main>
         {currentView === "home" && (
           <>
-            <section id="intro" className="hero">
+            <section id="intro" className="hero" style={heroStyle}>
               <div className="hero-glow hero-glow-1" />
               <div className="hero-glow hero-glow-2" />
 

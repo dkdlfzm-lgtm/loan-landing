@@ -11,7 +11,7 @@ function ManagerLogin({ password, setPassword, error, onSubmit }) {
           <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
             <div className="section-mini">관리 페이지</div>
             <h1 className="section-title reviews-page-title">홈페이지 설정 로그인</h1>
-            <p className="card-desc">브랜드 정보, 로고, 메인 배너, 후기 노출 여부를 관리하는 전용 페이지입니다.</p>
+            <p className="card-desc">브랜드 정보, 로고, 메인 배너, 후기 노출, 공지 노출을 관리하는 전용 페이지입니다.</p>
             <div className="field">
               <label>관리자 비밀번호</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
@@ -72,7 +72,13 @@ export default function ManagePage() {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.message || "홈페이지 설정을 불러오지 못했습니다.");
       if (data.settings) {
-        setSiteSettings({ ...DEFAULT_SITE_SETTINGS, ...data.settings, reviews_enabled: parseBoolean(data.settings.reviews_enabled, true) });
+        setSiteSettings({
+          ...DEFAULT_SITE_SETTINGS,
+          ...data.settings,
+          reviews_enabled: parseBoolean(data.settings.reviews_enabled, true),
+          notice_enabled: parseBoolean(data.settings.notice_enabled, false),
+          popup_enabled: parseBoolean(data.settings.popup_enabled, false),
+        });
       }
     } catch (err) {
       setMessage({ type: "error", text: err.message || "홈페이지 설정을 불러오지 못했습니다." });
@@ -132,17 +138,15 @@ export default function ManagePage() {
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      updateField("logo_url", String(reader.result || ""));
-    };
+    reader.onload = () => updateField("logo_url", String(reader.result || ""));
     reader.readAsDataURL(file);
   }
 
-  const heroTitleLines = useMemo(
-    () => String(siteSettings.hero_title || "").split("\n").filter(Boolean),
-    [siteSettings.hero_title]
-  );
+  const heroTitleLines = useMemo(() => String(siteSettings.hero_title || "").split("\n").filter(Boolean), [siteSettings.hero_title]);
   const heroFeatures = [siteSettings.hero_feature_1, siteSettings.hero_feature_2, siteSettings.hero_feature_3].filter((item) => String(item || "").trim());
+  const heroStyle = siteSettings.hero_background_url
+    ? { backgroundImage: `linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.66)), url(${siteSettings.hero_background_url})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : undefined;
 
   if (authenticated === null) {
     return <div className="site-wrap"><main className="section"><div className="container"><div className="white-panel">불러오는 중...</div></div></main></div>;
@@ -160,7 +164,7 @@ export default function ManagePage() {
             <div className="crm-sidebar-brand">
               <div className="crm-sidebar-eyebrow">관리 페이지</div>
               <strong>홈페이지 설정 센터</strong>
-              <span>브랜드 기본정보 · 로고 · 메인 배너 · 후기 노출 관리</span>
+              <span>브랜드 · 배너 · 후기 · 공지 · 팝업 설정</span>
             </div>
             <nav className="crm-sidebar-nav">
               <button type="button" className="crm-sidebar-tab active">홈페이지 설정</button>
@@ -172,9 +176,9 @@ export default function ManagePage() {
 
           <section className="crm-main manage-main">
             <div className="white-panel crm-settings-panel manage-header-panel">
-              <div className="section-mini">2차 목표 · 운영용 홈페이지 관리</div>
-              <h1 className="section-title">브랜드/배너/후기 노출 설정</h1>
-              <p className="card-desc">입력 중 값이 덮어써지지 않도록 자동 재불러오기를 막아둔 전용 관리 페이지입니다.</p>
+              <div className="section-mini">운영용 홈페이지 관리</div>
+              <h1 className="section-title">브랜드/배너/후기/공지 설정</h1>
+              <p className="card-desc">입력 중 값이 다시 덮어쓰이지 않도록 자동 재불러오기를 막아둔 전용 관리 페이지입니다.</p>
               {lastSavedAt ? <div className="crm-last-sync">최근 저장: {lastSavedAt.toLocaleString("ko-KR")}</div> : null}
             </div>
 
@@ -211,7 +215,7 @@ export default function ManagePage() {
                       <div className="field">
                         <label>로고 이미지 업로드</label>
                         <input type="file" accept="image/*" onChange={handleLogoFile} />
-                        <div className="field-help">간단히 바꾸려면 여기서 이미지를 선택하면 됩니다. 큰 이미지는 public 폴더 파일 경로 방식이 더 안정적입니다.</div>
+                        <div className="field-help">간단한 테스트용 업로드입니다. 운영 시에는 public 폴더 경로 사용이 더 안정적입니다.</div>
                       </div>
                     </div>
 
@@ -234,7 +238,6 @@ export default function ManagePage() {
                         <h2 className="manage-section-title">상담 채널 정보</h2>
                       </div>
                     </div>
-
                     <div className="two-col compact-two-col">
                       <div className="field">
                         <label>대표번호</label>
@@ -245,7 +248,6 @@ export default function ManagePage() {
                         <input value={siteSettings.kakao_id || ""} onChange={(e) => updateField("kakao_id", e.target.value)} placeholder="카카오톡 ID 입력" />
                       </div>
                     </div>
-
                     <div className="field">
                       <label>카카오 오픈채팅 링크</label>
                       <input value={siteSettings.kakao_url || ""} onChange={(e) => updateField("kakao_url", e.target.value)} placeholder="https://open.kakao.com/..." />
@@ -256,20 +258,21 @@ export default function ManagePage() {
                     <div className="manage-section-head">
                       <div>
                         <div className="section-mini">메인 배너 설정</div>
-                        <h2 className="manage-section-title">첫 화면 문구</h2>
+                        <h2 className="manage-section-title">첫 화면 문구와 배경</h2>
                       </div>
                     </div>
-
+                    <div className="field">
+                      <label>메인 배경 이미지 경로/URL</label>
+                      <input value={siteSettings.hero_background_url || ""} onChange={(e) => updateField("hero_background_url", e.target.value)} placeholder="비워두면 기본 그라데이션" />
+                    </div>
                     <div className="field">
                       <label>메인 배지 문구</label>
                       <input value={siteSettings.hero_badge || ""} onChange={(e) => updateField("hero_badge", e.target.value)} placeholder="상단 배지 문구" />
                     </div>
-
                     <div className="field">
                       <label>메인 타이틀</label>
                       <textarea rows={4} value={siteSettings.hero_title || ""} onChange={(e) => updateField("hero_title", e.target.value)} placeholder={"줄바꿈으로 문단 구분\n예: 아파트 시세조회부터"} />
                     </div>
-
                     <div className="field">
                       <label>메인 설명 문구</label>
                       <textarea rows={4} value={siteSettings.hero_description || ""} onChange={(e) => updateField("hero_description", e.target.value)} placeholder="메인 설명 문구 입력" />
@@ -307,17 +310,11 @@ export default function ManagePage() {
 
                     <div className="manage-preview-shell">
                       <div className="manage-preview-head">메인 배너 미리보기</div>
-                      <div className="manage-hero-preview">
+                      <div className="manage-hero-preview" style={heroStyle}>
                         <div className="hero-pill">{siteSettings.hero_badge}</div>
-                        <div className="manage-hero-title">
-                          {heroTitleLines.map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}
-                        </div>
+                        <div className="manage-hero-title">{heroTitleLines.map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</div>
                         <p>{siteSettings.hero_description}</p>
-                        {heroFeatures.length ? (
-                          <div className="hero-feature-list">
-                            {heroFeatures.map((item) => <span key={item} className="hero-feature-chip">{item}</span>)}
-                          </div>
-                        ) : null}
+                        {heroFeatures.length ? <div className="hero-feature-list">{heroFeatures.map((item) => <span key={item} className="hero-feature-chip">{item}</span>)}</div> : null}
                         <div className="manage-preview-actions">
                           <span className="btn btn-white manage-preview-btn">{siteSettings.hero_primary_cta}</span>
                           <span className="btn btn-outline manage-preview-btn dark-outline">{siteSettings.hero_secondary_cta}</span>
@@ -329,18 +326,36 @@ export default function ManagePage() {
                   <section className="manage-section-block">
                     <div className="manage-section-head">
                       <div>
-                        <div className="section-mini">후기 노출 설정</div>
-                        <h2 className="manage-section-title">고객용 후기 영역</h2>
+                        <div className="section-mini">후기/공지 설정</div>
+                        <h2 className="manage-section-title">노출 제어</h2>
                       </div>
                     </div>
-
                     <div className="settings-grid-toggle">
-                      <ToggleField
-                        checked={Boolean(siteSettings.reviews_enabled)}
-                        onChange={(value) => updateField("reviews_enabled", value)}
-                        label="이용후기 노출"
-                        description="홈 상단 메뉴와 메인 후기 섹션 노출을 한 번에 켜고 끌 수 있습니다."
-                      />
+                      <ToggleField checked={Boolean(siteSettings.reviews_enabled)} onChange={(value) => updateField("reviews_enabled", value)} label="이용후기 노출" description="홈 상단 메뉴와 메인 후기 섹션 노출을 켜고 끌 수 있습니다." />
+                      <ToggleField checked={Boolean(siteSettings.notice_enabled)} onChange={(value) => updateField("notice_enabled", value)} label="상단 공지 배너" description="홈페이지 상단에 짧은 안내 문구를 띄웁니다." />
+                      <ToggleField checked={Boolean(siteSettings.popup_enabled)} onChange={(value) => updateField("popup_enabled", value)} label="메인 팝업 노출" description="홈 첫 진입 시 안내 팝업을 띄웁니다. 닫으면 현재 브라우저에서만 숨겨집니다." />
+                    </div>
+                    <div className="field">
+                      <label>상단 공지 문구</label>
+                      <input value={siteSettings.notice_text || ""} onChange={(e) => updateField("notice_text", e.target.value)} placeholder="상단 안내 문구 입력" />
+                    </div>
+                    <div className="two-col compact-two-col">
+                      <div className="field">
+                        <label>팝업 제목</label>
+                        <input value={siteSettings.popup_title || ""} onChange={(e) => updateField("popup_title", e.target.value)} placeholder="팝업 제목" />
+                      </div>
+                      <div className="field">
+                        <label>팝업 버튼 문구</label>
+                        <input value={siteSettings.popup_button_text || ""} onChange={(e) => updateField("popup_button_text", e.target.value)} placeholder="상담 바로가기" />
+                      </div>
+                    </div>
+                    <div className="field">
+                      <label>팝업 설명 문구</label>
+                      <textarea rows={4} value={siteSettings.popup_description || ""} onChange={(e) => updateField("popup_description", e.target.value)} placeholder="팝업 설명 문구" />
+                    </div>
+                    <div className="field">
+                      <label>팝업 버튼 링크</label>
+                      <input value={siteSettings.popup_button_url || ""} onChange={(e) => updateField("popup_button_url", e.target.value)} placeholder="#contact 또는 https://..." />
                     </div>
                   </section>
 

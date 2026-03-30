@@ -19,6 +19,14 @@ const SELECT_FIELDS = [
   "hero_secondary_cta",
   "consult_button_text",
   "reviews_enabled",
+  "hero_background_url",
+  "notice_enabled",
+  "notice_text",
+  "popup_enabled",
+  "popup_title",
+  "popup_description",
+  "popup_button_text",
+  "popup_button_url",
   "updated_at",
 ].join(",");
 

@@ -20,6 +20,14 @@ const FIELD_CONFIG = [
   ["hero_secondary_cta", "text"],
   ["consult_button_text", "text"],
   ["reviews_enabled", "boolean"],
+  ["hero_background_url", "text"],
+  ["notice_enabled", "boolean"],
+  ["notice_text", "text"],
+  ["popup_enabled", "boolean"],
+  ["popup_title", "text"],
+  ["popup_description", "text"],
+  ["popup_button_text", "text"],
+  ["popup_button_url", "text"],
 ];
 
 const SELECT_FIELDS = FIELD_CONFIG.map(([field]) => field).concat("updated_at").join(",");
