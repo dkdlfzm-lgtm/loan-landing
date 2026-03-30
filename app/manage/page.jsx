@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DEFAULT_SITE_SETTINGS, parseBoolean } from "../../lib/site-settings";
+import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, parseBoolean } from "../../lib/site-settings";
 
 const MENUS = [
   { key: "brand", label: "기본정보" },
@@ -148,7 +148,9 @@ export default function ManagePage() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.message || "홈페이지 설정 저장 실패");
-      setSiteSettings((prev) => ({ ...prev, ...(data.settings || {}) }));
+      const nextSettings = { ...siteSettings, ...(data.settings || {}) };
+      setSiteSettings(nextSettings);
+      cacheSiteSettings(nextSettings);
       setLastSavedAt(new Date());
       setMessage({ type: "success", text: "홈페이지 설정이 저장되었습니다." });
     } catch (err) {

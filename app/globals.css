@@ -3976,3 +3976,39 @@ textarea:focus {
 @media (max-width: 900px) {
   .brand-logo { width: 62px; height: 62px; }
 }
+
+
+/* logo/status/performance sync refresh */
+.brand-logo {
+  width: auto !important;
+  height: 78px !important;
+  max-width: 200px;
+  object-fit: contain;
+  border-radius: 18px;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.brand-logo.is-placeholder {
+  width: 148px !important;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%) !important;
+  border: 1px solid #dbe4f0;
+}
+.brand-logo-wrap { align-items: center; }
+.crm-status-chip {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.crm-performance-table td { vertical-align: middle; }
+.crm-performance-table .crm-table-input { min-width: 110px; }
+@media (max-width: 900px) {
+  .brand-logo { height: 66px !important; max-width: 168px; }
+  .brand-logo.is-placeholder { width: 124px !important; }
+}

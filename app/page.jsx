@@ -37,6 +37,8 @@ const statSlides = [
 
 const REPAYMENT_RATE_DEFAULTS = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
 
+const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+
 const loanTypeOptions = [
   "주택담보대출",
   "전세퇴거자금",
@@ -58,6 +60,7 @@ export default function LoanLandingPage() {
   const [repaymentType, setRepaymentType] = useState("원리금균등");
   const [loanMonths, setLoanMonths] = useState("");
   const [siteSettings, setSiteSettings] = useState(() => readCachedSiteSettings());
+  const [logoReady, setLogoReady] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
 
@@ -95,6 +98,10 @@ export default function LoanLandingPage() {
   const towns = catalogOptions.towns;
   const apartments = catalogOptions.apartments;
   const areas = catalogOptions.areas;
+
+  useEffect(() => {
+    setLogoReady(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -493,7 +500,7 @@ export default function LoanLandingPage() {
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src={logoUrl} alt={brandName} className="brand-logo" />
+            <img src={logoReady ? logoUrl : TRANSPARENT_PIXEL} alt={brandName} className={`brand-logo ${logoReady ? "" : "is-placeholder"}`} />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>

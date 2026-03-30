@@ -23,24 +23,6 @@ const OWNER_TABS = [
   { key: "staff", label: "담당자·직원 계정" },
 ];
 const AUTO_REFRESH_MS = 5000;
-const PERFORMANCE_STORAGE_KEY = "loanLanding.adminPerformanceMeta";
-
-function loadPerformanceMeta() {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(PERFORMANCE_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function persistPerformanceMeta(next) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(PERFORMANCE_STORAGE_KEY, JSON.stringify(next));
-  } catch {}
-}
-
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return <div className={`crm-summary-card crm-tone-${tone}`}><span>{title}</span><strong>{value}</strong><small>{subtitle}</small></div>;
 }
@@ -156,8 +138,20 @@ export default function AdminOwnerPage() {
       ]);
       const nextInquiries = inqRes.inquiries || [];
       setInquiries(nextInquiries);
-      setAssignees(assRes.assignees || []);
-      setAccounts(accRes.accounts || []);
+      const nextAssignees = assRes.assignees || [];
+      const nextAccounts = accRes.accounts || [];
+      setAssignees(nextAssignees);
+      setAccounts(nextAccounts);
+
+      try {
+        const perfRes = await fetch("/api/admin/performance-targets", { cache: "no-store" });
+        const perfData = await perfRes.json();
+        if (perfRes.ok && perfData?.ok) {
+          const perfMap = Object.fromEntries((perfData.targets || []).map((item) => [item.staff_account_id, { goal: Number(item.goal || 0), memo: item.memo || "" }]));
+          setPerformanceMeta(perfMap);
+        }
+      } catch {}
+
       if (!selectedId && nextInquiries.length) setSelectedId(nextInquiries[0].id);
       if (selectedId && !nextInquiries.some((item) => item.id === selectedId)) setSelectedId(nextInquiries[0]?.id || null);
       setLastSyncedAt(new Date());
@@ -172,9 +166,6 @@ export default function AdminOwnerPage() {
     loadData().catch(() => setLoading(false));
   }, [authenticated]);
 
-  useEffect(() => {
-    setPerformanceMeta(loadPerformanceMeta());
-  }, []);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -335,11 +326,18 @@ export default function AdminOwnerPage() {
       if (item.status === "승인") row.approvedCount += 1;
     });
 
-    return [...seed.values()].map((row) => ({
-      ...row,
-      approvalRate: row.total ? Math.round((row.approvedCount / row.total) * 100) : 0,
-      achievementRate: row.goal > 0 ? Math.round((row.approvedCount / row.goal) * 100) : 0,
-    })).sort((a, b) => b.approvedCount - a.approvedCount || b.total - a.total || a.name.localeCompare(b.name));
+    return [...seed.values()].map((row) => {
+      const meta = performanceMeta[row.id] || {};
+      const goal = Number(meta.goal || 0);
+      const memo = meta.memo || "";
+      return {
+        ...row,
+        goal,
+        memo,
+        approvalRate: row.total ? Math.round((row.approvedCount / row.total) * 100) : 0,
+        achievementRate: goal > 0 ? Math.round((row.approvedCount / goal) * 100) : 0,
+      };
+    }).sort((a, b) => b.approvedCount - a.approvedCount || b.total - a.total || a.name.localeCompare(b.name));
   }, [inquiries, metricYear, metricMonth, activeAccountOptions, accountLabelMap, performanceMeta]);
 
   const yearlyRows = useMemo(() => groupCounts(inquiries, (item) => String(new Date(item.created_at).getFullYear())).sort((a, b) => b.name.localeCompare(a.name)), [inquiries]);
@@ -358,11 +356,25 @@ export default function AdminOwnerPage() {
     setPerformanceMeta((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), [key]: value } }));
   }
 
-  function savePerformanceRow(id) {
-    const next = { ...performanceMeta };
-    persistPerformanceMeta(next);
-    setPerformanceSavedId(id);
-    window.setTimeout(() => setPerformanceSavedId((current) => current === id ? "" : current), 1800);
+  async function savePerformanceRow(id) {
+    const payload = performanceMeta[id] || {};
+    try {
+      const res = await fetch("/api/admin/performance-targets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staff_account_id: id, goal: Number(payload.goal || 0), memo: payload.memo || "" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "실적 목표 저장 실패");
+      setPerformanceMeta((prev) => ({
+        ...prev,
+        [id]: { goal: Number(data.target?.goal || 0), memo: data.target?.memo || "" },
+      }));
+      setPerformanceSavedId(id);
+      window.setTimeout(() => setPerformanceSavedId((current) => current === id ? "" : current), 1800);
+    } catch (error) {
+      setCustomerMessage({ type: "error", text: error.message || "실적 목표 저장 실패" });
+    }
   }
 
   const filteredInquiries = useMemo(() => inquiries.filter((item) => {
@@ -564,11 +576,11 @@ export default function AdminOwnerPage() {
                 <SummaryCard title="상위 담당자" value={performanceSummary.topCloser} subtitle="승인 건수 기준" tone="new" />
               </div>
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>담당자별 실적</h3><span>활성 직원 계정에 실제 배정된 고객만 반영되며, 목표와 메모를 직접 편집할 수 있습니다.</span></div>
+                <div className="crm-section-header"><h3>담당자별 실적</h3><span>활성 직원 계정에 실제 배정된 고객만 반영되며, 목표와 메모를 저장하면 전체 관리자 화면에 동기화됩니다.</span></div>
                 <div className="crm-toolbar crm-toolbar-xl">
                   <select value={metricYear} onChange={(e) => setMetricYear(e.target.value)}>{yearOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 연도" : `${item}년`}</option>)}</select>
                   <select value={metricMonth} onChange={(e) => setMetricMonth(e.target.value)}><option value="all">전체 월</option>{Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}월</option>)}</select>
-                  <div className="crm-muted-box">목표/메모 수정 후 저장하면 이 브라우저에서 계속 유지됩니다.</div>
+                  <div className="crm-muted-box">목표/메모 수정 후 저장하면 모든 관리자 환경에 반영됩니다.</div>
                 </div>
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern crm-performance-table">
