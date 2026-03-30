@@ -377,12 +377,15 @@ export default function LoanLandingPage() {
   const kakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
   const kakaoUrl = siteSettings.kakao_url || DEFAULT_SITE_SETTINGS.kakao_url;
   const heroTitleLines = String(siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title).split("\n").filter(Boolean);
+  const logoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
+  const reviewSectionEnabled = Boolean(siteSettings.reviews_enabled);
+  const heroFeatures = [siteSettings.hero_feature_1, siteSettings.hero_feature_2, siteSettings.hero_feature_3].filter((item) => String(item || "").trim());
   return (
     <div className="site-wrap">
       <header className="header">
         <div className="container header-inner">
           <a href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src="/andi-logo.jpg" alt={brandName} className="brand-logo" />
+            <img src={logoUrl} alt={brandName} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>
@@ -393,7 +396,7 @@ export default function LoanLandingPage() {
             <a href="#intro">홈</a>
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
-            <a href="/reviews">이용후기</a>
+            {reviewSectionEnabled ? <a href="/reviews">이용후기</a> : null}
             <a href="#contact" className="nav-btn">{siteSettings.consult_button_text}</a>
           </nav>
         </div>
@@ -431,6 +434,14 @@ export default function LoanLandingPage() {
                   <p className="hero-text">
                     {siteSettings.hero_description}
                   </p>
+
+                  {heroFeatures.length ? (
+                    <div className="hero-feature-list">
+                      {heroFeatures.map((item) => (
+                        <span key={item} className="hero-feature-chip">{item}</span>
+                      ))}
+                    </div>
+                  ) : null}
 
                   <div className="hero-actions">
                     <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta}</a>
@@ -618,7 +629,7 @@ export default function LoanLandingPage() {
               </div>
             </section>
 
-            <section className="review-section">
+            {reviewSectionEnabled ? <section className="review-section">
               <div className="container review-grid">
                 <div className="review-left">
                   <div className="review-title">이용후기</div>
@@ -641,7 +652,7 @@ export default function LoanLandingPage() {
                   ))}
                 </div>
               </div>
-            </section>
+            </section> : null}
           </>
         )}
 

@@ -56,13 +56,14 @@ export default function ReviewWritePage() {
 
   const brandName = siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name;
   const brandSubtitle = siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle;
+  const logoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
 
   return (
     <div className="site-wrap reviews-page-wrap premium-reviews-wrap">
       <header className="header">
         <div className="container header-inner">
           <Link href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src="/andi-logo.jpg" alt={brandName} className="brand-logo" />
+            <img src={logoUrl} alt={brandName} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{brandName}</div>
               <div className="brand-sub">{brandSubtitle}</div>

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
 import { subscribeSupabaseTable } from "../../lib/realtime-browser";
-import { DEFAULT_SITE_SETTINGS } from "../../lib/site-settings";
 
 const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "프리랜서", "무직"];
 const STATUS_OPTIONS = [
@@ -22,7 +21,6 @@ const OWNER_TABS = [
   { key: "customers", label: "고객 배정" },
   { key: "performance", label: "실적 관리" },
   { key: "staff", label: "담당자·직원 계정" },
-  { key: "site", label: "홈페이지 설정" },
 ];
 const AUTO_REFRESH_MS = 5000;
 
@@ -81,6 +79,7 @@ function Sidebar({ activeTab, setActiveTab, onLogout }) {
         {OWNER_TABS.map((tab) => <button key={tab.key} type="button" className={`crm-sidebar-tab ${activeTab === tab.key ? "active" : ""}`} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}
       </nav>
       <a className="nav-btn crm-ghost-link" href="/staff">직원 페이지 열기</a>
+      <a className="nav-btn crm-ghost-link" href="/manage">홈페이지 관리 열기</a>
       <button type="button" className="nav-btn admin-logout-btn crm-sidebar-logout" onClick={onLogout}>로그아웃</button>
     </aside>
   );
@@ -122,9 +121,6 @@ export default function AdminOwnerPage() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
-  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
-  const [siteMessage, setSiteMessage] = useState(null);
-  const [siteSaving, setSiteSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
@@ -134,17 +130,15 @@ export default function AdminOwnerPage() {
     if (silent) setIsRefreshing(true);
     else setLoading(true);
     try {
-      const [inqRes, assRes, accRes, siteRes] = await Promise.all([
+      const [inqRes, assRes, accRes] = await Promise.all([
         fetch("/api/admin/inquiries", { cache: "no-store" }).then((r) => r.json()),
         fetch("/api/admin/assignees", { cache: "no-store" }).then((r) => r.json()),
         fetch("/api/admin/staff-accounts", { cache: "no-store" }).then((r) => r.json()),
-        fetch("/api/admin/site-settings", { cache: "no-store" }).then((r) => r.json()),
       ]);
       const nextInquiries = inqRes.inquiries || [];
       setInquiries(nextInquiries);
       setAssignees(assRes.assignees || []);
       setAccounts(accRes.accounts || []);
-      if (siteRes?.settings) setSiteSettings((prev) => ({ ...prev, ...siteRes.settings }));
       if (!selectedId && nextInquiries.length) setSelectedId(nextInquiries[0].id);
       if (selectedId && !nextInquiries.some((item) => item.id === selectedId)) setSelectedId(nextInquiries[0]?.id || null);
       setLastSyncedAt(new Date());
@@ -349,26 +343,6 @@ export default function AdminOwnerPage() {
 
 
 
-async function handleSaveSiteSettings(e) {
-  e?.preventDefault?.();
-  setSiteSaving(true);
-  setSiteMessage(null);
-  try {
-    const res = await fetch("/api/admin/site-settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(siteSettings),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.message || "홈페이지 설정 저장 실패");
-    setSiteSettings((prev) => ({ ...prev, ...(data.settings || {}) }));
-    setSiteMessage({ type: "success", text: "홈페이지 기본 설정이 저장되었습니다." });
-  } catch (error) {
-    setSiteMessage({ type: "error", text: error.message || "홈페이지 설정 저장 실패" });
-  } finally {
-    setSiteSaving(false);
-  }
-}
   async function handleAddNote() {
     if (!selectedInquiry || !noteAuthor.trim() || !noteContent.trim()) return;
     setNoteSaving(true);
@@ -552,36 +526,6 @@ async function handleSaveSiteSettings(e) {
 
 
 
-          {activeTab === "site" ? (
-            <section className="crm-panel-stack">
-              <div className="white-panel crm-settings-panel">
-                <div className="section-mini">1차 목표 · 홈페이지 수정페이지</div>
-                <h2 className="section-title">홈페이지 기본 정보 수정</h2>
-                <p className="card-desc">회사명, 상단 소개문구, 연락처, 카카오상담, 메인 배너 문구를 관리자 페이지에서 바로 수정할 수 있습니다.</p>
-                <form className="form-stack" onSubmit={handleSaveSiteSettings}>
-                  <div className="two-col compact-two-col">
-                    <div className="field"><label>회사명</label><input value={siteSettings.company_name || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, company_name: e.target.value }))} placeholder="회사명 입력" /></div>
-                    <div className="field"><label>회사 소개 한줄</label><input value={siteSettings.company_subtitle || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, company_subtitle: e.target.value }))} placeholder="상단 보조 문구 입력" /></div>
-                  </div>
-                  <div className="two-col compact-two-col">
-                    <div className="field"><label>대표번호</label><input value={siteSettings.phone || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, phone: e.target.value }))} placeholder="070-0000-0000" /></div>
-                    <div className="field"><label>카카오톡 ID</label><input value={siteSettings.kakao_id || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, kakao_id: e.target.value }))} placeholder="카카오톡 ID 입력" /></div>
-                  </div>
-                  <div className="field"><label>카카오 오픈채팅 링크</label><input value={siteSettings.kakao_url || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, kakao_url: e.target.value }))} placeholder="https://open.kakao.com/..." /></div>
-                  <div className="field"><label>메인 배지 문구</label><input value={siteSettings.hero_badge || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, hero_badge: e.target.value }))} placeholder="상단 배지 문구" /></div>
-                  <div className="field"><label>메인 타이틀</label><textarea rows={4} value={siteSettings.hero_title || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, hero_title: e.target.value }))} placeholder={"줄바꿈으로 문단 구분\n예: 아파트 시세조회부터"} /></div>
-                  <div className="field"><label>메인 설명 문구</label><textarea rows={4} value={siteSettings.hero_description || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, hero_description: e.target.value }))} placeholder="메인 설명 문구 입력" /></div>
-                  <div className="three-col crm-settings-grid-cta">
-                    <div className="field"><label>상담 버튼 문구</label><input value={siteSettings.consult_button_text || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, consult_button_text: e.target.value }))} placeholder="상담 신청" /></div>
-                    <div className="field"><label>메인 버튼 1</label><input value={siteSettings.hero_primary_cta || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, hero_primary_cta: e.target.value }))} placeholder="빠른 시세조회" /></div>
-                    <div className="field"><label>메인 버튼 2</label><input value={siteSettings.hero_secondary_cta || ""} onChange={(e) => setSiteSettings((prev) => ({ ...prev, hero_secondary_cta: e.target.value }))} placeholder="무료 상담 신청" /></div>
-                  </div>
-                  {siteMessage ? <div className={`api-status ${siteMessage.type === "success" ? "success" : "error"}`}>{siteMessage.text}</div> : null}
-                  <button type="submit" className="primary-btn" disabled={siteSaving}>{siteSaving ? "저장 중..." : "홈페이지 설정 저장"}</button>
-                </form>
-              </div>
-            </section>
-          ) : null}
           {activeTab === "staff" ? (
             <div className="owner-staff-shell">
               <section className="crm-panel crm-panel-xl">
