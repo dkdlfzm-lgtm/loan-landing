@@ -24,7 +24,7 @@ export async function PATCH(request, { params }) {
 
     const body = await request.json();
     const payload = {
-      status: String(body.status || 'new').trim(),
+      status: String(body.status || '신규접수').trim(),
       job_type: String(body.job_type || '').trim(),
       call_summary: String(body.call_summary || '').trim(),
       internal_memo: String(body.internal_memo || '').trim(),

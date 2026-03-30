@@ -210,8 +210,8 @@ export default function StaffPage() {
   const stats = useMemo(() => ({
     total: inquiries.length,
     newCount: inquiries.filter((x) => x.status === "신규접수").length,
-    contactedCount: inquiries.filter((x) => ["진행중", "재통화예정", "가승인"].includes(x.status)).length,
-    closedCount: inquiries.filter((x) => x.status === "승인").length,
+    recallCount: inquiries.filter((x) => x.status === "재통화예정").length,
+    approvedCount: inquiries.filter((x) => x.status === "승인").length,
   }), [inquiries]);
 
   async function handleLogin(e) {
@@ -293,8 +293,8 @@ export default function StaffPage() {
               <div className="crm-summary-grid crm-summary-grid-pro">
                 <SummaryCard title="내 배정 고객" value={stats.total} subtitle="현재 내가 담당 중인 고객" />
                 <SummaryCard title="신규 접수" value={stats.newCount} subtitle="확인 대기" tone="new" />
-                <SummaryCard title="재통화 예정" value={stats.contactedCount} subtitle="후속 상담 필요" tone="contacted" />
-                <SummaryCard title="처리 완료" value={stats.closedCount} subtitle="상담 종료" tone="closed" />
+                <SummaryCard title="재통화 예정" value={stats.recallCount} subtitle="후속 상담 필요" tone="contacted" />
+                <SummaryCard title="승인" value={stats.approvedCount} subtitle="상담 완료" tone="closed" />
               </div>
             </div>
           ) : null}

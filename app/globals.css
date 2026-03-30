@@ -3881,3 +3881,51 @@ textarea:focus {
     flex: 1;
   }
 }
+
+.site-popup-float-left {
+  left: 24px;
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.quick-consult-modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(3px);
+}
+
+.quick-consult-modal {
+  position: relative;
+  width: min(92vw, 420px);
+  background: #fff;
+  border-radius: 28px;
+  padding: 26px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.quick-consult-modal .card-title {
+  margin-bottom: 18px;
+}
+
+.quick-consult-modal .field label {
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .site-popup-float-left {
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 16px;
+    transform: none;
+    width: auto;
+  }
+}

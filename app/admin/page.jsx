@@ -287,24 +287,33 @@ export default function AdminOwnerPage() {
   const yearOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => String(new Date(item.created_at).getFullYear())))).sort((a, b) => b.localeCompare(a))], [inquiries]);
 
   const performanceRows = useMemo(() => {
-    const filtered = inquiries.filter((item) => {
+    const activeIds = new Set(activeAccountOptions.map((item) => item.id));
+    const seed = new Map(activeAccountOptions.map((account) => [account.id, {
+      id: account.id,
+      name: accountLabelMap.get(account.id) || account.display_name || account.username,
+      total: 0,
+      newCount: 0,
+      recallCount: 0,
+      progressCount: 0,
+      approvedCount: 0,
+    }]));
+
+    inquiries.forEach((item) => {
       const d = new Date(item.created_at);
-      if (metricYear !== "all" && String(d.getFullYear()) !== metricYear) return false;
-      if (metricMonth !== "all" && String(d.getMonth() + 1).padStart(2, "0") !== metricMonth) return false;
-      return true;
+      if (metricYear !== "all" && String(d.getFullYear()) !== metricYear) return;
+      if (metricMonth !== "all" && String(d.getMonth() + 1).padStart(2, "0") !== metricMonth) return;
+      if (!item.assigned_staff_account_id || !activeIds.has(item.assigned_staff_account_id)) return;
+      const row = seed.get(item.assigned_staff_account_id);
+      if (!row) return;
+      row.total += 1;
+      if (item.status === "신규접수") row.newCount += 1;
+      if (item.status === "재통화예정") row.recallCount += 1;
+      if (item.status === "진행중" || item.status === "가승인") row.progressCount += 1;
+      if (item.status === "승인") row.approvedCount += 1;
     });
-    const map = new Map();
-    filtered.forEach((item) => {
-      const name = item.assignee || "미배정";
-      const prev = map.get(name) || { name, total: 0, newCount: 0, contactedCount: 0, closedCount: 0 };
-      prev.total += 1;
-      if (item.status === "신규접수") prev.newCount += 1;
-      if (item.status === "진행중" || item.status === "재통화예정" || item.status === "가승인") prev.contactedCount += 1;
-      if (item.status === "승인") prev.closedCount += 1;
-      map.set(name, prev);
-    });
-    return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [inquiries, metricYear, metricMonth]);
+
+    return [...seed.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [inquiries, metricYear, metricMonth, activeAccountOptions, accountLabelMap]);
 
   const yearlyRows = useMemo(() => groupCounts(inquiries, (item) => String(new Date(item.created_at).getFullYear())).sort((a, b) => b.name.localeCompare(a.name)), [inquiries]);
   const monthlyRows = useMemo(() => groupCounts(inquiries, (item) => `${new Date(item.created_at).getFullYear()}-${String(new Date(item.created_at).getMonth() + 1).padStart(2, "0")}`).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 12), [inquiries]);
@@ -508,12 +517,12 @@ export default function AdminOwnerPage() {
                 <div className="crm-toolbar crm-toolbar-xl">
                   <select value={metricYear} onChange={(e) => setMetricYear(e.target.value)}>{yearOptions.map((item) => <option key={item} value={item}>{item === "all" ? "전체 연도" : `${item}년`}</option>)}</select>
                   <select value={metricMonth} onChange={(e) => setMetricMonth(e.target.value)}><option value="all">전체 월</option>{Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")).map((m) => <option key={m} value={m}>{Number(m)}월</option>)}</select>
-                  <div className="crm-muted-box">조건 선택 시 담당자별 신규/재통화/처리완료 건수를 즉시 집계합니다.</div>
+                  <div className="crm-muted-box">활성 직원 계정에 실제 배정된 고객만 실적으로 집계합니다.</div>
                 </div>
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern">
-                    <thead><tr><th>담당자</th><th>전체</th><th>신규</th><th>재통화예정</th><th>처리완료</th></tr></thead>
-                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={5} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.name}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.contactedCount}</td><td>{row.closedCount}</td></tr>)}</tbody>
+                    <thead><tr><th>직원 계정</th><th>전체</th><th>신규</th><th>재통화예정</th><th>진행중·가승인</th><th>승인</th></tr></thead>
+                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.recallCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td></tr>)}</tbody>
                   </table>
                 </div>
               </section>

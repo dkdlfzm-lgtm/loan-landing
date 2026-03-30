@@ -9,7 +9,7 @@ export async function PATCH(request, { params }) {
     const body = await request.json();
     const assigned_staff_account_id = body.assigned_staff_account_id ? String(body.assigned_staff_account_id).trim() : null;
     const payload = {
-      status: String(body.status || 'new').trim(),
+      status: String(body.status || '신규접수').trim(),
       job_type: String(body.job_type || '').trim(),
       assignee: String(body.assignee || '미배정').trim(),
       assigned_staff_account_id,

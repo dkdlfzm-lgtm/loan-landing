@@ -10,10 +10,10 @@ function formatNumber(value) {
 const REPAYMENT_RATE_DEFAULTS = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
 
 export default function PriceResultPage() {
-  const [loanAmount, setLoanAmount] = useState("0");
-  const [interestRate, setInterestRate] = useState(REPAYMENT_RATE_DEFAULTS["원리금균등"]);
+  const [loanAmount, setLoanAmount] = useState("");
+  const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("360");
+  const [loanMonths, setLoanMonths] = useState("");
 
   const params =
     typeof window !== "undefined"
@@ -41,6 +41,7 @@ export default function PriceResultPage() {
 
   useEffect(() => {
     setInterestRate(REPAYMENT_RATE_DEFAULTS[repaymentType] || "");
+    if (!loanMonths) setLoanMonths("360");
   }, [repaymentType]);
 
   const calcResult = useMemo(() => {
@@ -167,9 +168,8 @@ export default function PriceResultPage() {
               </div>
 
               <div className="desc-card">
-                <div className="section-mini">상담 안내</div>
-                <h3 className="desc-title">선택하신 시세 정보를 바탕으로 맞춤 상담을 도와드립니다.</h3>
-                <p className="desc-text">{priceResult.description}</p>
+                <div className="section-mini">선택 정보</div>
+                <h3 className="desc-title">조회 단지 정보</h3>
 
                 <div className="tag-wrap">
                   <span>{city}</span>
@@ -185,9 +185,6 @@ export default function PriceResultPage() {
               <div id="contact" className="side-card">
                 <div className="section-mini">상담 신청</div>
                 <h3 className="card-title">지금 바로 상담 신청</h3>
-                <p className="card-desc">
-                  조회하신 단지 정보를 기준으로 담당자가 빠르게 상담을 도와드립니다.
-                </p>
 
                 <form className="form-stack">
                   <input type="text" placeholder="성함" />
@@ -200,7 +197,7 @@ export default function PriceResultPage() {
                     <option>대환대출</option>
                   </select>
                   <textarea rows={4} placeholder="상담 내용을 입력하세요" />
-                  <button type="button" className="primary-btn">대출 신청 접수하기</button>
+                  <button type="button" className="primary-btn">상담 신청하기</button>
                 </form>
               </div>
 

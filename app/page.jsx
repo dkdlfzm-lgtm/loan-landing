@@ -58,6 +58,7 @@ export default function LoanLandingPage() {
   const [loanMonths, setLoanMonths] = useState("");
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [popupVisible, setPopupVisible] = useState(false);
+  const [consultPopupOpen, setConsultPopupOpen] = useState(false);
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -190,6 +191,14 @@ export default function LoanLandingPage() {
   function closePopupForSession() {
     setPopupVisible(false);
     if (typeof window !== "undefined") window.sessionStorage.setItem("homePopupDismissed", "1");
+  }
+
+  function openConsultPopup() {
+    setConsultPopupOpen(true);
+  }
+
+  function closeConsultPopup() {
+    setConsultPopupOpen(false);
   }
 
   function closePopupForDay() {
@@ -365,8 +374,9 @@ export default function LoanLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "상담접수를 저장하지 못했습니다.");
-      setHomeInquiryStatus("상담접수가 완료되었습니다. 확인 후 빠르게 연락드리겠습니다.");
+      setHomeInquiryStatus("상담접수가 완료되었습니다. 확인 후 연락드리겠습니다.");
       setHomeInquiry({ name: "", phone: "", address: "", loanType: loanTypeOptions[0] });
+      setConsultPopupOpen(false);
     } catch (error) {
       setHomeInquiryStatus(error?.message || "상담접수를 저장하지 못했습니다.");
     } finally {
@@ -428,16 +438,50 @@ export default function LoanLandingPage() {
   return (
     <div className="site-wrap">
       {popupEnabled && popupVisible ? (
-        <div className="site-popup-float-wrap">
+        <div className="site-popup-float-wrap site-popup-float-left">
           <div className="site-popup-card site-popup-card-floating">
             <button type="button" className="site-popup-close" onClick={closePopupForSession} aria-label="팝업 닫기">×</button>
             <div className="section-mini">안내</div>
             <h2>{siteSettings.popup_title}</h2>
             <p>{siteSettings.popup_description}</p>
             <div className="site-popup-actions">
-              <a href={siteSettings.popup_button_url || "#contact"} className="primary-btn">{siteSettings.popup_button_text || "상담 바로가기"}</a>
+              <button type="button" className="primary-btn" onClick={openConsultPopup}>{siteSettings.popup_button_text || "상담 바로가기"}</button>
               <button type="button" className="secondary-btn site-popup-day-btn" onClick={closePopupForDay}>하루 동안 그만보기</button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {consultPopupOpen ? (
+        <div className="quick-consult-modal-wrap" onClick={closeConsultPopup}>
+          <div className="quick-consult-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="site-popup-close" onClick={closeConsultPopup} aria-label="상담 팝업 닫기">×</button>
+            <div className="section-mini">빠른 상담 신청</div>
+            <h2 className="card-title">빠른 상담 접수</h2>
+            <form className="form-stack" onSubmit={submitHomeInquiry}>
+              <div className="field">
+                <label>성함</label>
+                <input type="text" placeholder="성함을 입력하세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>연락처</label>
+                <input type="text" placeholder="연락처를 입력하세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>주소 입력</label>
+                <input type="text" placeholder="주소를 입력하세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>대출유형</label>
+                <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
+                  {loanTypeOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
+              <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
+            </form>
           </div>
         </div>
       ) : null}
@@ -520,9 +564,6 @@ export default function LoanLandingPage() {
                 <div className="hero-card">
                   <div className="section-mini">빠른 {siteSettings.consult_button_text}</div>
                   <h2 className="card-title">빠른 상담 접수</h2>
-                  <p className="card-desc">
-                    성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
-                  </p>
 
                   <form className="form-stack" onSubmit={submitHomeInquiry}>
                     <div className="field">
@@ -906,7 +947,7 @@ export default function LoanLandingPage() {
 
               <div className="result-page-hero">
                 <div>
-                  <div className="section-mini light-mini">시세조회 결과 · {marketResult?.source === "reb-openapi" ? "한국부동산원 API" : "예시 데이터 fallback"}</div>
+                  <div className="section-mini light-mini">시세조회 결과</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
                   <p className="result-page-sub">
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
@@ -972,10 +1013,8 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="desc-card">
-                    <div className="section-mini">설명 영역</div>
-                    <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
-                    <p className="desc-text">{priceResult.description}</p>
-
+                    <div className="section-mini">선택 정보</div>
+                    <h3 className="desc-title">조회 단지 정보</h3>
                     <div className="tag-wrap">
                       <span>{selectedCity}</span>
                       <span>{selectedDistrict}</span>
@@ -988,17 +1027,14 @@ export default function LoanLandingPage() {
 
                 <div className="result-side-col">
                   <div id="contact" className="side-card">
-                    <div className="section-mini">대출 신청 작성란</div>
+                    <div className="section-mini">상담 신청</div>
                     <h3 className="card-title">지금 바로 {siteSettings.consult_button_text}</h3>
-                    <p className="card-desc">
-                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
-                    </p>
 
                     <form className="form-stack" onSubmit={submitResultInquiry}>
                       <input type="text" placeholder="성함" value={resultInquiry.name} onChange={(e) => setResultInquiry((prev) => ({ ...prev, name: e.target.value }))} />
                       <input type="text" placeholder="연락처" value={resultInquiry.phone} onChange={(e) => setResultInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
-                      <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
+                      <input type="text" value={priceResult.address} readOnly />
                       <select value={resultInquiry.loanType} onChange={(e) => setResultInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
                         {loanTypeOptions.map((option) => (
                           <option key={option} value={option}>{option}</option>
@@ -1006,7 +1042,7 @@ export default function LoanLandingPage() {
                       </select>
                       <textarea rows={4} placeholder="상담 내용을 입력하세요" value={resultInquiry.memo} onChange={(e) => setResultInquiry((prev) => ({ ...prev, memo: e.target.value }))} />
                       {resultInquiryStatus && <div className={`api-status ${resultInquiryStatus.includes("완료") ? "success" : "error"}`}>{resultInquiryStatus}</div>}
-                      <button type="submit" className="primary-btn" disabled={resultInquirySaving}>{resultInquirySaving ? "접수 중..." : "대출 신청 접수하기"}</button>
+                      <button type="submit" className="primary-btn" disabled={resultInquirySaving}>{resultInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
                     </form>
                   </div>
 
@@ -1046,11 +1082,11 @@ export default function LoanLandingPage() {
             <div className="faq-list">
               <details className="faq-item">
                 <summary>시세조회 후 바로 대출 상담도 가능한가요?</summary>
-                <p>네. 결과 페이지 오른쪽에 {siteSettings.consult_button_text}란을 함께 배치해 바로 접수할 수 있습니다.</p>
+                <p>네. 시세조회 후 바로 상담 신청이 가능합니다.</p>
               </details>
               <details className="faq-item">
                 <summary>조건 안내는 확정 조건인가요?</summary>
-                <p>아니요. 현재는 예시 조건이며 실제 가능 여부와 금리는 상담 후 달라질 수 있습니다.</p>
+                <p>실제 가능 여부와 금리는 상담 후 안내됩니다.</p>
               </details>
               <details className="faq-item">
                 <summary>이율 계산기는 실시간으로 바뀌나요?</summary>
