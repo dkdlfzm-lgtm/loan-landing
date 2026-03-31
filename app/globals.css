@@ -3335,30 +3335,30 @@ html { scroll-behavior: smooth; }
   color: rgba(18,53,111,0.72);
 }
 
-.compact-two-col,
-.crm-settings-grid-cta,
-.settings-grid-toggle {
+.manage-shell .compact-two-col,
+.manage-shell .crm-settings-grid-cta,
+.manage-shell .settings-grid-toggle {
   display: grid;
   gap: 14px;
 }
 
-.compact-two-col {
+.manage-shell .compact-two-col {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.crm-settings-grid-cta {
+.manage-shell .crm-settings-grid-cta {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.settings-grid-toggle {
+.manage-shell .settings-grid-toggle {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.manage-toggle-single {
+.manage-shell .manage-toggle-single {
   grid-template-columns: 1fr;
 }
 
-.setting-toggle-card {
+.manage-shell .setting-toggle-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3370,20 +3370,20 @@ html { scroll-behavior: smooth; }
   cursor: pointer;
 }
 
-.setting-toggle-title {
+.manage-shell .setting-toggle-title {
   font-size: 15px;
   font-weight: 800;
   color: #10213f;
 }
 
-.setting-toggle-desc {
+.manage-shell .setting-toggle-desc {
   margin-top: 6px;
   font-size: 13px;
   line-height: 1.6;
   color: #68788f;
 }
 
-.switch-pill {
+.manage-shell .switch-pill {
   position: relative;
   display: inline-flex;
   width: 62px;
@@ -3391,7 +3391,7 @@ html { scroll-behavior: smooth; }
   flex: 0 0 auto;
 }
 
-.switch-pill input {
+.manage-shell .switch-pill input {
   position: absolute;
   inset: 0;
   opacity: 0;
@@ -3399,7 +3399,7 @@ html { scroll-behavior: smooth; }
   cursor: pointer;
 }
 
-.switch-pill-track {
+.manage-shell .switch-pill-track {
   width: 100%;
   height: 100%;
   border-radius: 999px;
@@ -3408,7 +3408,7 @@ html { scroll-behavior: smooth; }
   transition: .2s ease;
 }
 
-.switch-pill-track::after {
+.manage-shell .switch-pill-track::after {
   content: "";
   position: absolute;
   top: 4px;
@@ -3421,11 +3421,11 @@ html { scroll-behavior: smooth; }
   transition: .2s ease;
 }
 
-.switch-pill.on .switch-pill-track {
+.switch-pill.on .manage-shell .switch-pill-track {
   background: linear-gradient(135deg, #12356f 0%, #1f5fd1 100%);
 }
 
-.switch-pill.on .switch-pill-track::after {
+.switch-pill.on .manage-shell .switch-pill-track::after {
   transform: translateX(28px);
 }
 
@@ -3631,9 +3631,9 @@ html { scroll-behavior: smooth; }
     min-width: 0;
   }
 
-  .compact-two-col,
-  .crm-settings-grid-cta,
-  .settings-grid-toggle {
+  .manage-shell .compact-two-col,
+  .manage-shell .crm-settings-grid-cta,
+  .manage-shell .settings-grid-toggle {
     grid-template-columns: 1fr;
   }
 }
