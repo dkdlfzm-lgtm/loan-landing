@@ -58,7 +58,23 @@ function useScrollReveal() {
       observer.observe(node);
     });
 
-    return () => observer.disconnect();
+    const closePromoForToday = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
+    }
+    setPromoDismissed(true);
+  };
+
+  const openConsultPopup = () => {
+    setConsultPopupOpen(true);
+    setFloatingMenuOpen(false);
+    setTimeout(() => {
+      const target = document.getElementById("floating-consult-form");
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  };
+
+  return () => observer.disconnect();
   }, []);
 }
 
@@ -85,10 +101,10 @@ function formatNumber(value) {
 
 export default function LoanLandingPage() {
   useScrollReveal();
-  const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState("");
+  const [loanAmount, setLoanAmount] = useState("0");
+  const [interestRate, setInterestRate] = useState("0");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("");
+  const [loanMonths, setLoanMonths] = useState("0");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -119,22 +135,8 @@ export default function LoanLandingPage() {
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [promoDismissed, setPromoDismissed] = useState(true);
+  const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
-
-  const closePromoForToday = () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
-    }
-    setPromoDismissed(true);
-  };
-
-  const openConsultPopup = () => {
-    setConsultPopupOpen(true);
-    setTimeout(() => {
-      const target = document.getElementById("floating-consult-form");
-      target?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 80);
-  };
 
   const cities = catalogOptions.cities;
   const districts = catalogOptions.districts;
@@ -219,6 +221,7 @@ export default function LoanLandingPage() {
 
   useEffect(() => {
     if (currentView !== "home") {
+      setFloatingMenuOpen(false);
       setConsultPopupOpen(false);
     }
   }, [currentView]);
@@ -254,7 +257,7 @@ export default function LoanLandingPage() {
         estimateLimit: marketSummary.estimateLimit || "상담 후 산정",
         description:
           marketSummary.description ||
-          "조회된 시세를 바탕으로 예상 가능 한도와 상담 방향을 빠르게 확인할 수 있습니다.",
+          "한국부동산원 API 기준으로 조회한 값을 기반으로 예상 조건과 상담 연결 흐름을 보여주는 화면입니다.",
       };
     }
 
@@ -268,7 +271,7 @@ export default function LoanLandingPage() {
       range: "8억 3,000만원 ~ 8억 9,000만원",
       estimateLimit: "최대 6억 1,000만원 가능",
       description:
-        "선택하신 단지와 면적을 기준으로 최근 시세와 예상 가능 한도를 확인한 뒤 상담을 진행하실 수 있습니다.",
+        "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다.",
     };
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
@@ -448,15 +451,30 @@ export default function LoanLandingPage() {
       )}
 
       {currentView === "home" && (
-        <div className="floating-contact-toolbar premium-floating always-open">
-          <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call">
-            <span className="floating-contact-icon">☎</span>
-            <span>대표번호<small>070-8018-7437</small></span>
-          </a>
-          <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
-            <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
-            <span>카카오상담<small>카카오톡 ID : ANDi7437</small></span>
-          </a>
+        <div className={`floating-contact-toolbar premium-floating ${floatingMenuOpen ? "open" : ""}`}>
+          <button
+            type="button"
+            className="floating-master-btn"
+            onClick={() => setFloatingMenuOpen((prev) => !prev)}
+            aria-label="상담 메뉴 열기"
+          >
+            <span className="floating-master-dot" />
+            <span className="floating-master-text">빠른 상담</span>
+          </button>
+          <div className="floating-contact-stack">
+            <button type="button" className="floating-contact-btn floating-contact-btn-primary" onClick={openConsultPopup}>
+              <span className="floating-contact-icon">✦</span>
+              <span>간편 접수<small>빠른 상담 신청</small></span>
+            </button>
+            <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call">
+              <span className="floating-contact-icon floating-contact-icon-tel">TEL</span>
+              <span className="floating-contact-copy"><strong>대표번호</strong><small>070-8018-7437</small></span>
+            </a>
+            <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
+              <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
+              <span>카카오상담<small>카카오톡 ID : ANDi7437</small></span>
+            </a>
+          </div>
         </div>
       )}
 
@@ -481,7 +499,7 @@ export default function LoanLandingPage() {
 
                   <p className="hero-text hero-text-premium">
                     필요한 정보만 간편하게 입력하면 현재 시세 흐름과 예상 가능 범위를 확인하고
-                    대출 가능 범위 확인과 상담 신청까지 빠르게 이어집니다.
+                    상담까지 자연스럽게 이어집니다.
                   </p>
 
                   <div className="hero-actions">
@@ -631,7 +649,7 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div id="calculator" className="home-info-box calculator-home-box premium-calc-panel" data-reveal="up">
-                    <div className="section-mini">대출 이율 계산</div>
+                    <div className="section-mini">이율 계산기</div>
                     <h3 className="home-calc-title">간편 이율계산기</h3>
                     <div className="two-col compact-two-col">
                       <input
@@ -863,7 +881,7 @@ export default function LoanLandingPage() {
 
               <div className="result-page-hero">
                 <div>
-                  <div className="section-mini light-mini">시세조회 결과</div>
+                  <div className="section-mini light-mini">시세조회 결과 · {marketResult?.source === "reb-openapi" ? "한국부동산원 API" : "예시 데이터 fallback"}</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
                   <p className="result-page-sub">
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
@@ -898,7 +916,7 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="condition-card">
-                    <div className="section-mini">예상 대출 조건</div>
+                    <div className="section-mini">조건 안내</div>
                     <h3 className="desc-title">시세 정보 기준 추천 조건</h3>
 
                     <div className="condition-list">
@@ -929,8 +947,8 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="desc-card">
-                    <div className="section-mini">대출 상담 포인트</div>
-                    <h3 className="desc-title">선택하신 단지 기준으로 상담 가능한 내용을 정리해드렸습니다.</h3>
+                    <div className="section-mini">설명 영역</div>
+                    <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
                     <p className="desc-text">{priceResult.description}</p>
 
                     <div className="tag-wrap">
@@ -948,14 +966,14 @@ export default function LoanLandingPage() {
                     <div className="section-mini">대출 신청 작성란</div>
                     <h3 className="card-title">지금 바로 상담 신청</h3>
                     <p className="card-desc">
-                      조회하신 단지와 면적 기준으로 상담사가 빠르게 연락드릴 수 있도록 필요한 정보만 간단히 접수받고 있습니다.
+                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
                     </p>
 
                     <form className="form-stack" onSubmit={submitResultInquiry}>
                       <input type="text" placeholder="성함" value={resultInquiry.name} onChange={(e) => setResultInquiry((prev) => ({ ...prev, name: e.target.value }))} />
                       <input type="text" placeholder="연락처" value={resultInquiry.phone} onChange={(e) => setResultInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
-                      <input type="text" value={marketResult?.source === "reb-openapi" ? "실시간 조회 기반 상담 준비" : "선택 조건 기준 상담 준비"} readOnly />
+                      <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
                       <select value={resultInquiry.loanType} onChange={(e) => setResultInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
                         {loanTypeOptions.map((option) => (
                           <option key={option} value={option}>{option}</option>
@@ -968,8 +986,8 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="side-card">
-                    <div className="section-mini">상담 채널 안내</div>
-                    <h3 className="card-title">빠른 상담 연결</h3>
+                    <div className="section-mini">대표 상담 채널</div>
+                    <h3 className="card-title">빠른 연결 안내</h3>
                     <div className="contact-button-stack contact-button-stack-compact">
                       <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
                         <span className="contact-pill-icon">☎</span>
@@ -1042,15 +1060,15 @@ export default function LoanLandingPage() {
             <div className="faq-list">
               <details className="faq-item">
                 <summary>시세조회 후 바로 대출 상담도 가능한가요?</summary>
-                <p>네. 조회한 단지 정보와 함께 바로 상담 접수가 가능하며 확인 후 순차적으로 연락드립니다.</p>
+                <p>네. 결과 페이지 오른쪽에 상담 신청란을 함께 배치해 바로 접수할 수 있습니다.</p>
               </details>
               <details className="faq-item">
-                <summary>예상 한도와 금리는 바로 확정되나요?</summary>
-                <p>아니요. 표시되는 내용은 참고용이며 실제 한도와 금리는 담보 조건과 심사 결과에 따라 달라질 수 있습니다.</p>
+                <summary>조건 안내는 확정 조건인가요?</summary>
+                <p>아니요. 현재는 예시 조건이며 실제 가능 여부와 금리는 상담 후 달라질 수 있습니다.</p>
               </details>
               <details className="faq-item">
-                <summary>이율 계산기는 입력 즉시 반영되나요?</summary>
-                <p>네. 대출 금액과 이율, 기간을 입력하면 예상 월 상환액이 바로 계산됩니다.</p>
+                <summary>이율 계산기는 실시간으로 바뀌나요?</summary>
+                <p>네. 입력값을 바꾸면 예상 월 상환액과 총 상환 예상액이 즉시 변경됩니다.</p>
               </details>
             </div>
           </div>
