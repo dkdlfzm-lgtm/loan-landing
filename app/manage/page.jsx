@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, parseBoolean } from "../../lib/site-settings";
 
 const MENUS = [
-  { key: "brand", label: "기본정보" },
-  { key: "hero", label: "메인 배너" },
-  { key: "middle", label: "중간 배너" },
-  { key: "notice", label: "공지·팝업" },
-  { key: "reviews", label: "후기 관리" },
+  { key: "brand", label: "기본정보", desc: "회사명, 로고, 상담 채널" },
+  { key: "hero", label: "메인 배너", desc: "첫 화면 문구와 CTA" },
+  { key: "middle", label: "중간 배너", desc: "시세조회 아래 안내 배너" },
+  { key: "notice", label: "공지·팝업", desc: "상단 공지와 팝업 노출" },
+  { key: "reviews", label: "후기 관리", desc: "후기 노출 상태 관리" },
 ];
 
 function ManagerLogin({ password, setPassword, error, onSubmit }) {
@@ -61,6 +61,7 @@ export default function ManagePage() {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
   const [activeMenu, setActiveMenu] = useState("brand");
+  const activeMenuInfo = useMemo(() => MENUS.find((menu) => menu.key === activeMenu) || MENUS[0], [activeMenu]);
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" })
@@ -209,7 +210,7 @@ export default function ManagePage() {
   return (
     <div className="site-wrap admin-wrap">
       <main className="section">
-        <div className="manage-shell">
+        <div className="container manage-shell">
           <aside className="crm-sidebar crm-sidebar-large crm-sidebar-owner">
             <div className="crm-sidebar-brand">
               <div className="crm-sidebar-eyebrow">관리 페이지</div>
@@ -218,8 +219,9 @@ export default function ManagePage() {
             </div>
             <nav className="crm-sidebar-nav">
               {MENUS.map((menu) => (
-                <button key={menu.key} type="button" className={`crm-sidebar-tab ${activeMenu === menu.key ? "active" : ""}`} onClick={() => setActiveMenu(menu.key)}>
-                  {menu.label}
+                <button key={menu.key} type="button" className={`crm-sidebar-tab manage-nav-tab ${activeMenu === menu.key ? "active" : ""}`} onClick={() => setActiveMenu(menu.key)}>
+                  <span className="manage-nav-label">{menu.label}</span>
+                  <span className="manage-nav-desc">{menu.desc}</span>
                 </button>
               ))}
             </nav>
@@ -228,15 +230,27 @@ export default function ManagePage() {
             <button type="button" className="nav-btn admin-logout-btn crm-sidebar-logout" onClick={handleLogout}>로그아웃</button>
           </aside>
 
-          <section className="crm-content-wide crm-main manage-main">
+          <section className="crm-main manage-main">
             <div className="white-panel crm-settings-panel manage-header-panel">
-              <div className="section-mini">운영용 홈페이지 관리</div>
-              <h1 className="section-title">브랜드/배너/공지/후기 설정</h1>
-              <p className="card-desc">좌측 메뉴에서 필요한 영역만 골라 바로 수정할 수 있습니다.</p>
-              {lastSavedAt ? <div className="crm-last-sync">최근 저장: {lastSavedAt.toLocaleString("ko-KR")}</div> : null}
+              <div className="manage-header-topline">
+                <div>
+                  <div className="section-mini">운영용 홈페이지 관리</div>
+                  <h1 className="section-title">홈페이지 설정</h1>
+                  <p className="card-desc">현재 필요한 영역만 빠르게 수정하고 바로 저장할 수 있습니다.</p>
+                </div>
+                <div className="manage-header-meta">
+                  <div className="manage-header-badge">선택 메뉴 · {activeMenuInfo.label}</div>
+                  {lastSavedAt ? <div className="crm-last-sync">최근 저장: {lastSavedAt.toLocaleString("ko-KR")}</div> : <div className="crm-last-sync">아직 저장 기록이 없습니다.</div>}
+                </div>
+              </div>
+              <div className="manage-quick-strip">
+                {MENUS.map((menu) => (
+                  <button key={`quick-${menu.key}`} type="button" className={`manage-quick-chip ${activeMenu === menu.key ? "active" : ""}`} onClick={() => setActiveMenu(menu.key)}>{menu.label}</button>
+                ))}
+              </div>
             </div>
 
-            <div className="white-panel crm-settings-panel">
+            <div className="white-panel crm-settings-panel manage-content-panel">
               {loading ? (
                 <div className="crm-empty-state">설정을 불러오는 중입니다.</div>
               ) : (
