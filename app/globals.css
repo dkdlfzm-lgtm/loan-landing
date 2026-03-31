@@ -2412,12 +2412,11 @@ textarea:focus {
 }
 
 .brand-logo {
-  width: 132px;
+  width: 108px;
   height: auto;
   display: block;
-  border-radius: 18px;
-  background: transparent;
-  box-shadow: none;
+  border-radius: 10px;
+  background: #fff;
 }
 
 .brand-copy {
@@ -3195,41 +3194,125 @@ html { scroll-behavior: smooth; }
 @media (max-width: 820px) { .floating-promo-card,.premium-floating { display:none; } .floating-consult-modal-shell { background:rgba(9,18,44,.16); } .floating-consult-modal { right:16px; left:16px; bottom:16px; width:auto; } }
 
 
-/* final client polish */
-.calculator-home-box input::placeholder,
-.calculator-home-box select {
-  color: #5f6f86;
+/* ===== final patch: floating contact + manage layout ===== */
+.manage-shell {
+  width: min(2240px, calc(100vw - 28px));
+  margin: 28px auto;
+  display: grid;
+  grid-template-columns: 288px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
 }
-.calculator-home-box input,
-.calculator-home-box select {
-  background: #fbfdff;
-  border: 1px solid #d7e1ee;
-  min-height: 48px;
+
+.manage-main {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
 }
-.calculator-home-box select:invalid {
-  color: #5f6f86;
+
+.manage-main .crm-settings-panel,
+.manage-main .manage-review-panel,
+.manage-main .manage-header-panel {
+  width: 100%;
 }
-.premium-floating.always-open {
+
+@media (max-width: 1180px) {
+  .manage-shell {
+    width: min(100%, calc(100vw - 24px));
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
+.premium-floating {
   position: fixed;
   right: 28px;
-  top: 50%;
+  top: 48%;
   transform: translateY(-50%);
   z-index: 70;
   display: flex;
   flex-direction: column;
-  gap: 12px;
   align-items: flex-end;
+  gap: 12px;
 }
-.premium-floating.always-open .floating-contact-stack {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
+
+.floating-master-btn {
+  display: none !important;
 }
-.premium-floating.always-open .floating-contact-btn {
-  min-width: 224px;
+
+.floating-contact-stack {
+  display: flex !important;
+  flex-direction: column;
+  gap: 12px;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
 }
+
+.floating-contact-btn,
+.floating-contact-btn-call,
+.floating-contact-btn-kakao {
+  width: 228px;
+  min-height: 76px;
+  padding: 14px 18px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.22);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 36px rgba(15, 33, 77, 0.16);
+}
+
+.floating-contact-btn-call {
+  background: linear-gradient(135deg, #5fca72 0%, #4eb763 100%) !important;
+  color: #ffffff !important;
+}
+
+.floating-contact-btn-kakao {
+  background: linear-gradient(135deg, #ffe45c 0%, #ffd41c 100%) !important;
+  color: #221f1f !important;
+}
+
+.floating-contact-btn-call .floating-contact-icon {
+  background: rgba(255,255,255,0.18);
+  color: #ffffff;
+}
+
+.floating-contact-btn-kakao .floating-contact-icon {
+  background: #2a241f;
+  color: #ffe100;
+}
+
+.floating-contact-btn > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.floating-contact-btn-call > span,
+.floating-contact-btn-call > span small {
+  color: #ffffff !important;
+}
+
+.floating-contact-btn-kakao > span,
+.floating-contact-btn-kakao > span small {
+  color: #221f1f !important;
+}
+
+.floating-contact-btn small {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0.95;
+}
+
 @media (max-width: 1080px) {
-  .premium-floating.always-open {
+  .premium-floating {
     right: 16px;
     top: auto;
     bottom: 18px;
