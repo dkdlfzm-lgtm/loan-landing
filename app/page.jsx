@@ -58,23 +58,7 @@ function useScrollReveal() {
       observer.observe(node);
     });
 
-    const closePromoForToday = () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
-    }
-    setPromoDismissed(true);
-  };
-
-  const openConsultPopup = () => {
-    setConsultPopupOpen(true);
-    setFloatingMenuOpen(false);
-    setTimeout(() => {
-      const target = document.getElementById("floating-consult-form");
-      target?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 80);
-  };
-
-  return () => observer.disconnect();
+    return () => observer.disconnect();
   }, []);
 }
 
@@ -137,6 +121,22 @@ export default function LoanLandingPage() {
   const [promoDismissed, setPromoDismissed] = useState(true);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
+
+  const closePromoForToday = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
+    }
+    setPromoDismissed(true);
+  };
+
+  const openConsultPopup = () => {
+    setConsultPopupOpen(true);
+    setFloatingMenuOpen(false);
+    setTimeout(() => {
+      const target = document.getElementById("floating-consult-form");
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  };
 
   const cities = catalogOptions.cities;
   const districts = catalogOptions.districts;
@@ -420,7 +420,7 @@ export default function LoanLandingPage() {
       <header className="header">
         <div className="container header-inner">
           <div className="brand brand-logo-wrap">
-            <img src="/andi-logo.png" alt="엔드아이에셋대부" className="brand-logo" />
+            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">엔드아이에셋대부</div>
               <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
@@ -467,8 +467,8 @@ export default function LoanLandingPage() {
               <span>간편 접수<small>빠른 상담 신청</small></span>
             </button>
             <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call">
-              <span className="floating-contact-icon floating-contact-icon-tel">TEL</span>
-              <span className="floating-contact-copy"><strong>대표번호</strong><small>070-8018-7437</small></span>
+              <span className="floating-contact-icon">☎</span>
+              <span>대표번호<small>070-8018-7437</small></span>
             </a>
             <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
               <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
