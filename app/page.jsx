@@ -63,7 +63,6 @@ export default function LoanLandingPage() {
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
   const [currentView, setCurrentView] = useState("home");
-  const [consultPopupOpen, setConsultPopupOpen] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
 
   const [selectedCity, setSelectedCity] = useState("");
