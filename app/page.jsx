@@ -58,23 +58,7 @@ function useScrollReveal() {
       observer.observe(node);
     });
 
-    const closePromoForToday = () => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
-    }
-    setPromoDismissed(true);
-  };
-
-  const openConsultPopup = () => {
-    setConsultPopupOpen(true);
-    setFloatingMenuOpen(false);
-    setTimeout(() => {
-      const target = document.getElementById("floating-consult-form");
-      target?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 80);
-  };
-
-  return () => observer.disconnect();
+    return () => observer.disconnect();
   }, []);
 }
 
@@ -137,6 +121,22 @@ export default function LoanLandingPage() {
   const [promoDismissed, setPromoDismissed] = useState(true);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
+
+  const closePromoForToday = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
+    }
+    setPromoDismissed(true);
+  };
+
+  const openConsultPopup = () => {
+    setConsultPopupOpen(true);
+    setFloatingMenuOpen(false);
+    setTimeout(() => {
+      const target = document.getElementById("floating-consult-form");
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  };
 
   const cities = catalogOptions.cities;
   const districts = catalogOptions.districts;
