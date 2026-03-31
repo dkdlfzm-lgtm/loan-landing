@@ -83,12 +83,19 @@ function formatNumber(value) {
   return Math.round(value).toLocaleString("ko-KR");
 }
 
+
+function getDefaultRate(type) {
+  if (type === "원금균등") return "5.0";
+  if (type === "만기일시상환") return "5.4";
+  return "5.2";
+}
+
 export default function LoanLandingPage() {
   useScrollReveal();
-  const [loanAmount, setLoanAmount] = useState("0");
-  const [interestRate, setInterestRate] = useState("0");
+  const [loanAmount, setLoanAmount] = useState("");
+  const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("0");
+  const [loanMonths, setLoanMonths] = useState("");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -225,6 +232,11 @@ export default function LoanLandingPage() {
       setConsultPopupOpen(false);
     }
   }, [currentView]);
+
+  useEffect(() => {
+    setInterestRate((prev) => (!prev || prev === "0" ? getDefaultRate(repaymentType) : prev));
+    setLoanMonths((prev) => (!prev || prev === "0" ? "360" : prev));
+  }, [repaymentType]);
 
   useEffect(() => {
     if (currentView !== "price-result") return;
@@ -419,13 +431,9 @@ export default function LoanLandingPage() {
     <div className="site-wrap">
       <header className="header">
         <div className="container header-inner">
-          <div className="brand brand-logo-wrap">
-            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
-            <div className="brand-copy">
-              <div className="brand-title">엔드아이에셋대부</div>
-              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
-            </div>
-          </div>
+          <a href="/" className="brand brand-logo-wrap brand-logo-link" aria-label="홈으로 이동">
+            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo brand-logo-hero" />
+          </a>
 
           <nav className="nav">
             <a href="#intro">홈</a>
@@ -451,17 +459,8 @@ export default function LoanLandingPage() {
       )}
 
       {currentView === "home" && (
-        <div className={`floating-contact-toolbar premium-floating ${floatingMenuOpen ? "open" : ""}`}>
-          <button
-            type="button"
-            className="floating-master-btn"
-            onClick={() => setFloatingMenuOpen((prev) => !prev)}
-            aria-label="상담 메뉴 열기"
-          >
-            <span className="floating-master-dot" />
-            <span className="floating-master-text">빠른 상담</span>
-          </button>
-          <div className="floating-contact-stack">
+        <div className="floating-contact-toolbar premium-floating always-open" data-reveal="right">
+          <div className="floating-contact-stack floating-contact-stack-always">
             <button type="button" className="floating-contact-btn floating-contact-btn-primary" onClick={openConsultPopup}>
               <span className="floating-contact-icon">✦</span>
               <span>간편 접수<small>빠른 상담 신청</small></span>
@@ -666,7 +665,7 @@ export default function LoanLandingPage() {
                       />
                     </div>
                     <div className="two-col compact-two-col">
-                      <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
+                      <select value={repaymentType} onChange={(e) => { const next = e.target.value; setRepaymentType(next); setInterestRate(getDefaultRate(next)); if (!loanMonths || loanMonths === "0") setLoanMonths("360"); }}>
                         <option>원리금균등</option>
                         <option>원금균등</option>
                         <option>만기일시상환</option>
