@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatReviewDate, maskName } from "./lib-reviews";
-import { DEFAULT_SITE_SETTINGS } from "../lib/site-settings";
+import { formatReviewDate } from "./lib-reviews";
 
 const statSlides = [
   {
@@ -34,8 +33,6 @@ const statSlides = [
   },
 ];
 
-const REPAYMENT_RATE_DEFAULTS = { "원리금균등": "5.2", "원금균등": "5.0", "만기일시상환": "5.4" };
-
 const loanTypeOptions = [
   "주택담보대출",
   "전세퇴거자금",
@@ -46,19 +43,109 @@ const loanTypeOptions = [
   "기타",
 ];
 
+const trustHighlights = [
+  { label: "빠른 접수", value: "1분 내", desc: "핵심 정보만 입력" },
+  { label: "상담 연결", value: "순차 확인", desc: "대표번호·카카오 연동" },
+  { label: "조회 흐름", value: "시세 → 상담", desc: "자연스러운 연결 구조" },
+];
+
+const serviceSteps = [
+  {
+    step: "01",
+    title: "시세 확인",
+    desc: "지역, 단지, 면적을 선택해 현재 시세 흐름과 조회 기준값을 빠르게 확인합니다.",
+  },
+  {
+    step: "02",
+    title: "조건 검토",
+    desc: "조회 결과를 바탕으로 예상 가능 범위와 상담 방향을 한눈에 정리해드립니다.",
+  },
+  {
+    step: "03",
+    title: "상담 연결",
+    desc: "간편 접수, 대표번호, 카카오상담 중 원하는 방식으로 바로 이어집니다.",
+  },
+];
+
+const insightCards = [
+  {
+    eyebrow: "빠른 접수",
+    title: "상담까지 이어지는 첫 화면",
+    desc: "정보 탐색과 문의 흐름이 끊기지 않도록 첫 진입 화면부터 상담 연결 동선을 정리했습니다.",
+  },
+  {
+    eyebrow: "시세 조회",
+    title: "단지 선택 경험을 더 직관적으로",
+    desc: "지역 → 단지 → 면적 선택 흐름을 단순하게 유지해 고객이 헷갈리지 않도록 구성했습니다.",
+  },
+  {
+    eyebrow: "신뢰 요소",
+    title: "브랜드 인상과 정보 밀도 균형",
+    desc: "진한 블루 톤과 화이트 카드 중심으로 안정감 있는 금융 서비스 느낌을 강화했습니다.",
+  },
+];
+
+const faqItems = [
+  {
+    q: "시세조회 후 바로 대출 상담도 가능한가요?",
+    a: "네. 결과 페이지 오른쪽에 상담 신청란을 함께 배치해 바로 접수할 수 있습니다.",
+  },
+  {
+    q: "조건 안내는 확정 조건인가요?",
+    a: "아니요. 현재는 예시 조건이며 실제 가능 여부와 금리는 상담 후 달라질 수 있습니다.",
+  },
+  {
+    q: "이율 계산기는 실시간으로 바뀌나요?",
+    a: "네. 입력값을 바꾸면 예상 월 상환액과 총 상환 예상액이 즉시 변경됩니다.",
+  },
+];
+
+function startOfTomorrow() {
+  const d = new Date();
+  d.setHours(24, 0, 0, 0);
+  return d.getTime();
+}
+
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
   return Math.round(value).toLocaleString("ko-KR");
 }
 
+function useScrollReveal() {
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const nodes = Array.from(document.querySelectorAll("[data-reveal]"));
+    if (!nodes.length) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.14, rootMargin: "0px 0px -8% 0px" }
+    );
+
+    nodes.forEach((node, index) => {
+      node.style.setProperty("--reveal-delay", `${Math.min(index * 60, 360)}ms`);
+      observer.observe(node);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function LoanLandingPage() {
-  const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState("");
+  useScrollReveal();
+
+  const [loanAmount, setLoanAmount] = useState("0");
+  const [interestRate, setInterestRate] = useState("0");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("");
-  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
-  const [popupVisible, setPopupVisible] = useState(false);
-  const [consultPopupOpen, setConsultPopupOpen] = useState(false);
+  const [loanMonths, setLoanMonths] = useState("0");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -88,6 +175,9 @@ export default function LoanLandingPage() {
   const [resultInquiry, setResultInquiry] = useState({ name: "", phone: "", loanType: loanTypeOptions[0], memo: "" });
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
+  const [promoDismissed, setPromoDismissed] = useState(true);
+  const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
+  const [consultPopupOpen, setConsultPopupOpen] = useState(false);
 
   const cities = catalogOptions.cities;
   const districts = catalogOptions.districts;
@@ -141,76 +231,11 @@ export default function LoanLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
+  }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
 
   useEffect(() => {
     let cancelled = false;
-    async function loadSettings() {
-      try {
-        const response = await fetch("/api/site-settings", { cache: "no-store" });
-        const data = await response.json();
-        if (!response.ok || data?.ok === false) throw new Error(data?.message || "설정을 불러오지 못했습니다.");
-        if (!cancelled && data?.settings) setSiteSettings((prev) => ({ ...prev, ...data.settings }));
-      } catch {}
-    }
-    loadSettings();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hiddenSession = window.sessionStorage.getItem("homePopupDismissed") === "1";
-    const hiddenUntil = Number(window.localStorage.getItem("homePopupHiddenUntil") || 0);
-    const hiddenDay = hiddenUntil && Date.now() < hiddenUntil;
-    setPopupVisible(Boolean(siteSettings.popup_enabled) && !hiddenSession && !hiddenDay);
-  }, [siteSettings.popup_enabled]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!siteSettings.popup_enabled) {
-      window.sessionStorage.removeItem("homePopupDismissed");
-    }
-  }, [siteSettings.popup_enabled]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hiddenUntil = window.localStorage.getItem("homePopupHiddenUntil");
-    if (hiddenUntil && Date.now() > Number(hiddenUntil)) {
-      window.localStorage.removeItem("homePopupHiddenUntil");
-    }
-  }, []);
-
-  function handleRepaymentTypeChange(value) {
-    setRepaymentType(value);
-    setInterestRate(REPAYMENT_RATE_DEFAULTS[value] || "");
-    if (!loanMonths) setLoanMonths("360");
-  }
-
-  function closePopupForSession() {
-    setPopupVisible(false);
-    if (typeof window !== "undefined") window.sessionStorage.setItem("homePopupDismissed", "1");
-  }
-
-  function openConsultPopup() {
-    setConsultPopupOpen(true);
-  }
-
-  function closeConsultPopup() {
-    setConsultPopupOpen(false);
-  }
-
-  function closePopupForDay() {
-    setPopupVisible(false);
-    if (typeof window !== "undefined") {
-      const until = Date.now() + 24 * 60 * 60 * 1000;
-      window.localStorage.setItem("homePopupHiddenUntil", String(until));
-    }
-  }
-
-  useEffect(() => {
-    let cancelled = false;
     async function loadReviews() {
       try {
         const response = await fetch("/api/reviews?limit=3", { cache: "no-store" });
@@ -221,6 +246,7 @@ export default function LoanLandingPage() {
         if (!cancelled) setLatestReviews([]);
       }
     }
+
     loadReviews();
     window.addEventListener("focus", loadReviews);
     return () => {
@@ -230,12 +256,36 @@ export default function LoanLandingPage() {
   }, []);
 
   useEffect(() => {
-    if (currentView !== "price-result") return;
+    if (typeof window === "undefined") return;
+    const hiddenUntil = Number(window.localStorage.getItem("landing-promo-hide-until") || 0);
+    setPromoDismissed(hiddenUntil > Date.now());
+  }, []);
+
+  useEffect(() => {
+    if (currentView !== "home") {
+      setFloatingMenuOpen(false);
+      setConsultPopupOpen(false);
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    if (currentView !== "price-result") return undefined;
     const timer = setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % statSlides.length);
     }, 3200);
     return () => clearInterval(timer);
   }, [currentView]);
+
+  useEffect(() => {
+    function handleOutsideClick(event) {
+      if (!event.target.closest?.(".apartment-picker")) {
+        setShowApartmentList(false);
+      }
+    }
+
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   const filteredApartments = useMemo(() => {
     const q = apartmentQuery.trim().toLowerCase();
@@ -304,8 +354,7 @@ export default function LoanLandingPage() {
       totalInterest = totalPayment - principal;
     } else if (repaymentType === "원금균등") {
       const monthlyPrincipal = principal / months;
-      const avgMonthlyInterest =
-        (principal * monthlyRate + monthlyPrincipal * monthlyRate) / 2;
+      const avgMonthlyInterest = (principal * monthlyRate + monthlyPrincipal * monthlyRate) / 2;
       monthlyPayment = monthlyPrincipal + avgMonthlyInterest;
       totalInterest = (principal * monthlyRate * (months + 1)) / 2;
       totalPayment = principal + totalInterest;
@@ -317,6 +366,22 @@ export default function LoanLandingPage() {
 
     return { monthlyPayment, totalInterest, totalPayment };
   }, [loanAmount, interestRate, repaymentType, loanMonths]);
+
+  const closePromoForToday = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
+    }
+    setPromoDismissed(true);
+  };
+
+  const openConsultPopup = () => {
+    setConsultPopupOpen(true);
+    setFloatingMenuOpen(false);
+    setTimeout(() => {
+      const target = document.getElementById("floating-consult-form");
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  };
 
   const toggleTradeType = (key) => {
     setTradeTypes((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -374,9 +439,8 @@ export default function LoanLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "상담접수를 저장하지 못했습니다.");
-      setHomeInquiryStatus("상담접수가 완료되었습니다. 확인 후 연락드리겠습니다.");
+      setHomeInquiryStatus("상담접수가 완료되었습니다. 확인 후 빠르게 연락드리겠습니다.");
       setHomeInquiry({ name: "", phone: "", address: "", loanType: loanTypeOptions[0] });
-      setConsultPopupOpen(false);
     } catch (error) {
       setHomeInquiryStatus(error?.message || "상담접수를 저장하지 못했습니다.");
     } finally {
@@ -419,230 +483,183 @@ export default function LoanLandingPage() {
     }
   };
 
-
-  const brandName = siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name;
-  const brandSubtitle = siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle;
-  const phoneNumber = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
-  const kakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
-  const kakaoUrl = siteSettings.kakao_url || DEFAULT_SITE_SETTINGS.kakao_url;
-  const heroTitleLines = String(siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title).split("\n").filter(Boolean);
-  const logoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
-  const reviewSectionEnabled = Boolean(siteSettings.reviews_enabled);
-  const heroFeatures = [siteSettings.hero_feature_1, siteSettings.hero_feature_2, siteSettings.hero_feature_3].filter((item) => String(item || "").trim());
-  const heroBackgroundUrl = siteSettings.hero_background_url || DEFAULT_SITE_SETTINGS.hero_background_url;
-  const noticeEnabled = Boolean(siteSettings.notice_enabled);
-  const popupEnabled = Boolean(siteSettings.popup_enabled);
-  const heroStyle = heroBackgroundUrl
-    ? { backgroundImage: `linear-gradient(135deg, rgba(10, 15, 27, 0.78), rgba(31, 41, 55, 0.62)), url(${heroBackgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-    : undefined;
   return (
-    <div className="site-wrap">
-      {popupEnabled && popupVisible ? (
-        <div className="site-popup-float-wrap site-popup-float-left">
-          <div className="site-popup-card site-popup-card-floating">
-            <button type="button" className="site-popup-close" onClick={closePopupForSession} aria-label="팝업 닫기">×</button>
-            <div className="section-mini">안내</div>
-            <h2>{siteSettings.popup_title}</h2>
-            <p>{siteSettings.popup_description}</p>
-            <div className="site-popup-actions">
-              <button type="button" className="primary-btn" onClick={openConsultPopup}>{siteSettings.popup_button_text || "상담 바로가기"}</button>
-              <button type="button" className="secondary-btn site-popup-day-btn" onClick={closePopupForDay}>하루 동안 그만보기</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {consultPopupOpen ? (
-        <div className="quick-consult-modal-wrap" onClick={closeConsultPopup}>
-          <div className="quick-consult-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="site-popup-close" onClick={closeConsultPopup} aria-label="상담 팝업 닫기">×</button>
-            <div className="section-mini">빠른 상담 신청</div>
-            <h2 className="card-title">빠른 상담 접수</h2>
-            <form className="form-stack" onSubmit={submitHomeInquiry}>
-              <div className="field">
-                <label>성함</label>
-                <input type="text" placeholder="성함을 입력하세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>연락처</label>
-                <input type="text" placeholder="연락처를 입력하세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>주소 입력</label>
-                <input type="text" placeholder="주소를 입력하세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>대출유형</label>
-                <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                  {loanTypeOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-              {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
-              <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
-            </form>
-          </div>
-        </div>
-      ) : null}
-      <header className="header">
+    <div className="site-wrap premium-site-wrap">
+      <header className="header premium-header">
         <div className="container header-inner">
-          <a href="/" className="brand brand-logo-wrap brand-home-link">
-            <img src={logoUrl} alt={brandName} className="brand-logo" />
+          <div className="brand brand-logo-wrap">
+            <img src="/andi-logo.jpg" alt="엔드아이에셋대부" className="brand-logo" />
             <div className="brand-copy">
-              <div className="brand-title">{brandName}</div>
-              <div className="brand-sub">{brandSubtitle}</div>
+              <div className="brand-title">엔드아이에셋대부</div>
+              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
             </div>
-          </a>
+          </div>
 
           <nav className="nav">
             <a href="#intro">홈</a>
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
-            {reviewSectionEnabled ? <a href="/reviews">이용후기</a> : null}
-            <button type="button" className="nav-btn nav-btn-button" onClick={openConsultPopup}>{siteSettings.consult_button_text}</button>
+            <a href="/reviews">이용후기</a>
+            <a href="#contact" className="nav-btn">상담 신청</a>
           </nav>
         </div>
       </header>
 
-      {noticeEnabled && String(siteSettings.notice_text || "").trim() ? (
-        <div className="site-notice-bar">
-          <div className="container site-notice-inner">
-            <strong>공지</strong>
-            <span>{siteSettings.notice_text}</span>
+      {currentView === "home" && !promoDismissed && (
+        <div className="floating-promo-card" data-reveal="right">
+          <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
+          <div className="floating-promo-badge">오늘 상담 가능</div>
+          <div className="floating-promo-title">대출 상담 빠르게 연결해드려요</div>
+          <p className="floating-promo-text">간편 접수나 카카오톡으로 바로 문의하시면 순차적으로 확인 후 연락드립니다.</p>
+          <div className="floating-promo-actions">
+            <button type="button" className="floating-promo-main" onClick={openConsultPopup}>상담 신청</button>
+            <button type="button" className="floating-promo-sub" onClick={closePromoForToday}>오늘 그만보기</button>
           </div>
         </div>
-      ) : null}
+      )}
 
-      <div className="floating-contact-toolbar">
-        <button type="button" className="floating-contact-btn floating-contact-btn-consult" onClick={openConsultPopup}>
-          <span className="floating-contact-icon">✦</span>
-          <span>간편 접수<small>빠른 상담 신청</small></span>
-        </button>
-        <a href={`tel:${phoneNumber}`} className="floating-contact-btn floating-contact-btn-call">
-          <span className="floating-contact-icon">☎</span>
-          <span>대표번호<small>{phoneNumber}</small></span>
-        </a>
-        <a href={kakaoUrl} target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
-          <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
-          <span>카카오상담<small>카카오톡 ID : {kakaoId}</small></span>
-        </a>
-      </div>
-
-      {consultPopupOpen ? (
-        <div className="floating-consult-overlay" onClick={closeConsultPopup}>
-          <div className="floating-consult-modal" onClick={(e) => e.stopPropagation()}>
-            <button type="button" className="floating-consult-close" onClick={closeConsultPopup}>×</button>
-            <div className="section-mini">빠른 상담 신청</div>
-            <h3 className="card-title">간편 접수</h3>
-            <form className="form-stack" onSubmit={submitHomeInquiry}>
-              <div className="field">
-                <label>성함</label>
-                <input type="text" placeholder="성함을 입력하세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>연락처</label>
-                <input type="text" placeholder="연락처를 입력하세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>주소 입력</label>
-                <input type="text" placeholder="주소를 입력하세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>대출유형</label>
-                <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                  <option>주택담보대출</option>
-                  <option>전세퇴거자금</option>
-                  <option>경매취하자금</option>
-                  <option>사업자대출</option>
-                  <option>대환대출</option>
-                  <option>매매자금대출</option>
-                  <option>기타</option>
-                </select>
-              </div>
-              <button type="submit" className="primary-btn">상담 신청하기</button>
-            </form>
+      {currentView === "home" && (
+        <div className={`floating-contact-toolbar premium-floating ${floatingMenuOpen ? "open" : ""}`}>
+          <button
+            type="button"
+            className="floating-master-btn"
+            onClick={() => setFloatingMenuOpen((prev) => !prev)}
+            aria-label="상담 메뉴 열기"
+          >
+            <span className="floating-master-dot" />
+            <span className="floating-master-text">빠른 상담</span>
+          </button>
+          <div className="floating-contact-stack">
+            <button type="button" className="floating-contact-btn floating-contact-btn-primary" onClick={openConsultPopup}>
+              <span className="floating-contact-icon">✦</span>
+              <span>간편 접수<small>빠른 상담 신청</small></span>
+            </button>
+            <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call">
+              <span className="floating-contact-icon">☎</span>
+              <span>대표번호<small>070-8018-7437</small></span>
+            </a>
+            <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao">
+              <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
+              <span>카카오상담<small>카카오톡 ID : ANDi7437</small></span>
+            </a>
           </div>
         </div>
-      ) : null}
+      )}
 
       <main>
         {currentView === "home" && (
           <>
-            <section id="intro" className="hero" style={heroStyle}>
+            <section id="intro" className="hero premium-hero premium-hero-v2" data-reveal="up">
               <div className="hero-glow hero-glow-1" />
               <div className="hero-glow hero-glow-2" />
+              <div className="hero-gridline hero-gridline-1" />
+              <div className="hero-gridline hero-gridline-2" />
 
-              <div className="container hero-grid">
+              <div className="container hero-grid premium-hero-grid-v2">
                 <div className="hero-left">
-                  <div className="hero-pill">{siteSettings.hero_badge}</div>
+                  <div className="hero-pill hero-pill-live">안정적인 상담 연결 · 프리미엄 대출 컨설팅</div>
 
-                  <h1 className="hero-title">{heroTitleLines.map((line, index) => (
-                    <span key={`${line}-${index}`}>
-                      {line}
-                      {index < heroTitleLines.length - 1 ? <br /> : null}
-                    </span>
-                  ))}</h1>
+                  <h1 className="hero-title hero-title-premium">
+                    시세 확인부터
+                    <br />
+                    맞춤 상담 연결까지
+                    <br />
+                    한 번에 이어지는 구조
+                  </h1>
 
-                  <p className="hero-text">
-                    {siteSettings.hero_description}
+                  <p className="hero-text hero-text-premium">
+                    필요한 정보만 간편하게 입력하면 현재 시세 흐름과 예상 가능 범위를 확인하고
+                    상담까지 자연스럽게 이어집니다. 복잡하지 않게, 더 신뢰감 있게 구성한 고객용 메인 화면입니다.
                   </p>
 
-                  {heroFeatures.length ? (
-                    <div className="hero-feature-list">
-                      {heroFeatures.map((item) => (
-                        <span key={item} className="hero-feature-chip">{item}</span>
-                      ))}
-                    </div>
-                  ) : null}
-
                   <div className="hero-actions">
-                    <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta}</a>
-                    <a href="#contact" className="btn btn-outline">{siteSettings.hero_secondary_cta}</a>
+                    <a href="#quick-search" className="btn btn-white">빠른 시세조회</a>
+                    <a href="#contact" className="btn btn-outline">무료 상담 신청</a>
+                  </div>
+
+                  <div className="hero-trust-grid" data-reveal="up">
+                    {trustHighlights.map((item) => (
+                      <div key={item.label} className="hero-trust-card">
+                        <div className="hero-trust-label">{item.label}</div>
+                        <div className="hero-trust-value">{item.value}</div>
+                        <div className="hero-trust-desc">{item.desc}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="hero-card">
-                  <div className="section-mini">빠른 {siteSettings.consult_button_text}</div>
-                  <h2 className="card-title">빠른 상담 접수</h2>
+                <div className="hero-right-stack">
+                  <div className="hero-card premium-glass-card premium-form-card" data-reveal="up">
+                    <div className="premium-card-topline">
+                      <div>
+                        <div className="section-mini">빠른 상담 신청</div>
+                        <h2 className="card-title">빠른 상담 접수</h2>
+                      </div>
+                      <div className="premium-chip">오늘 상담 가능</div>
+                    </div>
+                    <p className="card-desc">
+                      성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
+                    </p>
 
-                  <form className="form-stack" onSubmit={submitHomeInquiry}>
-                    <div className="field">
-                      <label>성함</label>
-                      <input type="text" placeholder="성함을 입력하세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
-                    </div>
-                    <div className="field">
-                      <label>연락처</label>
-                      <input type="text" placeholder="연락처를 입력하세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
-                    </div>
-                    <div className="field">
-                      <label>주소 입력</label>
-                      <input type="text" placeholder="주소를 입력하세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
-                    </div>
-                    <div className="field">
-                      <label>대출유형</label>
-                      <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                        {loanTypeOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
-                    <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : `${siteSettings.consult_button_text}하기`}</button>
-                  </form>
+                    <form className="form-stack" onSubmit={submitHomeInquiry}>
+                      <div className="field">
+                        <label>성함</label>
+                        <input type="text" placeholder="성함을 입력하세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
+                      </div>
+                      <div className="field">
+                        <label>연락처</label>
+                        <input type="text" placeholder="연락처를 입력하세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
+                      </div>
+                      <div className="field">
+                        <label>주소 입력</label>
+                        <input type="text" placeholder="주소를 입력하세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
+                      </div>
+                      <div className="field">
+                        <label>대출유형</label>
+                        <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
+                          {loanTypeOptions.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
+                      <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
+                    </form>
+                  </div>
+
+                  <div className="hero-side-note" data-reveal="left">
+                    <div className="hero-side-note-label">안내</div>
+                    <div className="hero-side-note-title">고객이 바로 이해되는 화면 흐름</div>
+                    <p>시세조회, 계산기, 후기, FAQ를 한 화면 안에서 자연스럽게 이어지도록 정리했습니다.</p>
+                  </div>
                 </div>
               </div>
             </section>
 
-            <section id="quick-search" className="section">
+            <section className="section premium-insight-section" data-reveal="up">
               <div className="container">
-                <div className="white-panel">
+                <div className="premium-insight-shell">
+                  {insightCards.map((item) => (
+                    <article key={item.title} className="premium-insight-card">
+                      <div className="premium-insight-eyebrow">{item.eyebrow}</div>
+                      <h3>{item.title}</h3>
+                      <p>{item.desc}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section id="quick-search" className="section" data-reveal="up">
+              <div className="container">
+                <div className="white-panel premium-search-panel">
                   <div className="section-center">
-                    <div className="section-mini">{siteSettings.hero_primary_cta}</div>
+                    <div className="section-mini">빠른 시세조회</div>
                     <h2 className="section-title">오늘의 부동산 시세와 예상 한도가 궁금하세요?</h2>
+                    <p className="section-copy premium-section-copy">지역과 단지를 차례대로 선택하면 현재 조회 가능한 기준값을 바탕으로 결과 화면까지 이어집니다.</p>
                   </div>
 
-                  <div className="quick-search-box quick-search-box-staged">
+                  <div className="quick-search-box quick-search-box-staged premium-search-box-frame">
                     <div className="select-grid select-grid-3">
                       <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }}>
                         <option value="">광역시/도</option>
@@ -690,14 +707,14 @@ export default function LoanLandingPage() {
                       />
                     </div>
 
-                    <div className="quick-search-actions">
+                    <div className="quick-search-actions premium-search-actions">
                       {hasSelectedSummary ? (
-                        <div className="selected-text">
+                        <div className="selected-text premium-selected-text">
                           선택 항목: <strong>{selectedSummary}</strong>
                           {selectedArea ? <> / <strong>{selectedArea}</strong></> : null}
                           {selectedUnit ? <> / <strong>{selectedUnit}</strong></> : null}
                         </div>
-                      ) : <div />}
+                      ) : <div className="selected-text premium-selected-text muted">조회할 지역과 단지를 차례대로 선택해주세요.</div>}
                       <button
                         type="button"
                         className="search-btn"
@@ -708,33 +725,46 @@ export default function LoanLandingPage() {
                       </button>
                     </div>
 
+                    {(catalogSource || catalogNote || catalogLoading) && (
+                      <div className="premium-search-meta">
+                        {catalogLoading ? <span>단지 목록을 불러오는 중입니다.</span> : null}
+                        {!catalogLoading && catalogSource ? <span>데이터 출처: {catalogSource}</span> : null}
+                        {!catalogLoading && catalogNote ? <span>{catalogNote}</span> : null}
+                      </div>
+                    )}
+
                     {marketError && <div className="api-status error">{marketError}</div>}
                   </div>
                 </div>
               </div>
             </section>
 
-            {Boolean(siteSettings.middle_banner_enabled) ? (
-              <section className="home-middle-banner-section">
-                <div className="container">
-                  <div className="home-middle-banner">
-                    <div className="home-middle-banner-copy">
-                      <div className="section-mini">{siteSettings.middle_banner_badge}</div>
-                      <h3>{siteSettings.middle_banner_title}</h3>
-                      <p>{siteSettings.middle_banner_description}</p>
-                    </div>
-                    <a href={siteSettings.middle_banner_button_url || "#contact"} className="primary-btn">{siteSettings.middle_banner_button_text || "상담 문의하기"}</a>
+            <section className="section premium-flow-section" data-reveal="up">
+              <div className="container">
+                <div className="premium-process-shell">
+                  <div className="premium-process-head">
+                    <div className="section-mini">이용 흐름</div>
+                    <h2 className="section-title">고객이 이해하기 쉬운 순서로 정리했습니다</h2>
+                  </div>
+                  <div className="premium-process-grid">
+                    {serviceSteps.map((item) => (
+                      <article key={item.step} className="premium-process-card">
+                        <div className="premium-process-step">STEP {item.step}</div>
+                        <h3>{item.title}</h3>
+                        <p>{item.desc}</p>
+                      </article>
+                    ))}
                   </div>
                 </div>
-              </section>
-            ) : null}
+              </div>
+            </section>
 
-            <section className="home-info-strip">
+            <section className="home-info-strip" data-reveal="up">
               <div className="container">
-                <div className="home-info-grid home-info-grid-3">
-                  <div className="home-info-box contact-home-box contact-home-box-split">
+                <div className="home-info-grid home-info-grid-3 premium-home-info-grid">
+                  <div className="home-info-box contact-home-box contact-home-box-split" data-reveal="up">
                     <div className="contact-split-grid contact-split-grid-soft">
-                      <a href={`tel:${phoneNumber}`} className="contact-display-card phone-display-card">
+                      <a href="tel:070-8018-7437" className="contact-display-card phone-display-card">
                         <div className="contact-display-badge">대표번호</div>
                         <div className="contact-display-icon phone-display-icon">☎</div>
                         <div className="contact-display-title">전화 상담</div>
@@ -743,18 +773,18 @@ export default function LoanLandingPage() {
                         <div className="contact-display-mini">대표 상담번호로 바로 연결됩니다.</div>
                       </a>
 
-                      <a href={kakaoUrl} target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
                         <div className="contact-display-badge contact-display-badge-kakao">카카오톡</div>
                         <div className="kakao-symbol">TALK</div>
                         <div className="contact-display-title">카카오톡 상담</div>
-                        <div className="contact-display-main contact-display-main-kakao"><span>{kakaoId}</span></div>
+                        <div className="contact-display-main contact-display-main-kakao"><span>ANDi7437</span></div>
                         <div className="contact-display-sub">오픈채팅 바로 연결</div>
                         <div className="contact-display-mini">클릭하면 상담창으로 이동합니다.</div>
                       </a>
                     </div>
                   </div>
 
-                  <div id="calculator" className="home-info-box calculator-home-box">
+                  <div id="calculator" className="home-info-box calculator-home-box premium-calc-panel" data-reveal="up">
                     <div className="section-mini">이율 계산기</div>
                     <h3 className="home-calc-title">간편 이율계산기</h3>
                     <div className="two-col compact-two-col">
@@ -772,7 +802,7 @@ export default function LoanLandingPage() {
                       />
                     </div>
                     <div className="two-col compact-two-col">
-                      <select value={repaymentType} onChange={(e) => handleRepaymentTypeChange(e.target.value)}>
+                      <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
                         <option>원리금균등</option>
                         <option>원금균등</option>
                         <option>만기일시상환</option>
@@ -788,36 +818,47 @@ export default function LoanLandingPage() {
                       <div className="calc-label">예상 월 상환액</div>
                       <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
                     </div>
+                    <div className="calc-meta-grid">
+                      <div>
+                        <span>총 이자</span>
+                        <strong>{formatNumber(calcResult.totalInterest)}원</strong>
+                      </div>
+                      <div>
+                        <span>총 상환금</span>
+                        <strong>{formatNumber(calcResult.totalPayment)}원</strong>
+                      </div>
+                    </div>
                     <div className="calc-helper">금액과 이율, 기간을 직접 입력해 월 상환 예상액을 확인해보세요.</div>
                   </div>
                 </div>
               </div>
             </section>
 
-            {reviewSectionEnabled ? <section className="review-section">
-              <div className="container review-grid">
-                <div className="review-left">
+            <section className="review-section premium-review-section" data-reveal="up">
+              <div className="container review-grid premium-review-grid">
+                <div className="review-left premium-review-left">
+                  <div className="section-mini">Review</div>
                   <div className="review-title">이용후기</div>
-                  <a href="/reviews" className="review-more">더보기 →</a>
+                  <p className="premium-review-copy">실제 문의 흐름에서 느낀 만족도를 더 자연스럽게 보여주도록 카드 간격과 정보 배치를 정리했습니다.</p>
+                  <a href="/reviews" className="review-more premium-review-more">전체 후기 보기 →</a>
                 </div>
 
-                <div className="review-list">
+                <div className="review-list premium-review-list" data-reveal="up">
                   {latestReviews.length === 0 && <div className="white-panel">아직 등록된 이용후기가 없습니다.</div>}
                   {latestReviews.map((review) => (
-                    <a key={review.id} href={`/reviews/${review.id}`} className="review-card">
+                    <a key={review.id} href={`/reviews/${review.id}`} className="review-card premium-review-card">
                       <div className="review-card-top">
                         <div className="review-card-text">
                           <div className="review-card-title">{review.title}</div>
                           <div className="review-card-desc">{review.content}</div>
                         </div>
                         <div className="review-card-date">{formatReviewDate(review.createdAt)}</div>
-                        <div className="review-card-author">{maskName(review.name)}</div>
                       </div>
                     </a>
                   ))}
                 </div>
               </div>
-            </section> : null}
+            </section>
           </>
         )}
 
@@ -834,7 +875,7 @@ export default function LoanLandingPage() {
                 <div className="result-stat-wrap">
                   <div className="result-stat-head">
                     <div className="result-stat-title">시장 통계 <span>2026.03.16 기준</span></div>
-                    <a href="#">통계 더보기 〉</a>
+                    <a href="#faq">통계 더보기 〉</a>
                   </div>
 
                   <div className="result-stat-banner">
@@ -986,15 +1027,15 @@ export default function LoanLandingPage() {
                 </div>
               </div>
 
-              <div className="result-page-hero">
+              <div className="result-page-hero premium-result-hero">
                 <div>
-                  <div className="section-mini light-mini">시세조회 결과</div>
+                  <div className="section-mini light-mini">시세조회 결과 · {marketResult?.source === "reb-openapi" ? "한국부동산원 API" : "예시 데이터 fallback"}</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
                   <p className="result-page-sub">
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
                   </p>
                 </div>
-                <a href="#contact" className="white-pill-btn">{siteSettings.consult_button_text}</a>
+                <a href="#contact" className="white-pill-btn">상담 신청</a>
               </div>
 
               <div className="result-page-grid">
@@ -1054,8 +1095,10 @@ export default function LoanLandingPage() {
                   </div>
 
                   <div className="desc-card">
-                    <div className="section-mini">선택 정보</div>
-                    <h3 className="desc-title">조회 단지 정보</h3>
+                    <div className="section-mini">설명 영역</div>
+                    <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
+                    <p className="desc-text">{priceResult.description}</p>
+
                     <div className="tag-wrap">
                       <span>{selectedCity}</span>
                       <span>{selectedDistrict}</span>
@@ -1068,14 +1111,17 @@ export default function LoanLandingPage() {
 
                 <div className="result-side-col">
                   <div id="contact" className="side-card">
-                    <div className="section-mini">상담 신청</div>
-                    <h3 className="card-title">지금 바로 {siteSettings.consult_button_text}</h3>
+                    <div className="section-mini">대출 신청 작성란</div>
+                    <h3 className="card-title">지금 바로 상담 신청</h3>
+                    <p className="card-desc">
+                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
+                    </p>
 
                     <form className="form-stack" onSubmit={submitResultInquiry}>
                       <input type="text" placeholder="성함" value={resultInquiry.name} onChange={(e) => setResultInquiry((prev) => ({ ...prev, name: e.target.value }))} />
                       <input type="text" placeholder="연락처" value={resultInquiry.phone} onChange={(e) => setResultInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
                       <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
-                      <input type="text" value={priceResult.address} readOnly />
+                      <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
                       <select value={resultInquiry.loanType} onChange={(e) => setResultInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
                         {loanTypeOptions.map((option) => (
                           <option key={option} value={option}>{option}</option>
@@ -1083,7 +1129,7 @@ export default function LoanLandingPage() {
                       </select>
                       <textarea rows={4} placeholder="상담 내용을 입력하세요" value={resultInquiry.memo} onChange={(e) => setResultInquiry((prev) => ({ ...prev, memo: e.target.value }))} />
                       {resultInquiryStatus && <div className={`api-status ${resultInquiryStatus.includes("완료") ? "success" : "error"}`}>{resultInquiryStatus}</div>}
-                      <button type="submit" className="primary-btn" disabled={resultInquirySaving}>{resultInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
+                      <button type="submit" className="primary-btn" disabled={resultInquirySaving}>{resultInquirySaving ? "접수 중..." : "대출 신청 접수하기"}</button>
                     </form>
                   </div>
 
@@ -1091,18 +1137,18 @@ export default function LoanLandingPage() {
                     <div className="section-mini">대표 상담 채널</div>
                     <h3 className="card-title">빠른 연결 안내</h3>
                     <div className="contact-button-stack contact-button-stack-compact">
-                      <a href={`tel:${phoneNumber}`} className="contact-pill contact-pill-call">
+                      <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
                         <span className="contact-pill-icon">☎</span>
                         <span className="contact-pill-copy">
                           <strong>대표번호</strong>
-                          <small>{phoneNumber}</small>
+                          <small>070-8018-7437</small>
                         </span>
                       </a>
-                      <a href={kakaoUrl} target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
                         <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
                         <span className="contact-pill-copy contact-pill-copy-dark">
                           <strong>카카오상담</strong>
-                          <small>카카오톡 ID : {kakaoId}</small>
+                          <small>카카오톡 ID : ANDi7437</small>
                         </span>
                       </a>
                     </div>
@@ -1113,32 +1159,67 @@ export default function LoanLandingPage() {
           </section>
         )}
 
-        <section id="faq" className="section faq-section">
+        {consultPopupOpen && currentView === "home" && (
+          <div className="floating-consult-modal-shell" onClick={() => setConsultPopupOpen(false)}>
+            <div
+              id="floating-consult-form"
+              className="floating-consult-modal"
+              onClick={(e) => e.stopPropagation()}
+              data-reveal="left"
+            >
+              <button type="button" className="floating-consult-close" onClick={() => setConsultPopupOpen(false)}>×</button>
+              <div className="section-mini">빠른 상담 신청</div>
+              <h3 className="card-title">지금 바로 간편 접수</h3>
+              <form className="form-stack" onSubmit={submitHomeInquiry}>
+                <div className="field">
+                  <label>성함</label>
+                  <input type="text" placeholder="성함을 입력하세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>연락처</label>
+                  <input type="text" placeholder="연락처를 입력하세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>주소 입력</label>
+                  <input type="text" placeholder="주소를 입력하세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>대출유형</label>
+                  <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
+                    {loanTypeOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+                {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
+                <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        <section id="faq" className="section faq-section premium-faq-section" data-reveal="up">
           <div className="container faq-wrap">
             <div className="section-center">
               <div className="section-mini">FAQ</div>
               <h2 className="section-title">자주 묻는 질문</h2>
+              <p className="section-copy premium-section-copy">고객이 자주 궁금해하는 내용을 깔끔한 아코디언 형태로 정리했습니다.</p>
             </div>
 
             <div className="faq-list">
-              <details className="faq-item">
-                <summary>시세조회 후 바로 대출 상담도 가능한가요?</summary>
-                <p>네. 시세조회 후 바로 상담 신청이 가능합니다.</p>
-              </details>
-              <details className="faq-item">
-                <summary>조건 안내는 확정 조건인가요?</summary>
-                <p>실제 가능 여부와 금리는 상담 후 안내됩니다.</p>
-              </details>
-              <details className="faq-item">
-                <summary>이율 계산기는 실시간으로 바뀌나요?</summary>
-                <p>네. 입력값을 바꾸면 예상 월 상환액과 총 상환 예상액이 즉시 변경됩니다.</p>
-              </details>
+              {faqItems.map((item) => (
+                <details key={item.q} className="faq-item premium-faq-item">
+                  <summary>{item.q}</summary>
+                  <p>{item.a}</p>
+                </details>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="legal-section">
+        <section className="legal-section premium-legal-section">
           <div className="container">
+            <div className="legal-topline">법정 고지 및 사업자 정보</div>
             <div className="legal-lines">
               <div>이자율 : 연6% ~ 연20%이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용없음)</div>
               <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
@@ -1148,9 +1229,9 @@ export default function LoanLandingPage() {
             </div>
 
             <div className="legal-meta">
-              <span>상호 : {brandName}</span>
+              <span>상호 : 엔드아이에셋대부</span>
               <span>대표자(성명) : 최종원</span>
-              <span>대표전화 : {phoneNumber}</span>
+              <span>대표전화 : 070-8018-7437</span>
               <span>사업자등록번호 : 739-08-03168</span>
               <span>대부중개업 등록번호 : 2025-서울서초-0084</span>
               <span>대부업 등록번호 : 2025-서울서초-0083(대부업)</span>
@@ -1158,7 +1239,7 @@ export default function LoanLandingPage() {
               <span>등록기관 : 서초구청 일자리경제과 (02-2155-8752)</span>
             </div>
 
-            <div className="legal-copy">© {brandName}. All Rights Reserved.</div>
+            <div className="legal-copy">© 엔드아이에셋대부. All Rights Reserved.</div>
           </div>
         </section>
       </main>
