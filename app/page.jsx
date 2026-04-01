@@ -86,10 +86,10 @@ function formatNumber(value) {
 
 export default function LoanLandingPage() {
   useScrollReveal();
-  const [loanAmount, setLoanAmount] = useState("0");
-  const [interestRate, setInterestRate] = useState("0");
+  const [loanAmount, setLoanAmount] = useState("");
+  const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("0");
+  const [loanMonths, setLoanMonths] = useState("");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -256,9 +256,6 @@ export default function LoanLandingPage() {
         latestPrice: marketSummary.latestPrice || "조회값 없음",
         range: marketSummary.range || "조회값 없음",
         estimateLimit: marketSummary.estimateLimit || "상담 후 산정",
-        description:
-          marketSummary.description ||
-          "한국부동산원 API 기준으로 조회한 값을 기반으로 예상 조건과 상담 연결 흐름을 보여주는 화면입니다.",
       };
     }
 
@@ -271,8 +268,6 @@ export default function LoanLandingPage() {
       latestPrice: "8억 7,500만원",
       range: "8억 3,000만원 ~ 8억 9,000만원",
       estimateLimit: "최대 6억 1,000만원 가능",
-      description:
-        "선택하신 단지와 면적을 기준으로 최근 시세 흐름과 예상 가능 한도를 확인한 뒤 상담을 도와드리는 결과형 페이지 예시입니다.",
     };
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
@@ -482,19 +477,19 @@ export default function LoanLandingPage() {
 
               <div className="container hero-grid">
                 <div className="hero-left">
-                  <div className="hero-pill hero-pill-live">안정적인 상담 연결 · 프리미엄 대출 컨설팅</div>
+                  <div className="hero-pill hero-pill-live">실시간 시세조회 · 맞춤 대출 상담</div>
 
                   <h1 className="hero-title hero-title-premium">
-                    시세 확인부터
+                    내 아파트 시세,
                     <br />
-                    맞춤 상담 연결까지
+                    지금 바로 확인하고
                     <br />
-                    빠르고 안정적으로
+                    대출 상담까지
                   </h1>
 
                   <p className="hero-text hero-text-premium">
-                    필요한 정보만 간편하게 입력하면 현재 시세 흐름과 예상 가능 범위를 확인하고
-                    상담까지 자연스럽게 이어집니다.
+                    아파트 시세를 조회하고, 예상 가능 한도를 확인한 뒤
+                    <br />전문 상담사에게 바로 연결됩니다.
                   </p>
 
                   <div className="hero-actions">
@@ -504,11 +499,8 @@ export default function LoanLandingPage() {
                 </div>
 
                 <div className="hero-card premium-glass-card" data-reveal="up">
-                  <div className="section-mini">빠른 상담 신청</div>
-                  <h2 className="card-title">빠른 상담 접수</h2>
-                  <p className="card-desc">
-                    성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
-                  </p>
+                  <div className="section-mini">간편 상담 접수</div>
+                  <h2 className="card-title">무료 상담 신청</h2>
 
                   <form className="form-stack" onSubmit={submitHomeInquiry}>
                     <div className="field">
@@ -542,8 +534,8 @@ export default function LoanLandingPage() {
               <div className="container">
                 <div className="white-panel">
                   <div className="section-center">
-                    <div className="section-mini">빠른 시세조회</div>
-                    <h2 className="section-title">오늘의 부동산 시세와 예상 한도가 궁금하세요?</h2>
+                    <div className="section-mini">시세조회</div>
+                    <h2 className="section-title">내 아파트 시세 조회</h2>
                   </div>
 
                   <div className="quick-search-box quick-search-box-staged">
@@ -876,7 +868,7 @@ export default function LoanLandingPage() {
 
               <div className="result-page-hero">
                 <div>
-                  <div className="section-mini light-mini">시세조회 결과 · {marketResult?.source === "reb-openapi" ? "한국부동산원 API" : "예시 데이터 fallback"}</div>
+                  <div className="section-mini light-mini">시세조회 결과</div>
                   <h2 className="result-page-title">{priceResult.title}</h2>
                   <p className="result-page-sub">
                     {priceResult.address} · {priceResult.area} · {priceResult.floor}
@@ -940,49 +932,31 @@ export default function LoanLandingPage() {
                       </div>
                     </div>
                   </div>
-
-                  <div className="desc-card">
-                    <div className="section-mini">설명 영역</div>
-                    <h3 className="desc-title">선택하신 단지를 기준으로 대출 상담을 도와드립니다.</h3>
-                    <p className="desc-text">{priceResult.description}</p>
-
-                    <div className="tag-wrap">
-                      <span>{selectedCity}</span>
-                      <span>{selectedDistrict}</span>
-                      <span>{selectedTown}</span>
-                      <span>{selectedApartment}</span>
-                      <span>{selectedArea}</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="result-side-col">
                   <div id="contact" className="side-card">
-                    <div className="section-mini">대출 신청 작성란</div>
-                    <h3 className="card-title">지금 바로 상담 신청</h3>
-                    <p className="card-desc">
-                      조회하신 단지 정보를 바탕으로 담당자가 빠르게 상담드릴 수 있도록 작성란을 함께 배치한 구조입니다.
-                    </p>
+                    <div className="section-mini">상담 신청</div>
+                    <h3 className="card-title">지금 바로 상담받기</h3>
 
                     <form className="form-stack" onSubmit={submitResultInquiry}>
                       <input type="text" placeholder="성함" value={resultInquiry.name} onChange={(e) => setResultInquiry((prev) => ({ ...prev, name: e.target.value }))} />
-                      <input type="text" placeholder="연락처" value={resultInquiry.phone} onChange={(e) => setResultInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
-                      <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly />
-                      <input type="text" value={marketResult?.source === "reb-openapi" ? "한국부동산원 API 조회값 반영" : "API 키 설정 시 실조회 반영"} readOnly />
+                      <input type="text" placeholder="연락처 (예: 010-1234-5678)" value={resultInquiry.phone} onChange={(e) => setResultInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
+                      <input type="text" value={`${selectedApartment} / ${selectedArea}`} readOnly className="readonly-field" />
                       <select value={resultInquiry.loanType} onChange={(e) => setResultInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
                         {loanTypeOptions.map((option) => (
                           <option key={option} value={option}>{option}</option>
                         ))}
                       </select>
-                      <textarea rows={4} placeholder="상담 내용을 입력하세요" value={resultInquiry.memo} onChange={(e) => setResultInquiry((prev) => ({ ...prev, memo: e.target.value }))} />
+                      <textarea rows={3} placeholder="추가 문의사항이 있으시면 입력해주세요" value={resultInquiry.memo} onChange={(e) => setResultInquiry((prev) => ({ ...prev, memo: e.target.value }))} />
                       {resultInquiryStatus && <div className={`api-status ${resultInquiryStatus.includes("완료") ? "success" : "error"}`}>{resultInquiryStatus}</div>}
-                      <button type="submit" className="primary-btn" disabled={resultInquirySaving}>{resultInquirySaving ? "접수 중..." : "대출 신청 접수하기"}</button>
+                      <button type="submit" className="primary-btn" disabled={resultInquirySaving}>{resultInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
                     </form>
                   </div>
 
                   <div className="side-card">
-                    <div className="section-mini">대표 상담 채널</div>
-                    <h3 className="card-title">빠른 연결 안내</h3>
+                    <div className="section-mini">상담 채널</div>
+                    <h3 className="card-title">전화 · 카카오톡 상담</h3>
                     <div className="contact-button-stack contact-button-stack-compact">
                       <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
                         <span className="contact-pill-icon">☎</span>
@@ -1055,15 +1029,19 @@ export default function LoanLandingPage() {
             <div className="faq-list">
               <details className="faq-item">
                 <summary>시세조회 후 바로 대출 상담도 가능한가요?</summary>
-                <p>네. 결과 페이지 오른쪽에 상담 신청란을 함께 배치해 바로 접수할 수 있습니다.</p>
+                <p>네, 시세 조회 결과 페이지에서 바로 상담 신청이 가능합니다.</p>
               </details>
               <details className="faq-item">
-                <summary>조건 안내는 확정 조건인가요?</summary>
-                <p>아니요. 현재는 예시 조건이며 실제 가능 여부와 금리는 상담 후 달라질 수 있습니다.</p>
+                <summary>금리와 한도는 어떻게 결정되나요?</summary>
+                <p>고객님의 소득, 담보물건, 신용등급 등에 따라 달라지며 상담을 통해 정확한 조건을 안내드립니다.</p>
               </details>
               <details className="faq-item">
-                <summary>이율 계산기는 실시간으로 바뀌나요?</summary>
-                <p>네. 입력값을 바꾸면 예상 월 상환액과 총 상환 예상액이 즉시 변경됩니다.</p>
+                <summary>상담 비용이 있나요?</summary>
+                <p>상담은 무료이며, 중개수수료를 요구하거나 받는 것은 불법입니다.</p>
+              </details>
+              <details className="faq-item">
+                <summary>상담 신청 후 얼마나 걸리나요?</summary>
+                <p>접수 확인 후 순차적으로 연락드리며, 영업시간 내 빠르게 안내해 드립니다.</p>
               </details>
             </div>
           </div>
