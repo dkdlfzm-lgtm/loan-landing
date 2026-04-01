@@ -505,7 +505,7 @@ export default function LoanLandingPage() {
       )}
 
       {promoReady && currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
-        <div className="floating-promo-card" data-reveal="right">
+        <div className="floating-promo-card">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
           <div className="floating-promo-badge">오늘 상담 가능</div>
           <div className="floating-promo-title">{siteSettings.popup_title || "대출 상담 빠르게 연결해드려요"}</div>
