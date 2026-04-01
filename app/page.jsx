@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatReviewDate } from "./lib-reviews";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../lib/site-settings";
 
 const statSlides = [
@@ -119,7 +118,6 @@ export default function LoanLandingPage() {
   const [marketResult, setMarketResult] = useState(null);
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState("");
-  const [latestReviews, setLatestReviews] = useState([]);
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: loanTypeOptions[0] });
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
@@ -238,25 +236,6 @@ export default function LoanLandingPage() {
     };
   }, [propertyType, selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadReviews() {
-      try {
-        const response = await fetch("/api/reviews?limit=3", { cache: "no-store" });
-        const data = await response.json();
-        if (!response.ok || data?.ok === false) throw new Error(data?.message || "이용후기를 불러오지 못했습니다.");
-        if (!cancelled) setLatestReviews(data.reviews || []);
-      } catch {
-        if (!cancelled) setLatestReviews([]);
-      }
-    }
-    loadReviews();
-    window.addEventListener("focus", loadReviews);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("focus", loadReviews);
-    };
-  }, []);
 
 
   useEffect(() => {
@@ -477,7 +456,7 @@ export default function LoanLandingPage() {
             <a href="#intro">홈</a>
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
-            <a href="/reviews">이용후기</a>
+            <a href="#approval-cases">승인사례</a>
             <a href="#contact" className="nav-btn">상담 신청</a>
           </nav>
         </div>
@@ -768,27 +747,21 @@ export default function LoanLandingPage() {
               </div>
             </section>
 
-            <section className="review-section" data-reveal="up">
-              <div className="container review-grid">
-                <div className="review-left">
-                  <div className="section-mini">Review</div>
-                  <div className="review-title">이용후기</div>
-                  <p className="review-copy">실제 상담을 진행한 고객들의 후기를 확인해보세요.</p>
-                  <a href="/reviews" className="review-more">더보기 →</a>
+            <section id="approval-cases" className="review-section approval-section" data-reveal="up">
+              <div className="container review-grid approval-grid">
+                <div className="review-left approval-left">
+                  <div className="section-mini">Approval Cases</div>
+                  <div className="review-title">승인사례</div>
+                  <p className="review-copy">실제 승인사례 영역입니다. 상세 내용은 추후 등록 예정입니다.</p>
                 </div>
 
-                <div className="review-list" data-reveal="up">
-                  {latestReviews.length === 0 && <div className="white-panel">아직 등록된 이용후기가 없습니다.</div>}
-                  {latestReviews.map((review) => (
-                    <a key={review.id} href={`/reviews/${review.id}`} className="review-card">
-                      <div className="review-card-top">
-                        <div className="review-card-text">
-                          <div className="review-card-title">{review.title}</div>
-                          <div className="review-card-desc">{review.content}</div>
-                        </div>
-                        <div className="review-card-date">{formatReviewDate(review.createdAt)}</div>
-                      </div>
-                    </a>
+                <div className="review-list approval-list" data-reveal="up">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="review-card approval-card">
+                      <div className="approval-card-badge">준비중</div>
+                      <div className="review-card-title">승인사례가 곧 등록됩니다.</div>
+                      <div className="review-card-desc">고객 상황, 대출 유형, 승인 포인트 등의 실제 사례를 이 영역에 순차적으로 추가할 예정입니다.</div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1115,29 +1088,36 @@ export default function LoanLandingPage() {
           </div>
         )}
         <section id="faq" className="section faq-section" data-reveal="up">
-          <div className="container faq-wrap">
-            <div className="section-center">
-              <div className="section-mini">FAQ</div>
-              <h2 className="section-title">자주 묻는 질문</h2>
+          <div className="container faq-wrap faq-wrap-wide">
+            <div className="section-center faq-header-left">
+              <h2 className="faq-main-title">주택담보대출 금리비교 FAQ</h2>
             </div>
 
-            <div className="faq-list">
-              <details className="faq-item">
-                <summary>시세조회 후 바로 대출 상담도 가능한가요?</summary>
-                <p>네, 시세 조회 결과 페이지에서 바로 상담 신청이 가능합니다.</p>
-              </details>
-              <details className="faq-item">
-                <summary>금리와 한도는 어떻게 결정되나요?</summary>
-                <p>고객님의 소득, 담보물건, 신용등급 등에 따라 달라지며 상담을 통해 정확한 조건을 안내드립니다.</p>
-              </details>
-              <details className="faq-item">
-                <summary>상담 비용이 있나요?</summary>
-                <p>상담은 무료이며, 중개수수료를 요구하거나 받는 것은 불법입니다.</p>
-              </details>
-              <details className="faq-item">
-                <summary>상담 신청 후 얼마나 걸리나요?</summary>
-                <p>접수 확인 후 순차적으로 연락드리며, 영업시간 내 빠르게 안내해 드립니다.</p>
-              </details>
+            <div className="faq-list faq-list-static">
+              <div className="faq-item faq-item-static">
+                <div className="faq-question">Q. 주택담보대출 금리비교는 왜 꼭 해야 하나요?</div>
+                <p>주담대 금리는 금융사·상품·우대조건·상환방식·중도상환수수료에 따라 실제 부담이 달라질 수 있습니다. 금리만 비교하기보다, 기준금리/우대조건/수수료/부대비용을 함께 비교하면 내 상황에 맞는 “실질적으로 유리한 조건”을 찾기 쉬워집니다.</p>
+              </div>
+              <div className="faq-item faq-item-static">
+                <div className="faq-question">Q. 주택담보대출 한도와 금리는 무엇으로 결정되나요?</div>
+                <p>일반적으로 담보물 평가, LTV·DSR 등 규제/심사 기준, 소득 및 상환능력, 신용점수, 기존 부채, 상품 구조(고정·변동/기준금리)에 따라 달라집니다. 같은 담보라도 개인 조건과 상품 구조에 따라 결과가 달라질 수 있어 비교가 중요합니다.</p>
+              </div>
+              <div className="faq-item faq-item-static">
+                <div className="faq-question">Q. 고정금리와 변동금리, 어떤 기준으로 선택하면 좋을까요?</div>
+                <p>금리 하락 기대만으로 변동을 선택하기보다는, 향후 금리 변동 시나리오와 가계 현금흐름(상환 여력), 대출 계획(갈아타기 가능성), 변동 주기·기준금리를 함께 고려하는 것이 안전합니다. 고정은 안정성, 변동은 시장금리 반영이라는 특징이 있습니다.</p>
+              </div>
+              <div className="faq-item faq-item-static">
+                <div className="faq-question">Q. 주담대 갈아타기(대환대출)할 때 가장 많이 놓치는 포인트는 무엇인가요?</div>
+                <p>중도상환수수료, 부대비용(인지세/설정/감정 등), 우대조건 유지 가능성, 상환방식 변화로 인한 총이자 차이를 놓치기 쉽습니다. “금리 차이로 줄어드는 이자”와 “발생 비용”을 함께 계산해 판단하는 것이 좋습니다.</p>
+              </div>
+              <div className="faq-item faq-item-static">
+                <div className="faq-question">Q. 주담대 상환방식에는 어떤 종류가 있나요?</div>
+                <p>대표적으로 원리금균등분할, 원금균등분할, 만기일시 상환이 있습니다. 같은 금리라도 상환방식에 따라 월 납입액과 총 이자 부담이 달라질 수 있어, 금리비교 시 상환방식까지 같이 비교하는 것이 좋습니다.</p>
+              </div>
+              <div className="faq-item faq-item-static">
+                <div className="faq-question">Q. 무직자·주부·프리랜서처럼 소득 증빙이 어려워도 주담대가 가능한가요?</div>
+                <p>가능성이 완전히 없지는 않지만, 금융사/상품/담보 조건에 따라 심사 기준이 크게 달라질 수 있습니다. 소득 증빙 방식, 기존 부채, 담보가치, 규제 적용 여부 등을 종합적으로 확인해야 하므로, 비교 및 상담을 통해 내 케이스 기준으로 확인하는 것이 안전합니다.</p>
+              </div>
             </div>
           </div>
         </section>
