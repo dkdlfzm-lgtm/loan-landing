@@ -126,6 +126,7 @@ export default function LoanLandingPage() {
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [promoDismissed, setPromoDismissed] = useState(false);
+  const [promoReady, setPromoReady] = useState(false);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
   const closePromoForToday = () => {
@@ -240,8 +241,13 @@ export default function LoanLandingPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const hiddenUntil = Number(window.localStorage.getItem("landing-promo-hide-until") || 0);
-    setPromoDismissed(Boolean(hiddenUntil && hiddenUntil > Date.now()));
+
+    try {
+      const hiddenUntil = Number(window.localStorage.getItem("landing-promo-hide-until") || 0);
+      setPromoDismissed(Boolean(hiddenUntil && hiddenUntil > Date.now()));
+    } finally {
+      setPromoReady(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -471,7 +477,7 @@ export default function LoanLandingPage() {
         </div>
       )}
 
-      {currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
+      {promoReady && currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
         <div className="floating-promo-card" data-reveal="right">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
           <div className="floating-promo-badge">오늘 상담 가능</div>

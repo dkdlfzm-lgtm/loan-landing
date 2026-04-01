@@ -8,7 +8,7 @@ const MENUS = [
   { key: "hero", label: "메인 배너" },
   { key: "middle", label: "중간 배너" },
   { key: "notice", label: "공지·팝업" },
-  { key: "reviews", label: "후기 관리" },
+  { key: "reviews", label: "승인사례 관리" },
 ];
 
 function ManagerLogin({ password, setPassword, error, onSubmit }) {
@@ -19,7 +19,7 @@ function ManagerLogin({ password, setPassword, error, onSubmit }) {
           <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
             <div className="section-mini">관리 페이지</div>
             <h1 className="section-title reviews-page-title">홈페이지 관리 로그인</h1>
-            <p className="card-desc">브랜드, 배너, 공지, 팝업, 후기 노출을 관리하는 전용 페이지입니다.</p>
+            <p className="card-desc">브랜드, 배너, 공지, 팝업, 승인사례 노출을 관리하는 전용 페이지입니다.</p>
             <div className="field">
               <label>관리자 비밀번호</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
@@ -106,10 +106,10 @@ export default function ManagePage() {
     try {
       const res = await fetch("/api/admin/reviews", { cache: "no-store" });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "이용후기 목록을 불러오지 못했습니다.");
+      if (!res.ok || !data.ok) throw new Error(data.message || "이용승인사례 목록을 불러오지 못했습니다.");
       setReviews(Array.isArray(data.reviews) ? data.reviews : []);
     } catch (err) {
-      setReviewMessage(err.message || "이용후기 목록을 불러오지 못했습니다.");
+      setReviewMessage(err.message || "이용승인사례 목록을 불러오지 못했습니다.");
     } finally {
       setReviewLoading(false);
     }
@@ -169,11 +169,11 @@ export default function ManagePage() {
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "후기 상태를 수정하지 못했습니다.");
+      if (!res.ok || !data.ok) throw new Error(data.message || "승인사례 상태를 수정하지 못했습니다.");
       setReviews((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
-      setReviewMessage(status === "published" ? "후기를 노출 상태로 변경했습니다." : "후기를 숨김 상태로 변경했습니다.");
+      setReviewMessage(status === "published" ? "승인사례를 노출 상태로 변경했습니다." : "승인사례를 숨김 상태로 변경했습니다.");
     } catch (err) {
-      setReviewMessage(err.message || "후기 상태를 수정하지 못했습니다.");
+      setReviewMessage(err.message || "승인사례 상태를 수정하지 못했습니다.");
     }
   }
 
@@ -231,7 +231,7 @@ export default function ManagePage() {
           <section className="crm-main manage-main">
             <div className="white-panel crm-settings-panel manage-header-panel">
               <div className="section-mini">운영용 홈페이지 관리</div>
-              <h1 className="section-title">브랜드/배너/공지/후기 설정</h1>
+              <h1 className="section-title">브랜드/배너/공지/승인사례 설정</h1>
               <p className="card-desc">좌측 메뉴에서 필요한 영역만 골라 바로 수정할 수 있습니다.</p>
               {lastSavedAt ? <div className="crm-last-sync">최근 저장: {lastSavedAt.toLocaleString("ko-KR")}</div> : null}
             </div>
@@ -397,7 +397,7 @@ export default function ManagePage() {
                         </div>
                       </div>
                       <div className="settings-grid-toggle">
-                        <ToggleField checked={Boolean(siteSettings.reviews_enabled)} onChange={(value) => updateField("reviews_enabled", value)} label="이용후기 섹션 노출" description="홈 상단 메뉴와 메인 후기 섹션 노출을 켜고 끌 수 있습니다." />
+                        <ToggleField checked={Boolean(siteSettings.reviews_enabled)} onChange={(value) => updateField("reviews_enabled", value)} label="승인사례 섹션 노출" description="홈 상단 메뉴와 메인 승인사례 섹션 노출을 켜고 끌 수 있습니다." />
                         <ToggleField checked={Boolean(siteSettings.notice_enabled)} onChange={(value) => updateField("notice_enabled", value)} label="상단 공지 배너" description="홈페이지 상단에 짧은 안내 문구를 띄웁니다." />
                         <ToggleField checked={Boolean(siteSettings.popup_enabled)} onChange={(value) => updateField("popup_enabled", value)} label="메인 팝업 노출" description="좌측 플로팅 팝업으로 노출되며 하루 동안 다시 보지 않기를 지원합니다." />
                       </div>
@@ -424,16 +424,16 @@ export default function ManagePage() {
               <div className="white-panel crm-settings-panel manage-review-panel">
                 <div className="manage-section-head">
                   <div>
-                    <div className="section-mini">후기 운영 관리</div>
-                    <h2 className="manage-section-title">후기 개별 노출 상태</h2>
+                    <div className="section-mini">승인사례 운영 관리</div>
+                    <h2 className="manage-section-title">승인사례 개별 노출 상태</h2>
                   </div>
                   <button type="button" className="secondary-btn" onClick={fetchReviews}>새로고침</button>
                 </div>
                 {reviewMessage ? <div className={`api-status ${reviewMessage.includes("못") ? "error" : "success"}`}>{reviewMessage}</div> : null}
-                {reviewLoading ? <div className="crm-empty-state">후기 목록을 불러오는 중입니다.</div> : null}
+                {reviewLoading ? <div className="crm-empty-state">승인사례 목록을 불러오는 중입니다.</div> : null}
                 {!reviewLoading ? (
                   <div className="manage-review-list">
-                    {reviews.length === 0 ? <div className="crm-empty-state">등록된 후기가 없습니다.</div> : reviews.map((review) => (
+                    {reviews.length === 0 ? <div className="crm-empty-state">등록된 승인사례가 없습니다.</div> : reviews.map((review) => (
                       <div key={review.id} className="manage-review-item">
                         <div className="manage-review-copy">
                           <div className="manage-review-topline">
