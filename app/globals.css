@@ -1936,3 +1936,384 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   .approval-list { grid-template-columns: 1fr; }
   .faq-main-title { font-size: 32px; }
 }
+
+/* ======================================================
+   Mobile optimization — customer home page only
+   ====================================================== */
+@media (max-width: 900px) {
+  .container {
+    padding: 0 18px;
+  }
+
+  .header-inner {
+    height: auto;
+    min-height: 68px;
+    padding: 12px 0 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .brand {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .brand-logo {
+    width: 78px;
+  }
+
+  .brand-title {
+    font-size: 15px;
+  }
+
+  .brand-sub {
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .nav {
+    width: 100%;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 2px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav a {
+    white-space: nowrap;
+    flex: 0 0 auto;
+    padding: 8px 13px;
+    font-size: 13px;
+  }
+
+  .nav-btn {
+    padding: 8px 16px !important;
+  }
+
+  .top-notice-inner {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 0;
+  }
+
+  .top-notice-text {
+    line-height: 1.45;
+  }
+
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 54px 0 64px;
+  }
+
+  .hero-left {
+    text-align: left;
+  }
+
+  .hero-title,
+  .hero-title-premium {
+    font-size: clamp(34px, 9vw, 52px);
+    line-height: 1.12;
+  }
+
+  .hero-text,
+  .hero-text-premium {
+    font-size: 15px;
+    line-height: 1.75;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hero-highlight-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .hero-card {
+    padding: 24px 20px;
+    border-radius: 24px;
+  }
+
+  .field {
+    gap: 8px;
+  }
+
+  .white-panel {
+    padding: 36px 0 0;
+    border-radius: 28px;
+  }
+
+  .section-center {
+    margin-bottom: 22px;
+  }
+
+  .section-title {
+    font-size: 34px;
+    line-height: 1.18;
+  }
+
+  .quick-search-box {
+    padding: 22px 16px;
+    border-radius: 24px;
+  }
+
+  .quick-search-box-staged {
+    border-radius: 24px;
+  }
+
+  .quick-search-head {
+    gap: 16px;
+  }
+
+  .quick-search-title {
+    font-size: 26px;
+    line-height: 1.24;
+  }
+
+  .quick-search-badges {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .select-grid,
+  .select-grid-3,
+  .staged-grid-bottom,
+  .two-col,
+  .compact-two-col,
+  .home-info-grid,
+  .home-info-grid-3,
+  .review-grid,
+  .approval-grid,
+  .approval-list,
+  .contact-split-grid,
+  .contact-split-grid-soft {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quick-search-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .selected-text {
+    width: 100%;
+    min-height: auto;
+    padding: 14px 16px;
+  }
+
+  .search-btn,
+  .primary-btn {
+    width: 100%;
+  }
+
+  .home-info-strip {
+    padding-top: 18px;
+  }
+
+  .home-info-box,
+  .calculator-home-box,
+  .premium-calc-panel,
+  .contact-display-card {
+    border-radius: 24px;
+  }
+
+  .contact-display-card {
+    min-height: unset;
+    padding: 24px 20px;
+  }
+
+  .home-calc-title,
+  .review-title,
+  .faq-main-title {
+    font-size: 30px;
+    line-height: 1.2;
+  }
+
+  .calc-box {
+    border-radius: 24px;
+  }
+
+  .calc-main {
+    font-size: clamp(34px, 10vw, 52px);
+  }
+
+  .review-section,
+  .faq-section {
+    padding-top: 56px;
+    padding-bottom: 56px;
+  }
+
+  .review-left,
+  .approval-left,
+  .faq-header-left {
+    text-align: left;
+  }
+
+  .approval-card,
+  .review-card,
+  .faq-item-static {
+    min-height: unset;
+    padding: 20px 18px;
+    border-radius: 22px;
+  }
+
+  .faq-question {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .faq-item-static p {
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .floating-contact-toolbar {
+    right: 14px;
+    bottom: 14px;
+    gap: 8px;
+  }
+
+  .floating-contact-btn {
+    min-width: 132px;
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+
+  .floating-promo-card {
+    left: 16px;
+    right: 16px;
+    bottom: 98px;
+    width: auto;
+    max-width: none;
+    padding: 20px 18px 18px;
+    border-radius: 22px;
+  }
+
+  .floating-promo-actions {
+    flex-direction: column;
+  }
+
+  .floating-promo-main,
+  .floating-promo-sub {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 0 14px;
+  }
+
+  .header-inner {
+    padding-top: 10px;
+  }
+
+  .brand-sub {
+    display: none;
+  }
+
+  .top-notice-badge {
+    display: none;
+  }
+
+  .hero-grid {
+    padding: 46px 0 54px;
+  }
+
+  .hero-pill,
+  .hero-feature-chip {
+    font-size: 12px;
+  }
+
+  .hero-title,
+  .hero-title-premium {
+    font-size: clamp(30px, 8.8vw, 40px);
+  }
+
+  .hero-text,
+  .hero-text-premium,
+  .section-copy,
+  .review-copy,
+  .calc-helper {
+    font-size: 14px;
+  }
+
+  .section-title {
+    font-size: 28px;
+  }
+
+  .quick-search-title {
+    font-size: 22px;
+  }
+
+  .quick-search-box {
+    padding: 18px 14px;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 52px;
+    padding: 14px 14px;
+    font-size: 15px;
+  }
+
+  .home-calc-title,
+  .review-title,
+  .faq-main-title {
+    font-size: 26px;
+  }
+
+  .calc-box {
+    padding: 18px 16px;
+  }
+
+  .calc-main {
+    font-size: 40px;
+  }
+
+  .contact-display-main-phone,
+  .contact-display-main-kakao {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+
+  .floating-contact-toolbar {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    align-items: stretch;
+  }
+
+  .floating-contact-btn {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .floating-promo-card {
+    left: 12px;
+    right: 12px;
+    bottom: 124px;
+    padding: 18px 16px 16px;
+  }
+}
