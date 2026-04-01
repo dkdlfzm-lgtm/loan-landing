@@ -75,6 +75,8 @@ const repaymentDefaults = {
   "만기일시상환": "5.4",
 };
 
+const POPUP_STORAGE_KEY = "landing-promo-hide-until-v3";
+
 const loanTypeOptions = [
   "주택담보대출",
   "전세퇴거자금",
@@ -125,13 +127,14 @@ export default function LoanLandingPage() {
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [approvalCases, setApprovalCases] = useState([]);
   const [promoDismissed, setPromoDismissed] = useState(false);
   const [promoReady, setPromoReady] = useState(false);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
   const closePromoForToday = () => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
+      window.localStorage.setItem(POPUP_STORAGE_KEY, String(startOfTomorrow()));
     }
     setPromoDismissed(true);
   };
@@ -192,6 +195,30 @@ export default function LoanLandingPage() {
   useEffect(() => {
     let cancelled = false;
 
+    async function loadApprovalCases() {
+      try {
+        const response = await fetch("/api/reviews?limit=6", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || data?.ok === false) {
+          throw new Error(data?.message || "승인사례를 불러오지 못했습니다.");
+        }
+        if (!cancelled) {
+          setApprovalCases(Array.isArray(data.reviews) ? data.reviews : []);
+        }
+      } catch {
+        if (!cancelled) setApprovalCases([]);
+      }
+    }
+
+    loadApprovalCases();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadCatalog() {
       setCatalogLoading(true);
       setMarketError("");
@@ -243,7 +270,7 @@ export default function LoanLandingPage() {
     if (typeof window === "undefined") return;
 
     try {
-      const hiddenUntil = Number(window.localStorage.getItem("landing-promo-hide-until") || 0);
+      const hiddenUntil = Number(window.localStorage.getItem(POPUP_STORAGE_KEY) || 0);
       setPromoDismissed(Boolean(hiddenUntil && hiddenUntil > Date.now()));
     } finally {
       setPromoReady(true);
@@ -462,7 +489,7 @@ export default function LoanLandingPage() {
             <a href="#intro">홈</a>
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
-            <a href="#approval-cases">승인사례</a>
+            {Boolean(siteSettings.reviews_enabled) ? <a href="#approval-cases">승인사례</a> : null}
             <a href="#contact" className="nav-btn">상담 신청</a>
           </nav>
         </div>
@@ -753,25 +780,33 @@ export default function LoanLandingPage() {
               </div>
             </section>
 
-            <section id="approval-cases" className="review-section approval-section" data-reveal="up">
-              <div className="container review-grid approval-grid">
-                <div className="review-left approval-left">
-                  <div className="section-mini">Approval Cases</div>
-                  <div className="review-title">승인사례</div>
-                  <p className="review-copy">실제 승인사례 영역입니다. 상세 내용은 추후 등록 예정입니다.</p>
-                </div>
+            {Boolean(siteSettings.reviews_enabled) ? (
+              <section id="approval-cases" className="review-section approval-section" data-reveal="up">
+                <div className="container review-grid approval-grid">
+                  <div className="review-left approval-left">
+                    <div className="section-mini">Approval Cases</div>
+                    <div className="review-title">승인사례</div>
+                    <p className="review-copy">관리 페이지에서 등록한 승인사례가 이 영역에 바로 노출됩니다.</p>
+                  </div>
 
-                <div className="review-list approval-list" data-reveal="up">
-                  {[1, 2, 3].map((item) => (
-                    <div key={item} className="review-card approval-card">
-                      <div className="approval-card-badge">준비중</div>
-                      <div className="review-card-title">승인사례가 곧 등록됩니다.</div>
-                      <div className="review-card-desc">고객 상황, 대출 유형, 승인 포인트 등의 실제 사례를 이 영역에 순차적으로 추가할 예정입니다.</div>
-                    </div>
-                  ))}
+                  <div className="review-list approval-list" data-reveal="up">
+                    {approvalCases.length === 0 ? (
+                      <div className="review-card approval-card">
+                        <div className="approval-card-badge">준비중</div>
+                        <div className="review-card-title">등록된 승인사례가 아직 없습니다.</div>
+                        <div className="review-card-desc">홈페이지 관리에서 제목과 내용을 직접 등록하면 이 영역에 바로 표시됩니다.</div>
+                      </div>
+                    ) : approvalCases.map((item) => (
+                      <div key={item.id} className="review-card approval-card">
+                        <div className="approval-card-badge">승인</div>
+                        <div className="review-card-title">{item.title}</div>
+                        <div className="review-card-desc">{item.content}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            ) : null}
           </>
         )}
 

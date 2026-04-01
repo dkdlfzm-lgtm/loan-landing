@@ -60,6 +60,9 @@ export default function ManagePage() {
   const [reviews, setReviews] = useState([]);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
+  const [reviewForm, setReviewForm] = useState({ title: "", content: "", status: "published" });
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [reviewSaving, setReviewSaving] = useState(false);
   const [activeMenu, setActiveMenu] = useState("brand");
 
   useEffect(() => {
@@ -174,6 +177,79 @@ export default function ManagePage() {
       setReviewMessage(status === "published" ? "승인사례를 노출 상태로 변경했습니다." : "승인사례를 숨김 상태로 변경했습니다.");
     } catch (err) {
       setReviewMessage(err.message || "승인사례 상태를 수정하지 못했습니다.");
+    }
+  }
+
+  function resetReviewForm() {
+    setReviewForm({ title: "", content: "", status: "published" });
+    setEditingReviewId(null);
+  }
+
+  function startEditReview(review) {
+    setEditingReviewId(review.id);
+    setReviewForm({
+      title: String(review.title || ""),
+      content: String(review.content || ""),
+      status: review.status === "hidden" ? "hidden" : "published",
+    });
+    setReviewMessage("");
+  }
+
+  async function handleReviewSubmit(e) {
+    e.preventDefault();
+    setReviewMessage("");
+
+    const payload = {
+      title: String(reviewForm.title || "").trim(),
+      content: String(reviewForm.content || "").trim(),
+      status: reviewForm.status === "hidden" ? "hidden" : "published",
+    };
+
+    if (!payload.title || !payload.content) {
+      setReviewMessage("제목과 내용을 입력해주세요.");
+      return;
+    }
+
+    setReviewSaving(true);
+    try {
+      const res = await fetch(editingReviewId ? `/api/admin/reviews/${editingReviewId}` : "/api/admin/reviews", {
+        method: editingReviewId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || (editingReviewId ? "승인사례를 수정하지 못했습니다." : "승인사례를 등록하지 못했습니다."));
+
+      if (editingReviewId) {
+        setReviews((prev) => prev.map((item) => (item.id === editingReviewId ? { ...item, ...(data.review || {}), ...payload } : item)));
+        setReviewMessage("승인사례를 수정했습니다.");
+      } else {
+        setReviews((prev) => [data.review, ...prev].filter(Boolean));
+        setReviewMessage("승인사례를 등록했습니다.");
+      }
+      resetReviewForm();
+    } catch (err) {
+      setReviewMessage(err.message || "승인사례 저장에 실패했습니다.");
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
+  async function deleteReview(id) {
+    if (!window.confirm("이 승인사례를 삭제하시겠습니까?")) return;
+    setReviewSaving(true);
+    setReviewMessage("");
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "승인사례를 삭제하지 못했습니다.");
+      setReviews((prev) => prev.filter((item) => item.id !== id));
+      if (editingReviewId === id) resetReviewForm();
+      setReviewMessage("승인사례를 삭제했습니다.");
+    } catch (err) {
+      setReviewMessage(err.message || "승인사례를 삭제하지 못했습니다.");
+    } finally {
+      setReviewSaving(false);
     }
   }
 
@@ -425,11 +501,37 @@ export default function ManagePage() {
                 <div className="manage-section-head">
                   <div>
                     <div className="section-mini">승인사례 운영 관리</div>
-                    <h2 className="manage-section-title">승인사례 개별 노출 상태</h2>
+                    <h2 className="manage-section-title">승인사례 작성 · 수정 · 삭제</h2>
                   </div>
                   <button type="button" className="secondary-btn" onClick={fetchReviews}>새로고침</button>
                 </div>
-                {reviewMessage ? <div className={`api-status ${reviewMessage.includes("못") ? "error" : "success"}`}>{reviewMessage}</div> : null}
+
+                {reviewMessage ? <div className={`api-status ${reviewMessage.includes("못") || reviewMessage.includes("입력") ? "error" : "success"}`}>{reviewMessage}</div> : null}
+
+                <form className="form-stack" onSubmit={handleReviewSubmit}>
+                  <div className="two-col compact-two-col">
+                    <div className="field">
+                      <label>사례 제목</label>
+                      <input value={reviewForm.title} onChange={(e) => setReviewForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="예: 아파트 담보대출 승인 사례" />
+                    </div>
+                    <div className="field">
+                      <label>노출 상태</label>
+                      <select value={reviewForm.status} onChange={(e) => setReviewForm((prev) => ({ ...prev, status: e.target.value }))}>
+                        <option value="published">노출</option>
+                        <option value="hidden">숨김</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>사례 내용</label>
+                    <textarea rows={6} value={reviewForm.content} onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="승인사례 내용을 입력하세요." />
+                  </div>
+                  <div className="manage-actions">
+                    <button type="button" className="secondary-btn" onClick={resetReviewForm} disabled={reviewSaving}>새 글 작성</button>
+                    <button type="submit" className="primary-btn" disabled={reviewSaving}>{reviewSaving ? "저장 중..." : editingReviewId ? "승인사례 수정" : "승인사례 등록"}</button>
+                  </div>
+                </form>
+
                 {reviewLoading ? <div className="crm-empty-state">승인사례 목록을 불러오는 중입니다.</div> : null}
                 {!reviewLoading ? (
                   <div className="manage-review-list">
@@ -440,12 +542,13 @@ export default function ManagePage() {
                             <strong>{review.title}</strong>
                             <span className={`status-chip ${review.status === "published" ? "status-approved" : "status-hold"}`}>{review.status === "published" ? "노출중" : "숨김"}</span>
                           </div>
-                          <div className="manage-review-meta">{review.name} · 조회수 {Number(review.view_count || 0)} · {String(review.created_at || "").slice(0, 10)}</div>
+                          <div className="manage-review-meta">{String(review.created_at || "").slice(0, 10)} · 조회수 {Number(review.view_count || 0)}</div>
                           <p>{review.content}</p>
                         </div>
                         <div className="manage-review-actions">
-                          <button type="button" className="secondary-btn" onClick={() => updateReviewStatus(review.id, "hidden")}>숨김</button>
-                          <button type="button" className="primary-btn" onClick={() => updateReviewStatus(review.id, "published")}>노출</button>
+                          <button type="button" className="secondary-btn" onClick={() => startEditReview(review)} disabled={reviewSaving}>수정</button>
+                          <button type="button" className="secondary-btn" onClick={() => updateReviewStatus(review.id, review.status === "published" ? "hidden" : "published")} disabled={reviewSaving}>{review.status === "published" ? "숨김" : "노출"}</button>
+                          <button type="button" className="admin-delete-btn" onClick={() => deleteReview(review.id)} disabled={reviewSaving}>삭제</button>
                         </div>
                       </div>
                     ))}
