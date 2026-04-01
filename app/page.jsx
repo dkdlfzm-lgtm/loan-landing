@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDate } from "./lib-reviews";
+import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../lib/site-settings";
 
 const statSlides = [
   {
@@ -69,6 +70,12 @@ function startOfTomorrow() {
   return d.getTime();
 }
 
+const repaymentDefaults = {
+  "원리금균등": "4.9",
+  "원금균등": "5.1",
+  "만기일시상환": "5.4",
+};
+
 const loanTypeOptions = [
   "주택담보대출",
   "전세퇴거자금",
@@ -87,7 +94,7 @@ function formatNumber(value) {
 export default function LoanLandingPage() {
   useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState("");
+  const [interestRate, setInterestRate] = useState(repaymentDefaults["원리금균등"]);
   const [repaymentType, setRepaymentType] = useState("원리금균등");
   const [loanMonths, setLoanMonths] = useState("");
 
@@ -119,7 +126,8 @@ export default function LoanLandingPage() {
   const [resultInquiry, setResultInquiry] = useState({ name: "", phone: "", loanType: loanTypeOptions[0], memo: "" });
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
-  const [promoDismissed, setPromoDismissed] = useState(true);
+  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [promoDismissed, setPromoDismissed] = useState(false);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
   const closePromoForToday = () => {
@@ -140,10 +148,47 @@ export default function LoanLandingPage() {
 
 
   const cities = catalogOptions.cities;
+  const displayPhone = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
+  const displayKakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
+  const displayKakaoUrl = siteSettings.kakao_url || DEFAULT_SITE_SETTINGS.kakao_url;
+  const displayLogoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
+
   const districts = catalogOptions.districts;
   const towns = catalogOptions.towns;
   const apartments = catalogOptions.apartments;
   const areas = catalogOptions.areas;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSiteSettings() {
+      try {
+        const cached = readCachedSiteSettings();
+        if (!cancelled && cached) setSiteSettings(cached);
+
+        const response = await fetch("/api/site-settings", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || data?.ok === false || !data?.settings) {
+          throw new Error("사이트 설정을 불러오지 못했습니다.");
+        }
+        if (!cancelled) {
+          const normalized = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
+          setSiteSettings(normalized);
+          cacheSiteSettings(normalized);
+        }
+      } catch {
+        if (!cancelled) {
+          const fallback = readCachedSiteSettings();
+          setSiteSettings(fallback || DEFAULT_SITE_SETTINGS);
+        }
+      }
+    }
+
+    loadSiteSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,8 +262,13 @@ export default function LoanLandingPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hiddenUntil = Number(window.localStorage.getItem("landing-promo-hide-until") || 0);
-    setPromoDismissed(hiddenUntil > Date.now());
+    setPromoDismissed(Boolean(hiddenUntil && hiddenUntil > Date.now()));
   }, []);
+
+  useEffect(() => {
+    const defaultRate = repaymentDefaults[repaymentType] || "";
+    setInterestRate(defaultRate);
+  }, [repaymentType]);
 
   useEffect(() => {
     if (currentView !== "home") {
@@ -416,10 +466,10 @@ export default function LoanLandingPage() {
       <header className="header">
         <div className="container header-inner">
           <div className="brand brand-logo-wrap">
-            <img src="/andi-logo.png" alt="엔드아이에셋대부" className="brand-logo" />
+            <img src={displayLogoUrl} alt={siteSettings.company_name || "엔드아이에셋대부"} className="brand-logo" />
             <div className="brand-copy">
-              <div className="brand-title">엔드아이에셋대부</div>
-              <div className="brand-sub">주택담보대출 · 대환대출 · 전세퇴거자금 상담</div>
+              <div className="brand-title">{siteSettings.company_name || "엔드아이에셋대부"}</div>
+              <div className="brand-sub">{siteSettings.company_subtitle || "주택담보대출 · 대환대출 · 전세퇴거자금 상담"}</div>
             </div>
           </div>
 
@@ -433,23 +483,23 @@ export default function LoanLandingPage() {
         </div>
       </header>
 
-      {currentView === "home" && (
+      {currentView === "home" && Boolean(siteSettings.notice_enabled) && (
         <div className="top-notice-bar">
           <div className="container top-notice-inner">
             <span className="top-notice-badge">공지</span>
-            <span className="top-notice-text">금리와 한도는 조건에 따라 달라질 수 있으니 상담을 통해 정확하게 안내해드립니다.</span>
+            <span className="top-notice-text">{siteSettings.notice_text || DEFAULT_SITE_SETTINGS.notice_text}</span>
           </div>
         </div>
       )}
 
-      {currentView === "home" && !promoDismissed && (
+      {currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
         <div className="floating-promo-card" data-reveal="right">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
           <div className="floating-promo-badge">오늘 상담 가능</div>
-          <div className="floating-promo-title">대출 상담 빠르게 연결해드려요</div>
-          <p className="floating-promo-text">간편 접수나 카카오톡으로 바로 문의하시면 순차적으로 확인 후 연락드립니다.</p>
+          <div className="floating-promo-title">{siteSettings.popup_title || "대출 상담 빠르게 연결해드려요"}</div>
+          <p className="floating-promo-text">{siteSettings.popup_description || "간편 접수나 카카오톡으로 바로 문의하시면 순차적으로 확인 후 연락드립니다."}</p>
           <div className="floating-promo-actions">
-            <button type="button" className="floating-promo-main" onClick={openConsultPopup}>상담 신청</button>
+            <button type="button" className="floating-promo-main" onClick={openConsultPopup}>{siteSettings.popup_button_text || siteSettings.consult_button_text || "상담 신청"}</button>
             <button type="button" className="floating-promo-sub" onClick={closePromoForToday}>오늘 그만보기</button>
           </div>
         </div>
@@ -457,13 +507,13 @@ export default function LoanLandingPage() {
 
       {currentView === "home" && (
         <div className="floating-contact-toolbar premium-floating fixed-visible">
-          <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call floating-contact-btn-solid-call">
+          <a href={`tel:${displayPhone}`} className="floating-contact-btn floating-contact-btn-call floating-contact-btn-solid-call">
             <span className="floating-contact-icon">☎</span>
-            <span>대표번호<small>070-8018-7437</small></span>
+            <span>대표번호<small>{displayPhone}</small></span>
           </a>
-          <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao floating-contact-btn-solid-kakao">
+          <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao floating-contact-btn-solid-kakao">
             <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
-            <span>카카오상담<small>카카오톡 ID : ANDi7437</small></span>
+            <span>카카오상담<small>{`카카오톡 ID : ${displayKakaoId}`}</small></span>
           </a>
         </div>
       )}
@@ -477,30 +527,59 @@ export default function LoanLandingPage() {
 
               <div className="container hero-grid">
                 <div className="hero-left">
-                  <div className="hero-pill hero-pill-live">실시간 시세조회 · 맞춤 대출 상담</div>
+                  <div className="hero-pill hero-pill-live">{siteSettings.hero_badge || "실시간 시세조회 · 맞춤 대출 상담"}</div>
 
                   <h1 className="hero-title hero-title-premium">
-                    내 아파트 시세,
-                    <br />
-                    지금 바로 확인하고
-                    <br />
-                    대출 상담까지
+                    {(siteSettings.hero_title || "내 아파트 시세,\n지금 바로 확인하고\n대출 상담까지").split("\n").map((line, index, arr) => (
+                      <span key={index}>
+                        {line}
+                        {index < arr.length - 1 ? <br /> : null}
+                      </span>
+                    ))}
                   </h1>
 
                   <p className="hero-text hero-text-premium">
-                    아파트 시세를 조회하고, 예상 가능 한도를 확인한 뒤
-                    <br />전문 상담사에게 바로 연결됩니다.
+                    {(siteSettings.hero_description || "아파트 시세를 조회하고, 예상 가능 한도를 확인한 뒤\n전문 상담사에게 바로 연결됩니다.").split("\n").map((line, index, arr) => (
+                      <span key={index}>
+                        {line}
+                        {index < arr.length - 1 ? <br /> : null}
+                      </span>
+                    ))}
                   </p>
 
                   <div className="hero-actions">
-                    <a href="#quick-search" className="btn btn-white">빠른 시세조회</a>
-                    <a href="#contact" className="btn btn-outline">무료 상담 신청</a>
+                    <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta || "빠른 시세조회"}</a>
+                    <a href="#contact" className="btn btn-outline dark-outline">{siteSettings.hero_secondary_cta || "무료 상담 신청"}</a>
+                  </div>
+
+                  <div className="hero-feature-list">
+                    <span className="hero-feature-chip">{siteSettings.hero_feature_1 || "실시간 단지 조회"}</span>
+                    <span className="hero-feature-chip">{siteSettings.hero_feature_2 || "맞춤 한도 상담"}</span>
+                    <span className="hero-feature-chip">{siteSettings.hero_feature_3 || "빠른 접수 진행"}</span>
+                  </div>
+
+                  <div className="hero-highlight-grid">
+                    <div className="hero-highlight-card">
+                      <span>맞춤 상담</span>
+                      <strong>1:1 진행</strong>
+                      <small>조건에 맞는 상품 안내</small>
+                    </div>
+                    <div className="hero-highlight-card">
+                      <span>시세 확인</span>
+                      <strong>간편 조회</strong>
+                      <small>주소 선택 후 바로 확인</small>
+                    </div>
+                    <div className="hero-highlight-card">
+                      <span>상담 채널</span>
+                      <strong>전화 · 카카오톡</strong>
+                      <small>편한 방식으로 문의 가능</small>
+                    </div>
                   </div>
                 </div>
 
                 <div className="hero-card premium-glass-card" data-reveal="up">
                   <div className="section-mini">간편 상담 접수</div>
-                  <h2 className="card-title">무료 상담 신청</h2>
+                  <h2 className="card-title">{siteSettings.hero_secondary_cta || "무료 상담 신청"}</h2>
 
                   <form className="form-stack" onSubmit={submitHomeInquiry}>
                     <div className="field">
@@ -536,9 +615,21 @@ export default function LoanLandingPage() {
                   <div className="section-center">
                     <div className="section-mini">시세조회</div>
                     <h2 className="section-title">내 아파트 시세 조회</h2>
+                    <p className="section-copy">지역과 단지를 선택하면 현재 기준 시세와 상담 연결까지 한 번에 진행할 수 있습니다.</p>
                   </div>
 
                   <div className="quick-search-box quick-search-box-staged">
+                    <div className="quick-search-head">
+                      <div>
+                        <div className="quick-search-eyebrow">STEP 01</div>
+                        <div className="quick-search-title">아파트 정보를 선택해 주세요</div>
+                      </div>
+                      <div className="quick-search-badges">
+                        <span>광역시/도</span>
+                        <span>단지</span>
+                        <span>면적</span>
+                      </div>
+                    </div>
                     <div className="select-grid select-grid-3">
                       <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }}>
                         <option value="">광역시/도</option>
@@ -585,6 +676,8 @@ export default function LoanLandingPage() {
                         disabled={!selectedArea}
                       />
                     </div>
+
+                    <div className="quick-search-divider" />
 
                     <div className="quick-search-actions">
                       {hasSelectedSummary ? (
@@ -647,7 +740,7 @@ export default function LoanLandingPage() {
                       />
                       <input
                         type="text"
-                        placeholder="연 이율(%)"
+                        placeholder="연 이율(%)" readOnly
                         value={interestRate}
                         onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
                       />
@@ -669,7 +762,7 @@ export default function LoanLandingPage() {
                       <div className="calc-label">예상 월 상환액</div>
                       <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
                     </div>
-                    <div className="calc-helper">금액과 이율, 기간을 직접 입력해 월 상환 예상액을 확인해보세요.</div>
+                    <div className="calc-helper">상환방식을 선택하면 기준 이율이 자동 입력됩니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
                   </div>
                 </div>
               </div>
@@ -678,7 +771,9 @@ export default function LoanLandingPage() {
             <section className="review-section" data-reveal="up">
               <div className="container review-grid">
                 <div className="review-left">
+                  <div className="section-mini">Review</div>
                   <div className="review-title">이용후기</div>
+                  <p className="review-copy">실제 상담을 진행한 고객들의 후기를 확인해보세요.</p>
                   <a href="/reviews" className="review-more">더보기 →</a>
                 </div>
 
