@@ -63,6 +63,7 @@ function useScrollReveal() {
 }
 
 function startOfTomorrow() {
+
   const d = new Date();
   d.setHours(24, 0, 0, 0);
   return d.getTime();
@@ -85,10 +86,10 @@ function formatNumber(value) {
 
 export default function LoanLandingPage() {
   useScrollReveal();
-  const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState("");
+  const [loanAmount, setLoanAmount] = useState("0");
+  const [interestRate, setInterestRate] = useState("0");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("");
+  const [loanMonths, setLoanMonths] = useState("0");
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
@@ -119,8 +120,8 @@ export default function LoanLandingPage() {
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [promoDismissed, setPromoDismissed] = useState(true);
+  const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
-
   const closePromoForToday = () => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem("landing-promo-hide-until", String(startOfTomorrow()));
@@ -130,13 +131,13 @@ export default function LoanLandingPage() {
 
   const openConsultPopup = () => {
     setConsultPopupOpen(true);
-    if (typeof window !== "undefined") {
-      window.setTimeout(() => {
-        const target = document.getElementById("floating-consult-form");
-        target?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 80);
-    }
+    setFloatingMenuOpen(false);
+    setTimeout(() => {
+      const target = document.getElementById("floating-consult-form");
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
   };
+
 
   const cities = catalogOptions.cities;
   const districts = catalogOptions.districts;
@@ -221,6 +222,7 @@ export default function LoanLandingPage() {
 
   useEffect(() => {
     if (currentView !== "home") {
+      setFloatingMenuOpen(false);
       setConsultPopupOpen(false);
     }
   }, [currentView]);
@@ -436,6 +438,15 @@ export default function LoanLandingPage() {
         </div>
       </header>
 
+      {currentView === "home" && (
+        <div className="top-notice-bar">
+          <div className="container top-notice-inner">
+            <span className="top-notice-badge">공지</span>
+            <span className="top-notice-text">금리와 한도는 조건에 따라 달라질 수 있으니 상담을 통해 정확하게 안내해드립니다.</span>
+          </div>
+        </div>
+      )}
+
       {currentView === "home" && !promoDismissed && (
         <div className="floating-promo-card" data-reveal="right">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
@@ -450,12 +461,12 @@ export default function LoanLandingPage() {
       )}
 
       {currentView === "home" && (
-        <div className="floating-contact-toolbar premium-floating always-visible-floating">
-          <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call floating-contact-btn-solid">
+        <div className="floating-contact-toolbar premium-floating fixed-visible">
+          <a href="tel:070-8018-7437" className="floating-contact-btn floating-contact-btn-call floating-contact-btn-solid-call">
             <span className="floating-contact-icon">☎</span>
             <span>대표번호<small>070-8018-7437</small></span>
           </a>
-          <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao floating-contact-btn-solid">
+          <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="floating-contact-btn floating-contact-btn-kakao floating-contact-btn-solid-kakao">
             <span className="floating-contact-icon floating-contact-icon-kakao">TALK</span>
             <span>카카오상담<small>카카오톡 ID : ANDi7437</small></span>
           </a>
@@ -483,7 +494,7 @@ export default function LoanLandingPage() {
 
                   <p className="hero-text hero-text-premium">
                     필요한 정보만 간편하게 입력하면 현재 시세 흐름과 예상 가능 범위를 확인하고
-                    희망 조건 확인 후 상담 접수까지 한 화면에서 이어집니다.
+                    상담까지 자연스럽게 이어집니다.
                   </p>
 
                   <div className="hero-actions">
@@ -496,7 +507,7 @@ export default function LoanLandingPage() {
                   <div className="section-mini">빠른 상담 신청</div>
                   <h2 className="card-title">빠른 상담 접수</h2>
                   <p className="card-desc">
-                    성함과 연락처를 남겨주시면 확인 후 가능한 조건과 진행 방향을 빠르게 안내해드립니다.
+                    성함과 연락처를 남겨주시면 접수 확인 후 순차적으로 상담 도와드립니다.
                   </p>
 
                   <form className="form-stack" onSubmit={submitHomeInquiry}>
