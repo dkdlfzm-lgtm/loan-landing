@@ -95,8 +95,8 @@ function formatNumber(value) {
 export default function LoanLandingPage() {
   useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState(repaymentDefaults["원리금균등"]);
-  const [repaymentType, setRepaymentType] = useState("원리금균등");
+  const [interestRate, setInterestRate] = useState("");
+  const [repaymentType, setRepaymentType] = useState("");
   const [loanMonths, setLoanMonths] = useState("");
 
   const [propertyType, setPropertyType] = useState("아파트");
@@ -278,7 +278,7 @@ export default function LoanLandingPage() {
   }, []);
 
   useEffect(() => {
-    const defaultRate = repaymentDefaults[repaymentType] || "";
+    const defaultRate = repaymentType ? (repaymentDefaults[repaymentType] || "") : "";
     setInterestRate(defaultRate);
   }, [repaymentType]);
 
@@ -505,7 +505,7 @@ export default function LoanLandingPage() {
       )}
 
       {promoReady && currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
-        <div className="floating-promo-card">
+        <div className="floating-promo-card" data-reveal="right">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
           <div className="floating-promo-badge">오늘 상담 가능</div>
           <div className="floating-promo-title">{siteSettings.popup_title || "대출 상담 빠르게 연결해드려요"}</div>
@@ -752,16 +752,17 @@ export default function LoanLandingPage() {
                       />
                       <input
                         type="text"
-                        placeholder="연 이율(%)" readOnly
+                        placeholder="연 이율(%)"
                         value={interestRate}
                         onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
                       />
                     </div>
                     <div className="two-col compact-two-col">
                       <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
-                        <option>원리금균등</option>
-                        <option>원금균등</option>
-                        <option>만기일시상환</option>
+                        <option value="">상환방식을 선택</option>
+                        <option value="원리금균등">원리금균등</option>
+                        <option value="원금균등">원금균등</option>
+                        <option value="만기일시상환">만기일시상환</option>
                       </select>
                       <input
                         type="text"
@@ -774,7 +775,7 @@ export default function LoanLandingPage() {
                       <div className="calc-label">예상 월 상환액</div>
                       <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
                     </div>
-                    <div className="calc-helper">상환방식을 선택하면 기준 이율이 자동 입력됩니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
+                    <div className="calc-helper">상환방식을 선택하면 기준 이율이 자동 입력되며, 연 이율은 직접 수정할 수 있습니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
                   </div>
                 </div>
               </div>
