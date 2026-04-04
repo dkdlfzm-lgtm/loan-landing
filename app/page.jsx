@@ -75,7 +75,7 @@ const repaymentDefaults = {
   "만기일시상환": "5.4",
 };
 
-const POPUP_STORAGE_KEY = "landing-promo-hide-until-v3";
+const POPUP_STORAGE_KEY = "landing-promo-hide-until-v6";
 
 const loanTypeOptions = [
   "주택담보대출",
@@ -95,8 +95,8 @@ function formatNumber(value) {
 export default function LoanLandingPage() {
   useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState(repaymentDefaults["원리금균등"]);
-  const [repaymentType, setRepaymentType] = useState("원리금균등");
+  const [interestRate, setInterestRate] = useState("");
+  const [repaymentType, setRepaymentType] = useState("");
   const [loanMonths, setLoanMonths] = useState("");
 
   const [propertyType, setPropertyType] = useState("아파트");
@@ -279,6 +279,10 @@ export default function LoanLandingPage() {
   }, []);
 
   useEffect(() => {
+    if (!repaymentType) {
+      setInterestRate("");
+      return;
+    }
     const defaultRate = repaymentDefaults[repaymentType] || "";
     setInterestRate(defaultRate);
   }, [repaymentType]);
@@ -304,11 +308,20 @@ export default function LoanLandingPage() {
     return apartments.filter((name) => name.toLowerCase().includes(q));
   }, [apartments, apartmentQuery]);
 
-const visibleApprovalCases = useMemo(() => {
-  if (!approvalCases.length) return [];
-  const current = approvalSlide % approvalCases.length;
-  return approvalCases.map((_, index) => approvalCases[(current + index) % approvalCases.length]);
-}, [approvalCases, approvalSlide]);
+  const visibleApprovalCases = useMemo(() => {
+    if (!approvalCases.length) return [];
+    if (approvalCases.length === 1) return [approvalCases[0]];
+    if (approvalCases.length === 2) {
+      return [
+        approvalCases[approvalSlide % approvalCases.length],
+        approvalCases[(approvalSlide + 1) % approvalCases.length],
+      ];
+    }
+    return [
+      approvalCases[approvalSlide % approvalCases.length],
+      approvalCases[(approvalSlide + 1) % approvalCases.length],
+    ];
+  }, [approvalCases, approvalSlide]);
 
   const selectedSummary = [selectedCity, selectedDistrict, selectedTown, selectedApartment].filter(Boolean).join(" ");
   const hasSelectedSummary = Boolean(selectedSummary || selectedArea || selectedUnit);
@@ -340,13 +353,13 @@ const visibleApprovalCases = useMemo(() => {
     };
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
-useEffect(() => {
-  if (approvalCases.length <= 1) return;
-  const timer = setInterval(() => {
-    setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
-  }, 3200);
-  return () => clearInterval(timer);
-}, [approvalCases.length]);
+  useEffect(() => {
+    if (approvalCases.length <= 1) return;
+    const timer = setInterval(() => {
+      setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
+    }, 2800);
+    return () => clearInterval(timer);
+  }, [approvalCases.length]);
 
   const calcResult = useMemo(() => {
     const principal = Number(String(loanAmount).replace(/,/g, ""));
@@ -505,7 +518,7 @@ useEffect(() => {
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
             {Boolean(siteSettings.reviews_enabled) ? <a href="#approval-cases">승인사례</a> : null}
-            <a href="#contact" className="nav-btn">상담 신청</a>
+            <button type="button" className="nav-btn" onClick={openConsultPopup}>상담 신청</button>
           </nav>
         </div>
       </header>
@@ -520,7 +533,7 @@ useEffect(() => {
       )}
 
       {promoReady && currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
-        <div className="floating-promo-card" data-reveal="right">
+        <div className="floating-promo-card">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
           <div className="floating-promo-badge">오늘 상담 가능</div>
           <div className="floating-promo-title">{siteSettings.popup_title || "대출 상담 빠르게 연결해드려요"}</div>
@@ -576,7 +589,7 @@ useEffect(() => {
 
                   <div className="hero-actions">
                     <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta || "빠른 시세조회"}</a>
-                    <a href="#contact" className="btn btn-outline dark-outline">{siteSettings.hero_secondary_cta || "무료 상담 신청"}</a>
+                    <button type="button" className="btn btn-outline dark-outline" onClick={openConsultPopup}>{siteSettings.hero_secondary_cta || "무료 상담 신청"}</button>
                   </div>
 
                   <div className="hero-feature-list">
@@ -767,16 +780,17 @@ useEffect(() => {
                       />
                       <input
                         type="text"
-                        placeholder="연 이율(%)" readOnly
+                        placeholder="연 이율(%)"
                         value={interestRate}
                         onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
                       />
                     </div>
                     <div className="two-col compact-two-col">
                       <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
-                        <option>원리금균등</option>
-                        <option>원금균등</option>
-                        <option>만기일시상환</option>
+                        <option value="">상환방식을 선택</option>
+                        <option value="원리금균등">원리금균등</option>
+                        <option value="원금균등">원금균등</option>
+                        <option value="만기일시상환">만기일시상환</option>
                       </select>
                       <input
                         type="text"
@@ -789,7 +803,7 @@ useEffect(() => {
                       <div className="calc-label">예상 월 상환액</div>
                       <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
                     </div>
-                    <div className="calc-helper">상환방식을 선택하면 기준 이율이 자동 입력됩니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
+                    <div className="calc-helper">상환방식을 선택하면 기준 이율이 자동 입력되며, 연 이율은 직접 수정할 수 있습니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
                   </div>
                 </div>
               </div>
@@ -804,20 +818,56 @@ useEffect(() => {
                     <p className="review-copy">관리 페이지에서 등록한 승인사례가 이 영역에 바로 노출됩니다.</p>
                   </div>
 
-                  <div className="review-list approval-list" data-reveal="up">
+                  <div className="review-list approval-list approval-slider-list" data-reveal="up">
                     {approvalCases.length === 0 ? (
                       <div className="review-card approval-card">
                         <div className="approval-card-badge">준비중</div>
                         <div className="review-card-title">등록된 승인사례가 아직 없습니다.</div>
                         <div className="review-card-desc">홈페이지 관리에서 제목과 내용을 직접 등록하면 이 영역에 바로 표시됩니다.</div>
                       </div>
-                    ) : approvalCases.map((item) => (
-                      <div key={item.id} className="review-card approval-card">
-                        <div className="approval-card-badge">승인</div>
-                        <div className="review-card-title">{item.title}</div>
-                        <div className="review-card-desc">{item.content}</div>
-                      </div>
-                    ))}
+                    ) : (
+                      <>
+                        <div className="approval-slider-toolbar">
+                          <button
+                            type="button"
+                            className="approval-slider-arrow"
+                            aria-label="이전 승인사례"
+                            onClick={() => setApprovalSlide((prev) => (prev - 1 + approvalCases.length) % approvalCases.length)}
+                          >
+                            ‹
+                          </button>
+                          <div className="approval-slider-dots">
+                            {approvalCases.map((item, idx) => (
+                              <button
+                                key={item.id || idx}
+                                type="button"
+                                className={`approval-slider-dot ${idx === approvalSlide ? "is-active" : ""}`}
+                                aria-label={`${idx + 1}번째 승인사례`}
+                                onClick={() => setApprovalSlide(idx)}
+                              />
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            className="approval-slider-arrow"
+                            aria-label="다음 승인사례"
+                            onClick={() => setApprovalSlide((prev) => (prev + 1) % approvalCases.length)}
+                          >
+                            ›
+                          </button>
+                        </div>
+
+                        <div className="approval-slider-track">
+                          {visibleApprovalCases.map((item, idx) => (
+                            <div key={item.id || `${item.title}-${idx}`} className={`review-card approval-card ${idx === 0 ? "is-primary" : "is-secondary"}`}>
+                              <div className="approval-card-badge">승인</div>
+                              <div className="review-card-title">{item.title}</div>
+                              <div className="review-card-desc">{item.content}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </section>
@@ -1111,7 +1161,6 @@ useEffect(() => {
               id="floating-consult-form"
               className="floating-consult-modal"
               onClick={(e) => e.stopPropagation()}
-              data-reveal="left"
             >
               <button type="button" className="floating-consult-close" onClick={() => setConsultPopupOpen(false)}>×</button>
               <div className="section-mini">빠른 상담 신청</div>

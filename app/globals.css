@@ -1937,29 +1937,37 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   .faq-main-title { font-size: 32px; }
 }
 
-/* approval cases slider */
-.approval-slider-controls{
-  grid-column: 1 / -1;
+
+/* popup fix */
+.floating-promo-card{
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+/* approval slider */
+.approval-slider-list{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.approval-slider-toolbar{
   display:flex;
   align-items:center;
   justify-content:flex-end;
   gap:10px;
-  margin:0 0 8px;
 }
-.approval-slider-btn{
+.approval-slider-arrow{
   width:36px;
   height:36px;
   border:none;
   border-radius:999px;
-  background:#e7edf9;
-  color:#2757d7;
+  background:#eef3ff;
+  color:#285ee8;
   font-size:22px;
   line-height:1;
   cursor:pointer;
-  box-shadow:0 8px 18px rgba(30, 55, 120, 0.10);
-}
-.approval-slider-btn:hover{
-  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(31,58,120,.10);
 }
 .approval-slider-dots{
   display:flex;
@@ -1971,32 +1979,34 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   height:8px;
   border:none;
   border-radius:999px;
-  background:#cfd8ea;
-  cursor:pointer;
+  background:#d1d9ea;
   padding:0;
+  cursor:pointer;
 }
 .approval-slider-dot.is-active{
   width:24px;
-  background:linear-gradient(135deg,#2f67ff,#4d84ff);
+  background:linear-gradient(135deg,#2f67ff,#5b89ff);
+}
+.approval-slider-track{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px;
 }
 .approval-card{
-  transition:transform .28s ease, box-shadow .28s ease, opacity .28s ease;
+  transition:transform .25s ease, box-shadow .25s ease, opacity .25s ease;
 }
-.approval-card.is-featured{
-  border-left:4px solid #3e73ff;
-  box-shadow:0 18px 34px rgba(40, 72, 150, 0.16);
+.approval-card.is-primary{
+  border-left:4px solid #3d73ff;
+  box-shadow:0 18px 36px rgba(34,66,144,.14);
 }
-.review-list .approval-card:nth-of-type(3),
-.review-list .approval-card:nth-of-type(4){
-  opacity:.96;
+.approval-card.is-secondary{
+  opacity:.95;
 }
 @media (max-width: 768px){
-  .approval-slider-controls{
+  .approval-slider-toolbar{
     justify-content:space-between;
-    margin-bottom:12px;
   }
-  .approval-slider-btn{
-    width:34px;
-    height:34px;
+  .approval-slider-track{
+    grid-template-columns:1fr;
   }
 }
