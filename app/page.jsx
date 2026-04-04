@@ -75,7 +75,7 @@ const repaymentDefaults = {
   "만기일시상환": "5.4",
 };
 
-const POPUP_STORAGE_KEY = "landing-promo-hide-until-v3";
+const POPUP_STORAGE_KEY = "landing-promo-hide-until-v5";
 
 const loanTypeOptions = [
   "주택담보대출",
@@ -95,8 +95,8 @@ function formatNumber(value) {
 export default function LoanLandingPage() {
   useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState("");
-  const [repaymentType, setRepaymentType] = useState("");
+  const [interestRate, setInterestRate] = useState(repaymentDefaults["원리금균등"]);
+  const [repaymentType, setRepaymentType] = useState("원리금균등");
   const [loanMonths, setLoanMonths] = useState("");
 
   const [propertyType, setPropertyType] = useState("아파트");
@@ -278,7 +278,7 @@ export default function LoanLandingPage() {
   }, []);
 
   useEffect(() => {
-    const defaultRate = repaymentType ? (repaymentDefaults[repaymentType] || "") : "";
+    const defaultRate = repaymentDefaults[repaymentType] || "";
     setInterestRate(defaultRate);
   }, [repaymentType]);
 
@@ -490,7 +490,7 @@ export default function LoanLandingPage() {
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
             {Boolean(siteSettings.reviews_enabled) ? <a href="#approval-cases">승인사례</a> : null}
-            <a href="#contact" className="nav-btn">상담 신청</a>
+            <button type="button" className="nav-btn" onClick={openConsultPopup}>상담 신청</button>
           </nav>
         </div>
       </header>
@@ -505,7 +505,7 @@ export default function LoanLandingPage() {
       )}
 
       {promoReady && currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
-        <div className="floating-promo-card" data-reveal="right">
+        <div className="floating-promo-card">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
           <div className="floating-promo-badge">오늘 상담 가능</div>
           <div className="floating-promo-title">{siteSettings.popup_title || "대출 상담 빠르게 연결해드려요"}</div>
@@ -561,7 +561,7 @@ export default function LoanLandingPage() {
 
                   <div className="hero-actions">
                     <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta || "빠른 시세조회"}</a>
-                    <a href="#contact" className="btn btn-outline dark-outline">{siteSettings.hero_secondary_cta || "무료 상담 신청"}</a>
+                    <button type="button" className="btn btn-outline dark-outline" onClick={openConsultPopup}>{siteSettings.hero_secondary_cta || "무료 상담 신청"}</button>
                   </div>
 
                   <div className="hero-feature-list">
@@ -752,17 +752,16 @@ export default function LoanLandingPage() {
                       />
                       <input
                         type="text"
-                        placeholder="연 이율(%)"
+                        placeholder="연 이율(%)" readOnly
                         value={interestRate}
                         onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
                       />
                     </div>
                     <div className="two-col compact-two-col">
                       <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
-                        <option value="">상환방식을 선택</option>
-                        <option value="원리금균등">원리금균등</option>
-                        <option value="원금균등">원금균등</option>
-                        <option value="만기일시상환">만기일시상환</option>
+                        <option>원리금균등</option>
+                        <option>원금균등</option>
+                        <option>만기일시상환</option>
                       </select>
                       <input
                         type="text"
@@ -775,7 +774,7 @@ export default function LoanLandingPage() {
                       <div className="calc-label">예상 월 상환액</div>
                       <div className="calc-main">{formatNumber(calcResult.monthlyPayment)}원</div>
                     </div>
-                    <div className="calc-helper">상환방식을 선택하면 기준 이율이 자동 입력되며, 연 이율은 직접 수정할 수 있습니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
+                    <div className="calc-helper">상환방식을 선택하면 기준 이율이 자동 입력됩니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
                   </div>
                 </div>
               </div>
@@ -1097,7 +1096,6 @@ export default function LoanLandingPage() {
               id="floating-consult-form"
               className="floating-consult-modal"
               onClick={(e) => e.stopPropagation()}
-              data-reveal="left"
             >
               <button type="button" className="floating-consult-close" onClick={() => setConsultPopupOpen(false)}>×</button>
               <div className="section-mini">빠른 상담 신청</div>
