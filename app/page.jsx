@@ -75,7 +75,7 @@ const repaymentDefaults = {
   "만기일시상환": "5.4",
 };
 
-const POPUP_STORAGE_KEY = "landing-promo-hide-until-v5";
+const POPUP_STORAGE_KEY = "landing-promo-hide-until-v3";
 
 const loanTypeOptions = [
   "주택담보대출",
@@ -103,6 +103,7 @@ export default function LoanLandingPage() {
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
   const [currentView, setCurrentView] = useState("home");
   const [activeSlide, setActiveSlide] = useState(0);
+  const [approvalSlide, setApprovalSlide] = useState(0);
 
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -303,6 +304,12 @@ export default function LoanLandingPage() {
     return apartments.filter((name) => name.toLowerCase().includes(q));
   }, [apartments, apartmentQuery]);
 
+const visibleApprovalCases = useMemo(() => {
+  if (!approvalCases.length) return [];
+  const current = approvalSlide % approvalCases.length;
+  return approvalCases.map((_, index) => approvalCases[(current + index) % approvalCases.length]);
+}, [approvalCases, approvalSlide]);
+
   const selectedSummary = [selectedCity, selectedDistrict, selectedTown, selectedApartment].filter(Boolean).join(" ");
   const hasSelectedSummary = Boolean(selectedSummary || selectedArea || selectedUnit);
   const marketSummary = marketResult?.summary;
@@ -332,6 +339,14 @@ export default function LoanLandingPage() {
       estimateLimit: "최대 6억 1,000만원 가능",
     };
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
+
+useEffect(() => {
+  if (approvalCases.length <= 1) return;
+  const timer = setInterval(() => {
+    setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
+  }, 3200);
+  return () => clearInterval(timer);
+}, [approvalCases.length]);
 
   const calcResult = useMemo(() => {
     const principal = Number(String(loanAmount).replace(/,/g, ""));
@@ -490,7 +505,7 @@ export default function LoanLandingPage() {
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
             {Boolean(siteSettings.reviews_enabled) ? <a href="#approval-cases">승인사례</a> : null}
-            <button type="button" className="nav-btn" onClick={openConsultPopup}>상담 신청</button>
+            <a href="#contact" className="nav-btn">상담 신청</a>
           </nav>
         </div>
       </header>
@@ -505,7 +520,7 @@ export default function LoanLandingPage() {
       )}
 
       {promoReady && currentView === "home" && Boolean(siteSettings.popup_enabled) && !promoDismissed && (
-        <div className="floating-promo-card">
+        <div className="floating-promo-card" data-reveal="right">
           <button type="button" className="floating-promo-close" onClick={closePromoForToday}>×</button>
           <div className="floating-promo-badge">오늘 상담 가능</div>
           <div className="floating-promo-title">{siteSettings.popup_title || "대출 상담 빠르게 연결해드려요"}</div>
@@ -561,7 +576,7 @@ export default function LoanLandingPage() {
 
                   <div className="hero-actions">
                     <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta || "빠른 시세조회"}</a>
-                    <button type="button" className="btn btn-outline dark-outline" onClick={openConsultPopup}>{siteSettings.hero_secondary_cta || "무료 상담 신청"}</button>
+                    <a href="#contact" className="btn btn-outline dark-outline">{siteSettings.hero_secondary_cta || "무료 상담 신청"}</a>
                   </div>
 
                   <div className="hero-feature-list">
@@ -1096,6 +1111,7 @@ export default function LoanLandingPage() {
               id="floating-consult-form"
               className="floating-consult-modal"
               onClick={(e) => e.stopPropagation()}
+              data-reveal="left"
             >
               <button type="button" className="floating-consult-close" onClick={() => setConsultPopupOpen(false)}>×</button>
               <div className="section-mini">빠른 상담 신청</div>
