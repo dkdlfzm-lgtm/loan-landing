@@ -106,7 +106,6 @@ export default function LoanLandingPage() {
   const [approvalSlide, setApprovalSlide] = useState(0);
   const [approvalDirection, setApprovalDirection] = useState("next");
   const [approvalAnimating, setApprovalAnimating] = useState(false);
-
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedTown, setSelectedTown] = useState("");
@@ -310,10 +309,33 @@ export default function LoanLandingPage() {
     return apartments.filter((name) => name.toLowerCase().includes(q));
   }, [apartments, apartmentQuery]);
 
-  const approvalTrackCases = useMemo(() => {
-    if (!approvalCases.length) return [];
-    return [...approvalCases, ...approvalCases];
-  }, [approvalCases]);
+  
+  const approvalTrackItems = useMemo(() => {
+    const total = approvalCases.length;
+    if (!total) return [];
+    const pick = (index) => approvalCases[(index + total) % total];
+
+    if (approvalDirection === "prev" && approvalAnimating) {
+      return [
+        pick(approvalSlide - 1),
+        pick(approvalSlide),
+        pick(approvalSlide + 1),
+        pick(approvalSlide + 2),
+      ];
+    }
+
+    return [
+      pick(approvalSlide),
+      pick(approvalSlide + 1),
+      pick(approvalSlide + 2),
+      pick(approvalSlide + 3),
+    ];
+  }, [approvalCases, approvalSlide, approvalDirection, approvalAnimating]);
+
+  const approvalDotIndex = useMemo(() => {
+    if (!approvalCases.length) return 0;
+    return ((approvalSlide % approvalCases.length) + approvalCases.length) % approvalCases.length;
+  }, [approvalCases.length, approvalSlide]);
 
   const selectedSummary = [selectedCity, selectedDistrict, selectedTown, selectedApartment].filter(Boolean).join(" ");
   const hasSelectedSummary = Boolean(selectedSummary || selectedArea || selectedUnit);
@@ -345,16 +367,18 @@ export default function LoanLandingPage() {
     };
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
+  
   useEffect(() => {
     if (approvalCases.length <= 1 || approvalAnimating) return;
     const timer = setInterval(() => {
       setApprovalDirection("next");
       setApprovalAnimating(true);
-      setTimeout(() => {
+      const done = setTimeout(() => {
         setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
         setApprovalAnimating(false);
-      }, 520);
-    }, 3200);
+      }, 560);
+      return () => clearTimeout(done);
+    }, 3400);
     return () => clearInterval(timer);
   }, [approvalCases.length, approvalAnimating]);
 
@@ -815,7 +839,8 @@ export default function LoanLandingPage() {
                     <p className="review-copy">관리 페이지에서 등록한 승인사례가 이 영역에 바로 노출됩니다.</p>
                   </div>
 
-                  <div className="review-list approval-list approval-slider-list" data-reveal="up">
+                  
+<div className="review-list approval-list approval-slider-list" data-reveal="up">
                     {approvalCases.length === 0 ? (
                       <div className="review-card approval-card">
                         <div className="approval-card-badge">준비중</div>
@@ -836,31 +861,33 @@ export default function LoanLandingPage() {
                               setTimeout(() => {
                                 setApprovalSlide((prev) => (prev - 1 + approvalCases.length) % approvalCases.length);
                                 setApprovalAnimating(false);
-                              }, 520);
+                              }, 560);
                             }}
                           >
                             ‹
                           </button>
+
                           <div className="approval-slider-dots">
                             {approvalCases.map((item, idx) => (
                               <button
                                 key={item.id || idx}
                                 type="button"
-                                className={`approval-slider-dot ${idx === approvalSlide ? "is-active" : ""}`}
+                                className={`approval-slider-dot ${idx === approvalDotIndex ? "is-active" : ""}`}
                                 aria-label={`${idx + 1}번째 승인사례`}
                                 onClick={() => {
-                                  if (approvalAnimating || idx === approvalSlide) return;
-                                  const direction = idx > approvalSlide ? "next" : "prev";
+                                  if (approvalAnimating || idx === approvalDotIndex) return;
+                                  const direction = idx > approvalDotIndex ? "next" : "prev";
                                   setApprovalDirection(direction);
                                   setApprovalAnimating(true);
                                   setTimeout(() => {
                                     setApprovalSlide(idx);
                                     setApprovalAnimating(false);
-                                  }, 520);
+                                  }, 560);
                                 }}
                               />
                             ))}
                           </div>
+
                           <button
                             type="button"
                             className="approval-slider-arrow"
@@ -872,7 +899,7 @@ export default function LoanLandingPage() {
                               setTimeout(() => {
                                 setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
                                 setApprovalAnimating(false);
-                              }, 520);
+                              }, 560);
                             }}
                           >
                             ›
@@ -881,23 +908,17 @@ export default function LoanLandingPage() {
 
                         <div className="approval-slider-window">
                           <div
-                            className={`approval-slider-track approval-slider-track-${approvalDirection} ${approvalAnimating ? "is-animating" : ""}`}
-                            style={{
-                              "--approval-base-desktop": `-${approvalSlide * 50}%`,
-                              "--approval-base-mobile": `-${approvalSlide * 100}%`,
-                              "--approval-shift-desktop": approvalDirection === "next" ? "-50%" : "50%",
-                              "--approval-shift-mobile": approvalDirection === "next" ? "-100%" : "100%",
-                            }}
+                            className={`approval-slider-track ${approvalAnimating ? "is-animating" : ""} approval-direction-${approvalDirection}`}
                           >
-                            {approvalTrackCases.map((item, idx) => (
-                              <div
-                                key={`${item.id || item.title || "approval"}-${idx}`}
-                                className={`review-card approval-card ${idx % approvalCases.length === approvalSlide ? "is-primary" : "is-secondary"}`}
+                            {approvalTrackItems.map((item, idx) => (
+                              <article
+                                key={`${item.id || item.title || "approval"}-${approvalDirection}-${approvalSlide}-${idx}`}
+                                className={`review-card approval-card ${idx === 0 && approvalDirection === "next" ? "is-primary" : ""}`}
                               >
                                 <div className="approval-card-badge">승인</div>
                                 <div className="review-card-title">{item.title}</div>
                                 <div className="review-card-desc">{item.content}</div>
-                              </div>
+                              </article>
                             ))}
                           </div>
                         </div>
