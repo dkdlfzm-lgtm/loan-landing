@@ -105,6 +105,7 @@ export default function LoanLandingPage() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [approvalSlide, setApprovalSlide] = useState(0);
   const [approvalDirection, setApprovalDirection] = useState("next");
+  const [approvalAnimating, setApprovalAnimating] = useState(false);
 
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -309,20 +310,10 @@ export default function LoanLandingPage() {
     return apartments.filter((name) => name.toLowerCase().includes(q));
   }, [apartments, apartmentQuery]);
 
-  const visibleApprovalCases = useMemo(() => {
+  const approvalTrackCases = useMemo(() => {
     if (!approvalCases.length) return [];
-    if (approvalCases.length === 1) return [approvalCases[0]];
-    if (approvalCases.length === 2) {
-      return [
-        approvalCases[approvalSlide % approvalCases.length],
-        approvalCases[(approvalSlide + 1) % approvalCases.length],
-      ];
-    }
-    return [
-      approvalCases[approvalSlide % approvalCases.length],
-      approvalCases[(approvalSlide + 1) % approvalCases.length],
-    ];
-  }, [approvalCases, approvalSlide]);
+    return [...approvalCases, ...approvalCases];
+  }, [approvalCases]);
 
   const selectedSummary = [selectedCity, selectedDistrict, selectedTown, selectedApartment].filter(Boolean).join(" ");
   const hasSelectedSummary = Boolean(selectedSummary || selectedArea || selectedUnit);
@@ -355,13 +346,17 @@ export default function LoanLandingPage() {
   }, [marketSummary, selectedApartment, selectedArea, selectedCity, selectedDistrict, selectedTown]);
 
   useEffect(() => {
-    if (approvalCases.length <= 1) return;
+    if (approvalCases.length <= 1 || approvalAnimating) return;
     const timer = setInterval(() => {
       setApprovalDirection("next");
-      setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
-    }, 2800);
+      setApprovalAnimating(true);
+      setTimeout(() => {
+        setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
+        setApprovalAnimating(false);
+      }, 520);
+    }, 3200);
     return () => clearInterval(timer);
-  }, [approvalCases.length]);
+  }, [approvalCases.length, approvalAnimating]);
 
   const calcResult = useMemo(() => {
     const principal = Number(String(loanAmount).replace(/,/g, ""));
@@ -835,8 +830,13 @@ export default function LoanLandingPage() {
                             className="approval-slider-arrow"
                             aria-label="이전 승인사례"
                             onClick={() => {
+                              if (approvalAnimating || approvalCases.length <= 1) return;
                               setApprovalDirection("prev");
-                              setApprovalSlide((prev) => (prev - 1 + approvalCases.length) % approvalCases.length);
+                              setApprovalAnimating(true);
+                              setTimeout(() => {
+                                setApprovalSlide((prev) => (prev - 1 + approvalCases.length) % approvalCases.length);
+                                setApprovalAnimating(false);
+                              }, 520);
                             }}
                           >
                             ‹
@@ -849,8 +849,14 @@ export default function LoanLandingPage() {
                                 className={`approval-slider-dot ${idx === approvalSlide ? "is-active" : ""}`}
                                 aria-label={`${idx + 1}번째 승인사례`}
                                 onClick={() => {
-                                  setApprovalDirection(idx >= approvalSlide ? "next" : "prev");
-                                  setApprovalSlide(idx);
+                                  if (approvalAnimating || idx === approvalSlide) return;
+                                  const direction = idx > approvalSlide ? "next" : "prev";
+                                  setApprovalDirection(direction);
+                                  setApprovalAnimating(true);
+                                  setTimeout(() => {
+                                    setApprovalSlide(idx);
+                                    setApprovalAnimating(false);
+                                  }, 520);
                                 }}
                               />
                             ))}
@@ -860,8 +866,13 @@ export default function LoanLandingPage() {
                             className="approval-slider-arrow"
                             aria-label="다음 승인사례"
                             onClick={() => {
+                              if (approvalAnimating || approvalCases.length <= 1) return;
                               setApprovalDirection("next");
-                              setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
+                              setApprovalAnimating(true);
+                              setTimeout(() => {
+                                setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
+                                setApprovalAnimating(false);
+                              }, 520);
                             }}
                           >
                             ›
@@ -870,11 +881,20 @@ export default function LoanLandingPage() {
 
                         <div className="approval-slider-window">
                           <div
-                            key={`${approvalDirection}-${approvalSlide}`}
-                            className={`approval-slider-motion approval-slider-motion-${approvalDirection}`}
+                            className={`approval-slider-track approval-slider-track-${approvalDirection} ${approvalAnimating ? "is-animating" : ""}`}
+                            style={{
+                              "--approval-base-desktop": `-${approvalSlide * 50}%`,
+                              "--approval-base-mobile": `-${approvalSlide * 100}%`,
+                              "--approval-shift-desktop": approvalDirection === "next" ? "-50%" : "50%",
+                              "--approval-shift-mobile": approvalDirection === "next" ? "-100%" : "100%",
+                            }}
+                            }}
                           >
-                            {visibleApprovalCases.map((item, idx) => (
-                              <div key={item.id || `${item.title}-${idx}`} className={`review-card approval-card ${idx === 0 ? "is-primary" : "is-secondary"}`}>
+                            {approvalTrackCases.map((item, idx) => (
+                              <div
+                                key={`${item.id || item.title || "approval"}-${idx}`}
+                                className={`review-card approval-card ${idx % approvalCases.length === approvalSlide ? "is-primary" : "is-secondary"}`}
+                              >
                                 <div className="approval-card-badge">승인</div>
                                 <div className="review-card-title">{item.title}</div>
                                 <div className="review-card-desc">{item.content}</div>
