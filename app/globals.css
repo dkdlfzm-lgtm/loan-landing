@@ -1987,26 +1987,76 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   width:24px;
   background:linear-gradient(135deg,#2f67ff,#5b89ff);
 }
-.approval-slider-track{
+
+
+
+/* approval slider motion upgrade */
+.approval-slider-window{
+  overflow:hidden;
+  position:relative;
+  width:100%;
+}
+.approval-slider-motion{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:18px;
+  animation:approvalSlideMotion .55s ease;
+  will-change:transform, opacity;
+}
+@keyframes approvalSlideMotion{
+  0%{
+    opacity:.25;
+    transform:translateX(52px);
+  }
+  100%{
+    opacity:1;
+    transform:translateX(0);
+  }
 }
 .approval-card{
-  transition:transform .25s ease, box-shadow .25s ease, opacity .25s ease;
+  transition:transform .28s ease, box-shadow .28s ease, opacity .28s ease, filter .28s ease;
 }
 .approval-card.is-primary{
   border-left:4px solid #3d73ff;
-  box-shadow:0 18px 36px rgba(34,66,144,.14);
+  box-shadow:0 22px 42px rgba(34,66,144,.18);
+  transform:translateY(-2px) scale(1.01);
+  z-index:2;
 }
 .approval-card.is-secondary{
-  opacity:.95;
+  opacity:.82;
+  transform:scale(.965);
+  filter:saturate(.92);
+}
+.approval-slider-arrow{
+  transition:transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.approval-slider-arrow:hover{
+  transform:translateY(-1px) scale(1.04);
+  box-shadow:0 12px 22px rgba(31,58,120,.16);
+}
+.approval-slider-dot{
+  transition:all .22s ease;
+}
+.approval-slider-dot.is-active{
+  width:28px;
+  box-shadow:0 6px 14px rgba(47,103,255,.24);
 }
 @media (max-width: 768px){
   .approval-slider-toolbar{
     justify-content:space-between;
   }
-  .approval-slider-track{
+  .approval-slider-motion{
     grid-template-columns:1fr;
+    gap:14px;
+  }
+  @keyframes approvalSlideMotion{
+    0%{
+      opacity:.2;
+      transform:translateX(34px);
+    }
+    100%{
+      opacity:1;
+      transform:translateX(0);
+    }
   }
 }

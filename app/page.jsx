@@ -857,14 +857,19 @@ export default function LoanLandingPage() {
                           </button>
                         </div>
 
-                        <div className="approval-slider-track">
-                          {visibleApprovalCases.map((item, idx) => (
-                            <div key={item.id || `${item.title}-${idx}`} className={`review-card approval-card ${idx === 0 ? "is-primary" : "is-secondary"}`}>
-                              <div className="approval-card-badge">승인</div>
-                              <div className="review-card-title">{item.title}</div>
-                              <div className="review-card-desc">{item.content}</div>
-                            </div>
-                          ))}
+                        <div className="approval-slider-window">
+                          <div
+                            key={approvalSlide}
+                            className="approval-slider-motion"
+                          >
+                            {visibleApprovalCases.map((item, idx) => (
+                              <div key={item.id || `${item.title}-${idx}`} className={`review-card approval-card ${idx === 0 ? "is-primary" : "is-secondary"}`}>
+                                <div className="approval-card-badge">승인</div>
+                                <div className="review-card-title">{item.title}</div>
+                                <div className="review-card-desc">{item.content}</div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </>
                     )}
