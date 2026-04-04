@@ -888,7 +888,6 @@ export default function LoanLandingPage() {
                               "--approval-shift-desktop": approvalDirection === "next" ? "-50%" : "50%",
                               "--approval-shift-mobile": approvalDirection === "next" ? "-100%" : "100%",
                             }}
-                            }}
                           >
                             {approvalTrackCases.map((item, idx) => (
                               <div
