@@ -1989,32 +1989,56 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 }
 
 
-
-/* approval slider motion upgrade */
+/* approval slider stronger side motion */
 .approval-slider-window{
   overflow:hidden;
   position:relative;
   width:100%;
+  isolation:isolate;
 }
 .approval-slider-motion{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:18px;
-  animation:approvalSlideMotion .55s ease;
   will-change:transform, opacity;
 }
-@keyframes approvalSlideMotion{
+.approval-slider-motion-next{
+  animation:approvalSlideFromRight .62s cubic-bezier(.22,.8,.2,1);
+}
+.approval-slider-motion-prev{
+  animation:approvalSlideFromLeft .62s cubic-bezier(.22,.8,.2,1);
+}
+@keyframes approvalSlideFromRight{
   0%{
-    opacity:.25;
-    transform:translateX(52px);
+    opacity:.55;
+    transform:translate3d(120px,0,0);
+  }
+  45%{
+    opacity:.88;
+    transform:translate3d(36px,0,0);
   }
   100%{
     opacity:1;
-    transform:translateX(0);
+    transform:translate3d(0,0,0);
+  }
+}
+@keyframes approvalSlideFromLeft{
+  0%{
+    opacity:.55;
+    transform:translate3d(-120px,0,0);
+  }
+  45%{
+    opacity:.88;
+    transform:translate3d(-36px,0,0);
+  }
+  100%{
+    opacity:1;
+    transform:translate3d(0,0,0);
   }
 }
 .approval-card{
   transition:transform .28s ease, box-shadow .28s ease, opacity .28s ease, filter .28s ease;
+  backface-visibility:hidden;
 }
 .approval-card.is-primary{
   border-left:4px solid #3d73ff;
@@ -2024,7 +2048,7 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 }
 .approval-card.is-secondary{
   opacity:.82;
-  transform:scale(.965);
+  transform:translateX(6px) scale(.965);
   filter:saturate(.92);
 }
 .approval-slider-arrow{
@@ -2049,14 +2073,30 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
     grid-template-columns:1fr;
     gap:14px;
   }
-  @keyframes approvalSlideMotion{
+  .approval-slider-motion-next{
+    animation:approvalSlideFromRightMobile .56s cubic-bezier(.22,.8,.2,1);
+  }
+  .approval-slider-motion-prev{
+    animation:approvalSlideFromLeftMobile .56s cubic-bezier(.22,.8,.2,1);
+  }
+  @keyframes approvalSlideFromRightMobile{
     0%{
-      opacity:.2;
-      transform:translateX(34px);
+      opacity:.55;
+      transform:translate3d(76px,0,0);
     }
     100%{
       opacity:1;
-      transform:translateX(0);
+      transform:translate3d(0,0,0);
+    }
+  }
+  @keyframes approvalSlideFromLeftMobile{
+    0%{
+      opacity:.55;
+      transform:translate3d(-76px,0,0);
+    }
+    100%{
+      opacity:1;
+      transform:translate3d(0,0,0);
     }
   }
 }

@@ -104,6 +104,7 @@ export default function LoanLandingPage() {
   const [currentView, setCurrentView] = useState("home");
   const [activeSlide, setActiveSlide] = useState(0);
   const [approvalSlide, setApprovalSlide] = useState(0);
+  const [approvalDirection, setApprovalDirection] = useState("next");
 
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
@@ -356,6 +357,7 @@ export default function LoanLandingPage() {
   useEffect(() => {
     if (approvalCases.length <= 1) return;
     const timer = setInterval(() => {
+      setApprovalDirection("next");
       setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
     }, 2800);
     return () => clearInterval(timer);
@@ -832,7 +834,10 @@ export default function LoanLandingPage() {
                             type="button"
                             className="approval-slider-arrow"
                             aria-label="이전 승인사례"
-                            onClick={() => setApprovalSlide((prev) => (prev - 1 + approvalCases.length) % approvalCases.length)}
+                            onClick={() => {
+                              setApprovalDirection("prev");
+                              setApprovalSlide((prev) => (prev - 1 + approvalCases.length) % approvalCases.length);
+                            }}
                           >
                             ‹
                           </button>
@@ -843,7 +848,10 @@ export default function LoanLandingPage() {
                                 type="button"
                                 className={`approval-slider-dot ${idx === approvalSlide ? "is-active" : ""}`}
                                 aria-label={`${idx + 1}번째 승인사례`}
-                                onClick={() => setApprovalSlide(idx)}
+                                onClick={() => {
+                                  setApprovalDirection(idx >= approvalSlide ? "next" : "prev");
+                                  setApprovalSlide(idx);
+                                }}
                               />
                             ))}
                           </div>
@@ -851,7 +859,10 @@ export default function LoanLandingPage() {
                             type="button"
                             className="approval-slider-arrow"
                             aria-label="다음 승인사례"
-                            onClick={() => setApprovalSlide((prev) => (prev + 1) % approvalCases.length)}
+                            onClick={() => {
+                              setApprovalDirection("next");
+                              setApprovalSlide((prev) => (prev + 1) % approvalCases.length);
+                            }}
                           >
                             ›
                           </button>
@@ -859,8 +870,8 @@ export default function LoanLandingPage() {
 
                         <div className="approval-slider-window">
                           <div
-                            key={approvalSlide}
-                            className="approval-slider-motion"
+                            key={`${approvalDirection}-${approvalSlide}`}
+                            className={`approval-slider-motion approval-slider-motion-${approvalDirection}`}
                           >
                             {visibleApprovalCases.map((item, idx) => (
                               <div key={item.id || `${item.title}-${idx}`} className={`review-card approval-card ${idx === 0 ? "is-primary" : "is-secondary"}`}>
