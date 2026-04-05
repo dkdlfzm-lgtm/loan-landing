@@ -2072,168 +2072,261 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 }
 
 
-/* ══════════════════════════════════════
-   MOBILE READABILITY UPGRADE
-   ══════════════════════════════════════ */
-.hero-trust-note {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 18px;
-  color: rgba(255,255,255,0.9);
-}
-
-.hero-trust-note strong {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.hero-trust-note span {
-  font-size: 14px;
-  color: rgba(255,255,255,0.76);
-}
-
-.mobile-trust-summary,
-.mobile-shortcut-band {
+/* mobile readability upgrade v3 */
+.mobile-hero-trust,
+.mobile-step-strip {
   display: none;
 }
 
 @media (max-width: 768px) {
-  body {
-    font-size: 16px;
-    line-height: 1.68;
-  }
-
   .header {
-    background: rgba(255, 255, 255, 0.94);
+    background: rgba(255,255,255,0.94);
   }
 
   .header-inner {
-    height: 64px;
+    height: auto;
+    min-height: 72px;
+    padding: 12px 0 10px;
+    gap: 12px;
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .brand {
+  .brand,
+  .brand-logo-wrap {
     width: 100%;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .brand-logo {
+    width: 64px;
+    flex-shrink: 0;
+  }
+
+  .brand-copy {
+    display: grid !important;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .brand-title {
+    font-size: 16px;
+    line-height: 1.2;
+    font-weight: 900;
+    word-break: keep-all;
+  }
+
+  .brand-sub {
+    display: block;
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--slate-500);
+    word-break: keep-all;
+  }
+
+  .nav {
+    width: 100%;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex-wrap: nowrap;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav a,
+  .nav-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
   }
 
+  .nav a {
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid var(--slate-200);
+    font-size: 14px;
+    color: var(--slate-700);
+  }
+
+  .nav-btn {
+    padding: 10px 18px !important;
+    min-width: 108px;
+  }
+
   .top-notice-inner {
+    padding: 11px 0;
     align-items: flex-start;
-    padding: 12px 0;
   }
 
   .top-notice-text {
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.55;
+    word-break: keep-all;
   }
 
   .hero-grid {
-    padding: 34px 0 44px;
-    gap: 22px;
+    gap: 28px;
+    padding: 36px 0 76px;
   }
 
-  .hero-pill {
-    font-size: 12px;
-    padding: 8px 14px;
-  }
-
-  .hero-title {
+  .hero-title,
+  .hero-title-premium {
     font-size: 34px;
     line-height: 1.28;
     letter-spacing: -0.04em;
+    word-break: keep-all;
   }
 
-  .hero-text {
-    font-size: 16px;
+  .hero-text,
+  .hero-text-premium {
+    font-size: 17px;
     line-height: 1.72;
-    color: rgba(255,255,255,0.86);
+    color: rgba(255,255,255,0.9);
+    word-break: keep-all;
   }
 
   .hero-actions {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 12px;
   }
 
   .hero-actions .btn,
   .primary-btn,
-  .quick-search-actions .primary-btn,
-  .quick-search-actions .secondary-btn,
-  .floating-promo-main,
-  .floating-promo-sub {
+  .secondary-btn {
     min-height: 56px;
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 800;
-  }
-
-  .hero-trust-note {
-    margin-top: 14px;
-    padding: 14px 16px;
     border-radius: 18px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.14);
   }
 
-  .mobile-trust-summary {
+  .mobile-hero-trust {
     display: grid;
+    grid-template-columns: 1fr;
     gap: 10px;
-    margin-top: 14px;
+    margin-top: 18px;
   }
 
-  .mobile-trust-item {
-    padding: 14px 16px;
+  .mobile-hero-trust-item {
+    padding: 15px 16px;
     border-radius: 18px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 12px 24px rgba(5, 14, 28, 0.14);
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(10px);
   }
 
-  .mobile-trust-item strong {
+  .mobile-hero-trust-item strong {
     display: block;
     font-size: 15px;
-    font-weight: 800;
     color: #fff;
     margin-bottom: 4px;
   }
 
-  .mobile-trust-item span {
+  .mobile-hero-trust-item span {
     display: block;
     font-size: 13px;
-    line-height: 1.55;
-    color: rgba(255,255,255,0.78);
+    line-height: 1.5;
+    color: rgba(255,255,255,0.82);
   }
 
-  .hero-feature-list,
+  .hero-feature-list {
+    gap: 10px;
+  }
+
+  .hero-feature-chip {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+
   .hero-highlight-grid {
-    display: none;
+    gap: 12px;
   }
 
-  .hero-card {
-    padding: 22px 18px;
-    border-radius: 24px;
+  .hero-highlight-card {
+    border-radius: 20px;
+    padding: 18px 16px;
   }
 
-  .section-mini {
-    font-size: 12px;
-    letter-spacing: 0.08em;
+  .white-panel,
+  .home-info-box,
+  .calculator-home-box,
+  .contact-home-box,
+  .contact-home-box-split,
+  .approval-card,
+  .faq-item-static {
+    border-radius: 22px;
   }
 
   .section-title,
-  .card-title,
-  .result-page-title,
-  .review-title {
+  .faq-main-title {
     font-size: 28px;
-    line-height: 1.32;
+    line-height: 1.3;
+    word-break: keep-all;
   }
 
   .section-copy,
   .review-copy,
-  .calc-helper,
-  .quick-search-label,
-  .quick-search-help,
+  .faq-item-static p {
+    font-size: 16px;
+    line-height: 1.72;
+    word-break: keep-all;
+  }
+
+  .mobile-step-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 18px 0 20px;
+  }
+
+  .mobile-step-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 14px;
+    border-radius: 18px;
+    border: 1px solid var(--blue-100);
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .mobile-step-card strong {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--blue-600), var(--blue-500));
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .mobile-step-card span {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--slate-800);
+  }
+
+  .section-mini {
+    font-size: 12px;
+  }
+
+  label,
   .field label {
-    font-size: 15px;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 8px;
   }
 
   input,
@@ -2241,166 +2334,62 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   textarea {
     min-height: 54px;
     font-size: 16px;
-    border-radius: 14px;
     padding: 15px 16px;
-  }
-
-  .white-panel,
-  .home-info-box,
-  .review-card,
-  .result-page-search-shell {
-    border-radius: 24px;
-  }
-
-  .quick-search-head {
-    gap: 12px;
-  }
-
-  .quick-search-title {
-    font-size: 22px;
-    line-height: 1.35;
-  }
-
-  .quick-search-badges span {
-    min-height: 36px;
-    font-size: 13px;
-    padding: 0 12px;
-  }
-
-  .mobile-shortcut-band {
-    display: block;
-    margin-top: -14px;
-    padding-bottom: 8px;
-  }
-
-  .mobile-shortcut-card {
-    border-radius: 24px;
-    padding: 22px 18px;
-    background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-    border: 1px solid rgba(148,163,184,0.16);
-    box-shadow: 0 16px 36px rgba(15, 29, 58, 0.08);
-  }
-
-  .mobile-shortcut-head {
-    display: grid;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-
-  .mobile-shortcut-title {
-    font-size: 24px;
-    line-height: 1.35;
-    letter-spacing: -0.03em;
-    color: var(--navy-900);
-  }
-
-  .mobile-shortcut-copy {
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--slate-600);
-  }
-
-  .mobile-shortcut-grid {
-    display: grid;
-    gap: 10px;
-  }
-
-  .mobile-shortcut-btn {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-height: 74px;
-    padding: 16px 18px;
-    border-radius: 18px;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .mobile-shortcut-btn strong {
-    font-size: 17px;
-    line-height: 1.35;
-  }
-
-  .mobile-shortcut-btn span {
-    font-size: 13px;
-    line-height: 1.5;
-    opacity: 0.9;
-  }
-
-  .mobile-shortcut-btn-call {
-    background: linear-gradient(135deg, #0d2b5f, #2158c8);
-    color: #fff;
-  }
-
-  .mobile-shortcut-btn-kakao {
-    background: linear-gradient(135deg, #ffe44d, #ffd028);
-    color: #2c2110;
-  }
-
-  .mobile-shortcut-btn-search {
-    background: linear-gradient(135deg, #ffffff, #eef5ff);
-    color: var(--navy-900);
-    border: 1px solid var(--blue-100);
-  }
-
-  .contact-display-main {
-    font-size: 28px;
-    line-height: 1.2;
-  }
-
-  .contact-display-title,
-  .home-calc-title,
-  .calc-label {
-    font-size: 17px;
-  }
-
-  .calc-main,
-  .info-value {
-    font-size: 28px;
-    line-height: 1.25;
+    border-radius: 16px;
   }
 
   .floating-contact-toolbar {
     gap: 10px;
-    padding: 0 2px;
+    padding: 0 14px 14px;
   }
 
   .floating-contact-btn {
-    min-height: 64px;
+    min-height: 62px;
     border-radius: 18px;
-    padding: 14px 16px;
   }
 
   .floating-contact-btn span {
     font-size: 15px;
+    font-weight: 900;
   }
 
   .floating-contact-btn small {
     font-size: 12px;
+    opacity: 0.92;
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 420px) {
   .container {
-    padding: 0 14px;
+    padding: 0 18px;
   }
 
-  .hero-title {
-    font-size: 31px;
+  .brand-logo {
+    width: 56px;
   }
 
-  .mobile-shortcut-title,
-  .section-title,
-  .card-title,
-  .review-title {
-    font-size: 25px;
+  .brand-title {
+    font-size: 15px;
   }
 
-  .quick-search-title {
-    font-size: 20px;
+  .brand-sub {
+    font-size: 10px;
   }
 
-  .mobile-shortcut-btn,
-  .floating-contact-btn {
-    min-height: 68px;
+  .hero-title,
+  .hero-title-premium {
+    font-size: 30px;
+  }
+
+  .hero-text,
+  .hero-text-premium,
+  .section-copy,
+  .review-copy,
+  .faq-item-static p {
+    font-size: 15px;
+  }
+
+  .mobile-step-strip {
+    grid-template-columns: 1fr;
   }
 }
