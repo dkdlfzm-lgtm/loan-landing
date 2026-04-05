@@ -613,6 +613,26 @@ export default function LoanLandingPage() {
                     <button type="button" className="btn btn-outline dark-outline" onClick={openConsultPopup}>{siteSettings.hero_secondary_cta || "무료 상담 신청"}</button>
                   </div>
 
+                  <div className="hero-trust-note">
+                    <strong>복잡한 절차 없이 상담 가능</strong>
+                    <span>시세 확인 후 상담까지 한 번에 안내해드립니다.</span>
+                  </div>
+
+                  <div className="mobile-trust-summary" aria-label="모바일 핵심 안내">
+                    <div className="mobile-trust-item">
+                      <strong>1:1 전담 상담</strong>
+                      <span>어려운 금융용어 없이 쉽게 안내</span>
+                    </div>
+                    <div className="mobile-trust-item">
+                      <strong>전화·카카오 모두 가능</strong>
+                      <span>편한 방식으로 바로 문의</span>
+                    </div>
+                    <div className="mobile-trust-item">
+                      <strong>빠른 접수 진행</strong>
+                      <span>입력 후 확인되면 순차 연락</span>
+                    </div>
+                  </div>
+
                   <div className="hero-feature-list">
                     <span className="hero-feature-chip">{siteSettings.hero_feature_1 || "실시간 단지 조회"}</span>
                     <span className="hero-feature-chip">{siteSettings.hero_feature_2 || "맞춤 한도 상담"}</span>
@@ -666,6 +686,34 @@ export default function LoanLandingPage() {
                     {homeInquiryStatus && <div className={`api-status ${homeInquiryStatus.includes("완료") ? "success" : "error"}`}>{homeInquiryStatus}</div>}
                     <button type="submit" className="primary-btn" disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
                   </form>
+                </div>
+              </div>
+            </section>
+
+            <section className="mobile-shortcut-band" data-reveal="up">
+              <div className="container">
+                <div className="mobile-shortcut-card">
+                  <div className="mobile-shortcut-head">
+                    <div>
+                      <div className="section-mini">빠른 이동</div>
+                      <h2 className="mobile-shortcut-title">모바일에서 더 쉽게 이용하세요</h2>
+                    </div>
+                    <p className="mobile-shortcut-copy">전화 상담, 카카오 상담, 시세조회를 큰 버튼으로 바로 이용할 수 있습니다.</p>
+                  </div>
+                  <div className="mobile-shortcut-grid">
+                    <a href={`tel:${displayPhone}`} className="mobile-shortcut-btn mobile-shortcut-btn-call">
+                      <strong>전화 상담</strong>
+                      <span>{displayPhone}</span>
+                    </a>
+                    <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className="mobile-shortcut-btn mobile-shortcut-btn-kakao">
+                      <strong>카카오 상담</strong>
+                      <span>{displayKakaoId || "카카오톡 문의"}</span>
+                    </a>
+                    <a href="#quick-search" className="mobile-shortcut-btn mobile-shortcut-btn-search">
+                      <strong>시세조회 시작</strong>
+                      <span>단지와 면적 선택하기</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </section>
