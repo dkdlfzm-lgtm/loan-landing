@@ -526,10 +526,8 @@ export default function LoanLandingPage() {
     <div className="site-wrap">
       <header className="header">
         <div className="container header-inner">
-          <div className="brand brand-logo-wrap brand-shell">
-            <div className="brand-badge">
-              <img src={displayLogoUrl} alt={siteSettings.company_name || "엔드아이에셋대부"} className="brand-logo" />
-            </div>
+          <div className="brand brand-logo-wrap">
+            <img src={displayLogoUrl} alt={siteSettings.company_name || "엔드아이에셋대부"} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{siteSettings.company_name || "엔드아이에셋대부"}</div>
               <div className="brand-sub">{siteSettings.company_subtitle || "주택담보대출 · 대환대출 · 전세퇴거자금 상담"}</div>
@@ -613,23 +611,6 @@ export default function LoanLandingPage() {
                   <div className="hero-actions">
                     <a href="#quick-search" className="btn btn-white">{siteSettings.hero_primary_cta || "빠른 시세조회"}</a>
                     <button type="button" className="btn btn-outline dark-outline" onClick={openConsultPopup}>{siteSettings.hero_secondary_cta || "무료 상담 신청"}</button>
-                  </div>
-
-                  <div className="hero-mobile-actions mobile-only">
-                    <a href={`tel:${displayPhone}`} className="hero-mobile-contact hero-mobile-contact-call">
-                      <span className="hero-mobile-contact-icon">☎</span>
-                      <span>
-                        <strong>대표번호</strong>
-                        <small>{displayPhone}</small>
-                      </span>
-                    </a>
-                    <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className="hero-mobile-contact hero-mobile-contact-kakao">
-                      <span className="hero-mobile-contact-icon hero-mobile-contact-icon-kakao">TALK</span>
-                      <span>
-                        <strong>카카오상담</strong>
-                        <small>{`카카오톡 ID : ${displayKakaoId}`}</small>
-                      </span>
-                    </a>
                   </div>
 
                   <div className="hero-feature-list">
