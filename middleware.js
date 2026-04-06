@@ -1,24 +1,34 @@
-import { NextResponse, userAgent } from "next/server";
+import { NextResponse } from "next/server";
 
 export function middleware(request) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+  const userAgent = request.headers.get("user-agent") || "";
 
-  if (pathname !== "/") {
+  if (
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/manage") ||
+    pathname.startsWith("/staff") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/m") ||
+    pathname.startsWith("/reviews") ||
+    pathname.startsWith("/price-result") ||
+    pathname.includes(".")
+  ) {
     return NextResponse.next();
   }
 
-  const { device } = userAgent(request);
-  const isMobile = device?.type === "mobile" || device?.type === "tablet";
+  if (pathname !== "/") return NextResponse.next();
 
-  if (!isMobile) {
-    return NextResponse.next();
-  }
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(userAgent);
+  if (!isMobile) return NextResponse.next();
 
   const url = request.nextUrl.clone();
   url.pathname = "/m";
+  url.search = search;
   return NextResponse.rewrite(url);
 }
 
 export const config = {
-  matcher: ["/"],
+  matcher: ["/((?!favicon.ico).*)"],
 };
