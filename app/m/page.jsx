@@ -43,7 +43,7 @@ function statusClass(message, stylesRef) {
 }
 
 export default function MobileLandingPage() {
-  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [siteSettings, setSiteSettings] = useState({ ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
   const [approvalCases, setApprovalCases] = useState([]);
   const [currentView, setCurrentView] = useState("home");
 
@@ -80,20 +80,20 @@ export default function MobileLandingPage() {
 
     async function loadSiteSettings() {
       try {
-        const cached = readCachedSiteSettings();
+        const cached = readCachedSiteSettings("mobile");
         if (!cancelled && cached) setSiteSettings(cached);
 
-        const response = await fetch("/api/site-settings", { cache: "no-store" });
+        const response = await fetch("/api/site-settings?scope=mobile", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok || data?.ok === false || !data?.settings) throw new Error("사이트 설정을 불러오지 못했습니다.");
 
         if (!cancelled) {
           const normalized = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
           setSiteSettings(normalized);
-          cacheSiteSettings(normalized);
+          cacheSiteSettings(normalized, "mobile");
         }
       } catch {
-        if (!cancelled) setSiteSettings(readCachedSiteSettings() || DEFAULT_SITE_SETTINGS);
+        if (!cancelled) setSiteSettings(readCachedSiteSettings("mobile") || { ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
       }
     }
 
@@ -385,36 +385,6 @@ export default function MobileLandingPage() {
         </a>
       </section>
 
-      <section id="consult" className={styles.sectionCard}>
-        <div className={styles.sectionHead}>
-          <span>상담 신청</span>
-          <h2>성함과 연락처를 남겨주세요</h2>
-          <p>확인 후 빠르게 연락드리겠습니다.</p>
-        </div>
-        <form className={styles.formStack} onSubmit={submitHomeInquiry}>
-          <label className={styles.fieldLabel}>
-            <span>성함</span>
-            <input type="text" placeholder="성함을 입력해주세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
-          </label>
-          <label className={styles.fieldLabel}>
-            <span>연락처</span>
-            <input type="text" placeholder="연락처를 입력해주세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
-          </label>
-          <label className={styles.fieldLabel}>
-            <span>상담 유형</span>
-            <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-              {loanTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </label>
-          <label className={styles.fieldLabel}>
-            <span>주소</span>
-            <input type="text" placeholder="주소를 입력해주세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
-          </label>
-          {homeInquiryStatus ? <div className={`${styles.status} ${statusClass(homeInquiryStatus, styles)}`}>{homeInquiryStatus}</div> : null}
-          <button type="submit" className={styles.primaryBtn} disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
-        </form>
-      </section>
-
       <section id="quick-search" className={styles.sectionCard}>
         <div className={styles.sectionHead}>
           <span>시세조회</span>
@@ -487,6 +457,36 @@ export default function MobileLandingPage() {
           </div>
         </section>
       ) : null}
+
+      <section id="consult" className={styles.sectionCard}>
+        <div className={styles.sectionHead}>
+          <span>상담 신청</span>
+          <h2>성함과 연락처를 남겨주세요</h2>
+          <p>확인 후 빠르게 연락드리겠습니다.</p>
+        </div>
+        <form className={styles.formStack} onSubmit={submitHomeInquiry}>
+          <label className={styles.fieldLabel}>
+            <span>성함</span>
+            <input type="text" placeholder="성함을 입력해주세요" value={homeInquiry.name} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))} />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span>연락처</span>
+            <input type="text" placeholder="연락처를 입력해주세요" value={homeInquiry.phone} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
+          </label>
+          <label className={styles.fieldLabel}>
+            <span>상담 유형</span>
+            <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
+              {loanTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </label>
+          <label className={styles.fieldLabel}>
+            <span>주소</span>
+            <input type="text" placeholder="주소를 입력해주세요" value={homeInquiry.address} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))} />
+          </label>
+          {homeInquiryStatus ? <div className={`${styles.status} ${statusClass(homeInquiryStatus, styles)}`}>{homeInquiryStatus}</div> : null}
+          <button type="submit" className={styles.primaryBtn} disabled={homeInquirySaving}>{homeInquirySaving ? "접수 중..." : "상담 신청하기"}</button>
+        </form>
+      </section>
 
       <section className={styles.sectionCard}>
         <div className={styles.sectionHead}>

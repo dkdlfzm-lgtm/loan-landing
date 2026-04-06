@@ -79,7 +79,8 @@ function Sidebar({ activeTab, setActiveTab, onLogout }) {
         {OWNER_TABS.map((tab) => <button key={tab.key} type="button" className={`crm-sidebar-tab ${activeTab === tab.key ? "active" : ""}`} onClick={() => setActiveTab(tab.key)}>{tab.label}</button>)}
       </nav>
       <a className="nav-btn crm-ghost-link" href="/staff">직원 페이지 열기</a>
-      <a className="nav-btn crm-ghost-link" href="/manage">홈페이지 관리 열기</a>
+      <a className="nav-btn crm-ghost-link" href="/manage">PC 홈페이지 관리</a>
+      <a className="nav-btn crm-ghost-link" href="/manage-mobile">모바일 홈페이지 관리</a>
       <button type="button" className="nav-btn admin-logout-btn crm-sidebar-logout" onClick={onLogout}>로그아웃</button>
     </aside>
   );

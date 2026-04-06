@@ -36,21 +36,34 @@ const SELECT_FIELDS = [
   "updated_at",
 ].join(",");
 
-export async function GET() {
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const scope = searchParams.get("scope") === "mobile" ? "mobile" : "main";
+
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({ ok: true, settings: DEFAULT_SITE_SETTINGS, fallback: true });
+    return NextResponse.json({ ok: true, settings: { ...DEFAULT_SITE_SETTINGS, scope }, fallback: true });
   }
 
-  try {
+  async function fetchScope(targetScope) {
     const rows = await supabaseRest("/site_settings", {
       query: {
         select: `scope,${SELECT_FIELDS}`,
-        scope: "eq.main",
+        scope: `eq.${targetScope}`,
         limit: 1,
       },
     });
-    return NextResponse.json({ ok: true, settings: normalizeSiteSettings(Array.isArray(rows) ? rows[0] : rows) });
+    return Array.isArray(rows) ? rows[0] : rows;
+  }
+
+  try {
+    let row = await fetchScope(scope);
+    let resolvedScope = scope;
+    if (!row && scope === "mobile") {
+      row = await fetchScope("main");
+      resolvedScope = row ? "main" : scope;
+    }
+    return NextResponse.json({ ok: true, settings: normalizeSiteSettings({ ...row, scope }), resolvedScope, fallback: !row });
   } catch {
-    return NextResponse.json({ ok: true, settings: DEFAULT_SITE_SETTINGS, fallback: true });
+    return NextResponse.json({ ok: true, settings: { ...DEFAULT_SITE_SETTINGS, scope }, fallback: true });
   }
 }

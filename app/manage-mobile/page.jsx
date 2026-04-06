@@ -17,9 +17,9 @@ function ManagerLogin({ password, setPassword, error, onSubmit }) {
       <main className="section reviews-main-section">
         <div className="container admin-login-shell">
           <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
-            <div className="section-mini">관리 페이지</div>
-            <h1 className="section-title reviews-page-title">홈페이지 관리 로그인</h1>
-            <p className="card-desc">브랜드, 배너, 공지, 팝업, 승인사례 노출을 관리하는 전용 페이지입니다.</p>
+            <div className="section-mini">모바일 관리 페이지</div>
+            <h1 className="section-title reviews-page-title">모바일 홈페이지 관리 로그인</h1>
+            <p className="card-desc">모바일 전용 랜딩페이지의 브랜드, 배너, 공지, 팝업, 승인사례 노출을 관리하는 전용 페이지입니다.</p>
             <div className="field">
               <label>관리자 비밀번호</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
@@ -48,11 +48,11 @@ function ToggleField({ checked, onChange, label, description }) {
   );
 }
 
-export default function ManagePage() {
+export default function ManageMobilePage() {
   const [authenticated, setAuthenticated] = useState(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [siteSettings, setSiteSettings] = useState({ ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -64,6 +64,7 @@ export default function ManagePage() {
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [activeMenu, setActiveMenu] = useState("brand");
+  const settingsScope = "mobile";
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" })
@@ -84,9 +85,9 @@ export default function ManagePage() {
   async function fetchSettings() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/site-settings", { cache: "no-store" });
+      const res = await fetch(`/api/admin/site-settings?scope=${settingsScope}`, { cache: "no-store" });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "홈페이지 설정을 불러오지 못했습니다.");
+      if (!res.ok || !data.ok) throw new Error(data.message || "모바일 홈페이지 설정을 불러오지 못했습니다.");
       if (data.settings) {
         setSiteSettings({
           ...DEFAULT_SITE_SETTINGS,
@@ -98,7 +99,7 @@ export default function ManagePage() {
         });
       }
     } catch (err) {
-      setMessage({ type: "error", text: err.message || "홈페이지 설정을 불러오지 못했습니다." });
+      setMessage({ type: "error", text: err.message || "모바일 홈페이지 설정을 불러오지 못했습니다." });
     } finally {
       setLoading(false);
     }
@@ -144,20 +145,20 @@ export default function ManagePage() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/admin/site-settings", {
+      const res = await fetch(`/api/admin/site-settings?scope=${settingsScope}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(siteSettings),
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "홈페이지 설정 저장 실패");
+      if (!res.ok || !data.ok) throw new Error(data.message || "모바일 홈페이지 설정 저장 실패");
       const nextSettings = { ...siteSettings, ...(data.settings || {}) };
       setSiteSettings(nextSettings);
-      cacheSiteSettings(nextSettings);
+      cacheSiteSettings(nextSettings, "mobile");
       setLastSavedAt(new Date());
-      setMessage({ type: "success", text: "홈페이지 설정이 저장되었습니다." });
+      setMessage({ type: "success", text: "모바일 홈페이지 설정이 저장되었습니다." });
     } catch (err) {
-      setMessage({ type: "error", text: err.message || "홈페이지 설정 저장 실패" });
+      setMessage({ type: "error", text: err.message || "모바일 홈페이지 설정 저장 실패" });
     } finally {
       setSaving(false);
     }
@@ -288,9 +289,9 @@ export default function ManagePage() {
         <div className="container manage-shell">
           <aside className="crm-sidebar crm-sidebar-large crm-sidebar-owner">
             <div className="crm-sidebar-brand">
-              <div className="crm-sidebar-eyebrow">관리 페이지</div>
-              <strong>홈페이지 설정 센터</strong>
-              <span>기능별로 나눠서 관리할 수 있습니다.</span>
+              <div className="crm-sidebar-eyebrow">모바일 관리 페이지</div>
+              <strong>모바일 홈페이지 설정 센터</strong>
+              <span>모바일 전용 랜딩페이지를 기능별로 나눠 관리합니다.</span>
             </div>
             <nav className="crm-sidebar-nav">
               {MENUS.map((menu) => (
@@ -299,7 +300,8 @@ export default function ManagePage() {
                 </button>
               ))}
             </nav>
-            <a className="nav-btn crm-ghost-link" href="/manage-mobile">모바일 홈페이지 관리</a>
+            <a className="nav-btn crm-ghost-link" href="/m" target="_blank" rel="noreferrer">모바일 미리보기</a>
+            <a className="nav-btn crm-ghost-link" href="/manage">PC 홈페이지 관리</a>
             <a className="nav-btn crm-ghost-link" href="/admin">관리자 페이지 열기</a>
             <a className="nav-btn crm-ghost-link" href="/staff">직원 페이지 열기</a>
             <button type="button" className="nav-btn admin-logout-btn crm-sidebar-logout" onClick={handleLogout}>로그아웃</button>
@@ -307,9 +309,9 @@ export default function ManagePage() {
 
           <section className="crm-main manage-main">
             <div className="white-panel crm-settings-panel manage-header-panel">
-              <div className="section-mini">운영용 홈페이지 관리</div>
+              <div className="section-mini">운영용 모바일 홈페이지 관리</div>
               <h1 className="section-title">브랜드/배너/공지/승인사례 설정</h1>
-              <p className="card-desc">좌측 메뉴에서 필요한 영역만 골라 바로 수정할 수 있습니다.</p>
+              <p className="card-desc">PC 관리와 분리해서 모바일 전용 문구와 배너를 따로 관리할 수 있습니다.</p>
               {lastSavedAt ? <div className="crm-last-sync">최근 저장: {lastSavedAt.toLocaleString("ko-KR")}</div> : null}
             </div>
 

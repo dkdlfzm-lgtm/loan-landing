@@ -38,18 +38,20 @@ const FIELD_CONFIG = [
 
 const SELECT_FIELDS = FIELD_CONFIG.map(([field]) => field).concat("updated_at").join(",");
 
-export async function GET() {
+export async function GET(request) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
-  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, settings: DEFAULT_SITE_SETTINGS, fallback: true });
+  const { searchParams } = new URL(request.url);
+  const scope = searchParams.get("scope") === "mobile" ? "mobile" : "main";
+  if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, settings: { ...DEFAULT_SITE_SETTINGS, scope }, fallback: true });
   try {
     const rows = await supabaseRest("/site_settings", {
       query: {
         select: `scope,${SELECT_FIELDS}`,
-        scope: "eq.main",
+        scope: `eq.${scope}`,
         limit: 1,
       },
     });
-    return NextResponse.json({ ok: true, settings: normalizeSiteSettings(Array.isArray(rows) ? rows[0] : rows) });
+    return NextResponse.json({ ok: true, settings: normalizeSiteSettings({ ...(Array.isArray(rows) ? rows[0] : rows), scope }) });
   } catch (error) {
     return NextResponse.json({ ok: false, message: error.message || "홈페이지 설정을 불러오지 못했습니다." }, { status: 500 });
   }
@@ -57,10 +59,12 @@ export async function GET() {
 
 export async function PATCH(request) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
+  const { searchParams } = new URL(request.url);
+  const scope = searchParams.get("scope") === "mobile" ? "mobile" : "main";
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });
   try {
     const body = await request.json();
-    const payload = { scope: "main" };
+    const payload = { scope };
     for (const [field, type] of FIELD_CONFIG) {
       if (type === "boolean") {
         payload[field] = parseBoolean(body?.[field], DEFAULT_SITE_SETTINGS[field]);
