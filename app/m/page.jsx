@@ -17,19 +17,19 @@ const loanTypeOptions = [
 const faqItems = [
   {
     q: "주택담보대출은 어디서부터 준비하면 되나요?",
-    a: "보유 중인 주택 정보와 현재 필요한 자금 목적만 정리해주시면 됩니다. 가능 여부와 진행 방향은 상담을 통해 순서대로 안내해드립니다.",
+    a: "보유하신 주택 정보와 필요한 자금 용도만 확인되면 됩니다. 현재 조건에 맞는 진행 가능 여부를 빠르게 확인해드려요.",
   },
   {
     q: "시세조회 후 바로 상담도 가능한가요?",
-    a: "가능합니다. 시세조회 후 예상 가능한 범위를 확인하고, 전화 또는 카카오톡으로 바로 이어서 상담받으실 수 있습니다.",
+    a: "가능합니다. 시세조회 후 바로 전화 또는 카카오톡으로 이어서 상담받으실 수 있습니다.",
   },
   {
     q: "대환대출이나 전세퇴거자금도 상담 가능한가요?",
-    a: "네. 대환대출, 전세퇴거자금, 사업자대출 등 현재 상황에 맞는 방향으로 함께 확인해드립니다.",
+    a: "네. 대환대출, 전세퇴거자금, 사업자대출 등 현재 상황에 맞는 상품을 함께 확인해드립니다.",
   },
   {
     q: "상담 신청하면 어떻게 진행되나요?",
-    a: "성함과 연락처를 남겨주시면 확인 후 순차적으로 연락드리며, 필요한 내용만 간단하게 안내해드립니다.",
+    a: "성함과 연락처를 남겨주시면 확인 후 빠르게 연락드리며, 필요한 내용만 간단히 확인해드립니다.",
   },
 ];
 
@@ -228,7 +228,7 @@ export default function MobileLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "상담접수를 저장하지 못했습니다.");
-      setHomeInquiryStatus("상담 신청이 접수되었습니다. 확인 후 빠르게 연락드리겠습니다.");
+      setHomeInquiryStatus("상담 신청이 접수되었습니다. 빠르게 연락드리겠습니다.");
       setHomeInquiry({ name: "", phone: "", address: "", loanType: loanTypeOptions[0] });
     } catch (error) {
       setHomeInquiryStatus(error?.message || "상담접수를 저장하지 못했습니다.");
@@ -263,7 +263,7 @@ export default function MobileLandingPage() {
       });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.message || "상담 신청을 저장하지 못했습니다.");
-      setResultInquiryStatus("상담 신청이 접수되었습니다. 확인 후 빠르게 연락드리겠습니다.");
+      setResultInquiryStatus("상담 신청이 접수되었습니다. 빠르게 연락드리겠습니다.");
       setResultInquiry({ name: "", phone: "", memo: "", loanType: loanTypeOptions[0] });
     } catch (error) {
       setResultInquiryStatus(error?.message || "상담 신청을 저장하지 못했습니다.");
@@ -291,7 +291,7 @@ export default function MobileLandingPage() {
         </header>
 
         <section className={styles.resultHero}>
-          <div className={styles.resultBadge}>조회 결과</div>
+          <div className={styles.resultBadge}>시세 조회 결과</div>
           <h1 className={styles.resultTitle}>{resultSummary.title}</h1>
           <p className={styles.resultAddress}>{resultSummary.address || "선택한 주소 기준"}</p>
           <div className={styles.resultMeta}>전용/공급면적 {resultSummary.area} · 기준일 {resultSummary.tradeDate}</div>
@@ -307,7 +307,7 @@ export default function MobileLandingPage() {
         <section className={styles.sectionCard}>
           <div className={styles.sectionHead}>
             <span>빠른 상담 신청</span>
-            <h2>조회한 내용 기준으로 상담받아보세요</h2>
+            <h2>조회하신 조건으로 바로 상담받아보세요</h2>
           </div>
           <form className={styles.formStack} onSubmit={submitResultInquiry}>
             <label className={styles.fieldLabel}>
@@ -359,12 +359,12 @@ export default function MobileLandingPage() {
       <section className={styles.hero}>
         <div className={styles.heroBadgeRow}>
           <span className={styles.heroBadge}>주택담보대출 상담</span>
-          <span className={styles.heroNote}>모바일 간편 접수</span>
+          <span className={styles.heroNote}>전화 · 카카오 상담 가능</span>
         </div>
-        <h1 className={styles.heroTitle}>내 상황에 맞는 대출 상담,{"\n"}모바일에서 간편하게 확인하세요</h1>
+        <h1 className={styles.heroTitle}>내 조건에 맞는 대출 한도,{"\n"}지금 바로 확인해보세요</h1>
         <p className={styles.heroDesc}>
-          아파트 시세조회부터 상담 신청까지 한 번에 진행할 수 있도록
-          보기 편하고 이해하기 쉽게 구성했습니다.
+          아파트 시세 조회부터 한도 상담까지 한 번에 확인할 수 있습니다.
+          복잡한 절차 없이 전화나 카카오톡으로 바로 상담받아보세요.
         </p>
         <div className={styles.heroActions}>
           <a href="#quick-search" className={styles.primaryBtn}>빠른 시세조회</a>
@@ -376,20 +376,20 @@ export default function MobileLandingPage() {
         <a href={formatPhoneHref(displayPhone)} className={styles.quickContactCard}>
           <em>대표번호</em>
           <strong>{displayPhone}</strong>
-          <span>전화로 바로 상담받기</span>
+          <span>상담 가능 여부를 빠르게 확인해보세요</span>
         </a>
         <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className={styles.quickKakaoCard}>
           <em>카카오톡 상담</em>
           <strong>{displayKakaoId}</strong>
-          <span>카카오톡으로 편하게 문의하기</span>
+          <span>카카오톡으로 부담 없이 문의해보세요</span>
         </a>
       </section>
 
       <section id="quick-search" className={styles.sectionCard}>
         <div className={styles.sectionHead}>
           <span>시세조회</span>
-          <h2>아파트 시세를 먼저 확인해보세요</h2>
-          <p>주소와 단지, 면적을 선택하시면 조회가 가능합니다.</p>
+          <h2>아파트 시세와 가능 한도를 확인해보세요</h2>
+          <p>주소와 단지, 면적을 선택하시면 바로 조회하실 수 있습니다.</p>
         </div>
         <div className={styles.formStack}>
           <label className={styles.fieldLabel}>
@@ -429,11 +429,11 @@ export default function MobileLandingPage() {
           </label>
 
           {catalogNote ? <div className={styles.helperText}>{catalogNote}</div> : null}
-          {catalogLoading ? <div className={styles.helperText}>단지 정보를 불러오는 중입니다.</div> : null}
+          {catalogLoading ? <div className={styles.helperText}>단지 정보를 불러오고 있습니다.</div> : null}
           {marketError ? <div className={`${styles.status} ${styles.statusError}`}>{marketError}</div> : null}
 
           <button type="button" className={styles.primaryBtn} onClick={handleMarketSearch} disabled={marketLoading}>
-            {marketLoading ? "조회 중..." : "시세 조회하기"}
+            {marketLoading ? "조회 중..." : "시세 · 한도 확인하기"}
           </button>
         </div>
       </section>
@@ -442,16 +442,16 @@ export default function MobileLandingPage() {
         <section className={styles.sectionCard}>
           <div className={styles.sectionHead}>
             <span>승인사례</span>
-            <h2>최근 상담 사례를 확인해보세요</h2>
+            <h2>실제 진행 사례를 확인해보세요</h2>
           </div>
           <div className={styles.reviewList}>
             {approvalCases.slice(0, 4).map((review, index) => (
               <article key={review.id || index} className={styles.reviewCard}>
                 <div className={styles.reviewTop}>
-                  <strong>{review.title || review.name || "상담 진행 사례"}</strong>
+                  <strong>{review.title || review.name || "실제 진행 사례"}</strong>
                   {review.created_at ? <span>{String(review.created_at).slice(0, 10).replaceAll("-", ".")}</span> : null}
                 </div>
-                <p>{review.summary || review.description || review.content || "고객 상황에 맞춰 상담을 진행한 사례입니다."}</p>
+                <p>{review.summary || review.description || review.content || "실제 상담을 통해 진행된 사례입니다."}</p>
               </article>
             ))}
           </div>
@@ -460,8 +460,8 @@ export default function MobileLandingPage() {
 
       <section id="consult" className={styles.sectionCard}>
         <div className={styles.sectionHead}>
-          <span>간편 상담 신청</span>
-          <h2>이름과 연락처만 남겨주세요</h2>
+          <span>상담 신청</span>
+          <h2>성함과 연락처를 남겨주세요</h2>
           <p>확인 후 빠르게 연락드리겠습니다.</p>
         </div>
         <form className={styles.formStack} onSubmit={submitHomeInquiry}>
@@ -490,8 +490,8 @@ export default function MobileLandingPage() {
 
       <section className={styles.sectionCard}>
         <div className={styles.sectionHead}>
-          <span>자주 묻는 질문</span>
-          <h2>상담 전에 많이 궁금해하시는 내용입니다</h2>
+          <span>FAQ</span>
+          <h2>자주 문의하시는 내용을 확인해보세요</h2>
         </div>
         <div className={styles.faqList}>
           {faqItems.map((item) => (
