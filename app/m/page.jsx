@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./mobile.module.css";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../../lib/site-settings";
 
@@ -14,38 +14,52 @@ const loanTypeOptions = [
   "기타",
 ];
 
+const approvalCases = [
+  { id: "case-1", name: "김*완님", content: "신*은행 3억 2000만원, 피*펀* 1억 3000만원 이용중 새** 4.9억 4.8% 승인" },
+  { id: "case-2", name: "정*빈님", content: "신*은행 1억 2000만원, 아*앤* 4500만원 이용중 원*농* 1.86억 5.2% 승인" },
+  { id: "case-3", name: "문*경님", content: "국*은행 2억 4000만원, 대* 6000만원 이용중 오**저축 3.62억 7.3% 승인" },
+  { id: "case-4", name: "김*영님", content: "수*은행 3억 4000만원, 세입자 보증금 1억 이용중 퇴거자금 유*** 1.1억 14% 승인" },
+  { id: "case-5", name: "박*석님", content: "수*은행 2억, S**저축 9100만원 이용중 애**저축 3.5억 8.8% 승인" },
+  { id: "case-6", name: "허*현님", content: "우*은행 1억 7000만원, 칵** 5200만원 이용중 새** 2.49억 5.3% 승인" },
+  { id: "case-7", name: "한*희님", content: "국*은행 8700만원, 티*레* 3500만원 이용중 오**저축 1.52억 7% 승인" },
+  { id: "case-8", name: "이*준님", content: "수*은행 3억 4000만원, 세입자 보증금 1억 이용중 퇴거자금 유*** 1.1억 14% 승인" },
+  { id: "case-9", name: "박*정님", content: "애**저축 6억 8000만원 이용중 신* 7.25억 4.9% 승인" },
+  { id: "case-10", name: "임*주님", content: "새** 2억 8900만원 이용중 수*은행 3.15억 5.1% 승인" },
+];
+
 const faqItems = [
   {
     q: "주택담보대출 한도와 금리는 무엇으로 달라지나요?",
-    a: "담보물 평가, 소득과 신용, 기존 부채, 상품 조건 등에 따라 달라질 수 있습니다. 정확한 조건은 상담 후 안내받는 것이 가장 빠릅니다.",
+    a: "담보물 평가, 소득과 신용, 기존 부채, 상품 조건 등에 따라 달라질 수 있습니다. 정확한 조건은 상담 후 확인하시는 것이 가장 빠릅니다.",
   },
   {
     q: "대환대출도 상담 가능한가요?",
-    a: "네. 기존 대출 조건과 현재 상황을 함께 확인해 보고 가능한 방향을 안내해드립니다.",
+    a: "네. 현재 이용 중인 대출 조건을 함께 확인하고 가능한 방향을 안내해드립니다.",
   },
   {
-    q: "상담 신청하면 바로 연락이 오나요?",
-    a: "접수해 주시면 확인 후 순차적으로 연락드립니다. 빠른 상담이 필요하시면 대표번호 또는 카카오톡으로 문의하실 수 있습니다.",
+    q: "상담 신청하면 얼마나 걸리나요?",
+    a: "접수 확인 후 순차적으로 연락드립니다. 빠른 상담이 필요하시면 대표번호 또는 카카오톡으로 바로 문의해 주세요.",
   },
   {
     q: "시세조회만 먼저 해봐도 되나요?",
-    a: "네. 시세조회 후 상담 신청까지 이어서 진행하실 수 있습니다.",
+    a: "네. 시세를 먼저 확인한 뒤 상담 신청까지 이어서 진행하실 수 있습니다.",
   },
 ];
 
-function maskName(name) {
-  const value = String(name || "고객").trim();
-  if (!value) return "고객님";
-  if (value.length === 1) return `${value}*`;
-  if (value.length === 2) return `${value[0]}*`;
-  return `${value[0]}*${value[value.length - 1]}`;
+function getSafeCompanyName(siteSettings) {
+  return siteSettings.company_name || "엔드아이에셋대부";
+}
+
+function getSafeSubtitle(siteSettings) {
+  return siteSettings.company_subtitle || "주택담보대출 · 대환대출 · 전세퇴거자금 상담";
 }
 
 export default function MobileLandingPage() {
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [activeFaq, setActiveFaq] = useState(0);
-  const [reviews, setReviews] = useState([]);
-  const [reviewLoading, setReviewLoading] = useState(true);
+  const consultRef = useRef(null);
+  const lookupRef = useRef(null);
+  const reviewsRef = useRef(null);
 
   const [inquiry, setInquiry] = useState({
     name: "",
@@ -65,10 +79,10 @@ export default function MobileLandingPage() {
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState("");
-  const [lookupStarted, setLookupStarted] = useState(false);
 
   useEffect(() => {
-    setSiteSettings(readCachedSiteSettings());
+    const cached = readCachedSiteSettings();
+    if (cached) setSiteSettings(cached);
 
     fetch("/api/site-settings", { cache: "no-store" })
       .then((res) => res.json())
@@ -80,15 +94,11 @@ export default function MobileLandingPage() {
       })
       .catch(() => {});
 
-    fetch("/api/reviews?limit=6", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => setReviews(Array.isArray(data?.reviews) ? data.reviews : []))
-      .catch(() => setReviews([]))
-      .finally(() => setReviewLoading(false));
   }, []);
 
   useEffect(() => {
     loadCatalogOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadCatalogOptions(overrides = {}) {
@@ -125,6 +135,10 @@ export default function MobileLandingPage() {
     return [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea].filter(Boolean).join(" · ");
   }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
 
+  function scrollToSection(ref) {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   async function handleInquirySubmit(e) {
     e.preventDefault();
     setInquirySaving(true);
@@ -156,7 +170,6 @@ export default function MobileLandingPage() {
   }
 
   function handleLookup() {
-    setLookupStarted(true);
     if (!selectedCity || !selectedDistrict || !selectedTown || !selectedApartment || !selectedArea) {
       setCatalogMessage("시/도부터 면적까지 모두 선택해 주세요.");
       return;
@@ -171,19 +184,23 @@ export default function MobileLandingPage() {
     window.location.href = `/price-result?${params.toString()}`;
   }
 
-  const displayLogoUrl = siteSettings.logo_url || "/andi-logo.jpg";
+  const displayLogoUrl = siteSettings.logo_url || "/andi-logo.png";
   const displayPhone = siteSettings.phone || "070-8018-7437";
   const displayKakaoUrl = siteSettings.kakao_url || "https://open.kakao.com/o/sbaltXmi";
   const displayKakaoId = siteSettings.kakao_id || "ANDi7437";
+  const companyName = getSafeCompanyName(siteSettings);
+  const companySubtitle = getSafeSubtitle(siteSettings);
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.brandWrap}>
-          <img src={displayLogoUrl} alt={siteSettings.company_name || "엔드아이에셋대부"} className={styles.logo} />
-          <div>
-            <div className={styles.brandName}>{siteSettings.company_name || "엔드아이에셋대부"}</div>
-            <div className={styles.brandSub}>{siteSettings.company_subtitle || "주택담보대출 · 대환대출 · 전세퇴거자금 상담"}</div>
+          <div className={styles.logoShell}>
+            <img src={displayLogoUrl} alt={companyName} className={styles.logo} />
+          </div>
+          <div className={styles.brandText}>
+            <div className={styles.brandName}>{companyName}</div>
+            <div className={styles.brandSub}>{companySubtitle}</div>
           </div>
         </div>
         <a href={`tel:${displayPhone}`} className={styles.headerCall}>전화상담</a>
@@ -191,34 +208,42 @@ export default function MobileLandingPage() {
 
       <main className={styles.main}>
         <section className={styles.hero}>
-          <div className={styles.badge}>{siteSettings.hero_badge || "주택담보대출 상담"}</div>
-          <h1 className={styles.heroTitle}>{siteSettings.hero_title || "필요한 상담을 빠르게 연결해드립니다."}</h1>
-          <p className={styles.heroDesc}>{siteSettings.hero_description || "복잡하게 찾지 마시고, 상담 신청부터 편하게 남겨주세요."}</p>
+          <div className={styles.badge}>선택한 시세조회 · 빠른 상담 연결</div>
+          <h1 className={styles.heroTitle}>아파트 시세조회부터<br />대출 상담 신청까지<br />한 번에 연결됩니다</h1>
 
           <div className={styles.quickGrid}>
-            <a href="#consult" className={`${styles.quickCard} ${styles.primaryCard}`}>
+            <button type="button" className={`${styles.quickCard} ${styles.primaryCard}`} onClick={() => scrollToSection(consultRef)}>
               <strong>상담 신청</strong>
               <span>이름과 연락처만 남기면 접수 완료</span>
-            </a>
-            <a href="#lookup" className={styles.quickCard}>
+            </button>
+            <button type="button" className={styles.quickCard} onClick={() => scrollToSection(lookupRef)}>
               <strong>시세조회</strong>
               <span>지역과 단지 선택 후 바로 확인</span>
-            </a>
-          </div>
-
-          <div className={styles.contactRow}>
-            <a href={`tel:${displayPhone}`} className={`${styles.contactButton} ${styles.callButton}`}>
-              <strong>대표번호</strong>
-              <span>{displayPhone}</span>
-            </a>
-            <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className={`${styles.contactButton} ${styles.kakaoButton}`}>
-              <strong>카카오톡 상담</strong>
-              <span>ID : {displayKakaoId}</span>
-            </a>
+            </button>
           </div>
         </section>
 
-        <section id="consult" className={styles.section}>
+        <section className={styles.contactSection}>
+          <div className={styles.contactPanel}>
+            <div className={styles.contactLabelBlue}>대표번호</div>
+            <div className={styles.contactIconPhone}>☎</div>
+            <div className={styles.contactTitle}>전화 상담</div>
+            <a href={`tel:${displayPhone}`} className={styles.contactNumber}>{displayPhone.replace(/-/g, "\n")}</a>
+            <div className={styles.contactSub}>빠른 상담 연결</div>
+            <div className={styles.contactDesc}>대표 상담번호로 바로 연결됩니다.</div>
+          </div>
+
+          <div className={`${styles.contactPanel} ${styles.kakaoPanel}`}>
+            <div className={styles.contactLabelBrown}>카카오톡</div>
+            <div className={styles.contactIconKakao}>TALK</div>
+            <div className={styles.contactTitleDark}>카카오톡 상담</div>
+            <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className={styles.kakaoId}>{displayKakaoId}</a>
+            <div className={styles.contactSubDark}>오픈채팅 바로 연결</div>
+            <div className={styles.contactDescDark}>클릭하면 상담창으로 이동합니다.</div>
+          </div>
+        </section>
+
+        <section ref={consultRef} id="consult" className={styles.section}>
           <div className={styles.sectionHead}>
             <div className={styles.sectionMini}>빠른 접수</div>
             <h2 className={styles.sectionTitle}>상담 신청</h2>
@@ -253,11 +278,11 @@ export default function MobileLandingPage() {
           </form>
         </section>
 
-        <section id="lookup" className={styles.section}>
+        <section ref={lookupRef} id="lookup" className={styles.section}>
           <div className={styles.sectionHead}>
             <div className={styles.sectionMini}>간편 조회</div>
             <h2 className={styles.sectionTitle}>시세조회</h2>
-            <p className={styles.sectionDesc}>거주 지역과 단지를 선택하면 바로 조회 화면으로 이동합니다.</p>
+            <p className={styles.sectionDesc}>지역과 단지를 선택하면 바로 조회할 수 있습니다.</p>
           </div>
 
           <div className={styles.formCard}>
@@ -317,31 +342,26 @@ export default function MobileLandingPage() {
             <button type="button" className={styles.submitButton} onClick={handleLookup} disabled={catalogLoading}>
               {catalogLoading ? "불러오는 중..." : "시세조회 하기"}
             </button>
-            {!lookupStarted ? <p className={styles.helper}>상담 신청 없이 먼저 조회만 해보셔도 됩니다.</p> : null}
           </div>
         </section>
 
-        {siteSettings.reviews_enabled !== false && (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <div className={styles.sectionMini}>확인해 보세요</div>
-              <h2 className={styles.sectionTitle}>승인사례</h2>
-            </div>
-            <div className={styles.reviewList}>
-              {reviewLoading ? <div className={styles.emptyBox}>승인사례를 불러오는 중입니다.</div> : null}
-              {!reviewLoading && reviews.length === 0 ? <div className={styles.emptyBox}>등록된 승인사례가 없습니다.</div> : null}
-              {!reviewLoading && reviews.map((item) => (
-                <article key={item.id} className={styles.reviewCard}>
-                  <div className={styles.reviewTop}>
-                    <strong>{item.title || "승인사례"}</strong>
-                    <span>{maskName(item.name)}</span>
-                  </div>
-                  <p>{String(item.content || "").slice(0, 90)}{String(item.content || "").length > 90 ? "..." : ""}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        <section ref={reviewsRef} id="reviews" className={styles.section}>
+          <div className={styles.sectionHead}>
+            <div className={styles.sectionMini}>실제 후기</div>
+            <h2 className={styles.sectionTitle}>승인사례</h2>
+          </div>
+          <div className={styles.reviewList}>
+            {approvalCases.map((item) => (
+              <article key={item.id} className={styles.reviewCard}>
+                <div className={styles.reviewTop}>
+                  <strong>승인사례</strong>
+                  <span>{item.name}</span>
+                </div>
+                <p>{item.content}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className={styles.section}>
           <div className={styles.sectionHead}>
@@ -364,9 +384,9 @@ export default function MobileLandingPage() {
 
       <footer className={styles.footer}>
         <div className={styles.legalLines}>
-          <div>이자율 : 연6% ~ 연20%이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용없음)</div>
+          <div>이자율 : 연6% ~ 연20% 이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용 없음)</div>
           <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
-          <div>과도한 빚, 고통의 시작입니다. 대출 시 귀하의 신용등급이 하락할 수 있습니다.</div>
+          <div>과도한 빚은 고통의 시작입니다. 대출 시 귀하의 신용등급이 하락할 수 있습니다.</div>
         </div>
         <div className={styles.metaGrid}>
           <span>상호 : 엔드아이에셋대부</span>
