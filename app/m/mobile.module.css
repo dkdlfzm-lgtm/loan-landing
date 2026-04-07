@@ -445,6 +445,8 @@
 .reviewCard p {
   margin: 0;
   color: #4f5868;
+  white-space: pre-line;
+  line-height: 1.7;
 }
 
 .faqQuestion {

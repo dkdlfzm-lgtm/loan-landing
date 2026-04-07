@@ -2037,11 +2037,15 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   transform:translateX(0);
 }
 .approval-card{
-  min-height: 210px;
+  min-height: 238px;
   display:flex;
   flex-direction:column;
   justify-content:flex-start;
   background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+}
+.review-card-desc{
+  white-space: pre-line;
+  line-height: 1.7;
 }
 .approval-card.is-primary{
   border-left:4px solid #3d73ff;
