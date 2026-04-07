@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./mobile.module.css";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../../lib/site-settings";
+import { SHARED_APPROVAL_CASES } from "../../lib/approval-cases";
 
 const loanTypeOptions = [
   "주택담보대출",
@@ -14,18 +15,7 @@ const loanTypeOptions = [
   "기타",
 ];
 
-const approvalCases = [
-  { id: "case-1", name: "김*완님", content: "신*은행 3억 2000만원, 피*펀* 1억 3000만원 이용중 새** 4.9억 4.8% 승인" },
-  { id: "case-2", name: "정*빈님", content: "신*은행 1억 2000만원, 아*앤* 4500만원 이용중 원*농* 1.86억 5.2% 승인" },
-  { id: "case-3", name: "문*경님", content: "국*은행 2억 4000만원, 대* 6000만원 이용중 오**저축 3.62억 7.3% 승인" },
-  { id: "case-4", name: "김*영님", content: "수*은행 3억 4000만원, 세입자 보증금 1억 이용중 퇴거자금 유*** 1.1억 14% 승인" },
-  { id: "case-5", name: "박*석님", content: "수*은행 2억, S**저축 9100만원 이용중 애**저축 3.5억 8.8% 승인" },
-  { id: "case-6", name: "허*현님", content: "우*은행 1억 7000만원, 칵** 5200만원 이용중 새** 2.49억 5.3% 승인" },
-  { id: "case-7", name: "한*희님", content: "국*은행 8700만원, 티*레* 3500만원 이용중 오**저축 1.52억 7% 승인" },
-  { id: "case-8", name: "이*준님", content: "수*은행 3억 4000만원, 세입자 보증금 1억 이용중 퇴거자금 유*** 1.1억 14% 승인" },
-  { id: "case-9", name: "박*정님", content: "애**저축 6억 8000만원 이용중 신* 7.25억 4.9% 승인" },
-  { id: "case-10", name: "임*주님", content: "새** 2억 8900만원 이용중 수*은행 3.15억 5.1% 승인" },
-];
+const approvalCases = SHARED_APPROVAL_CASES.map((item) => ({ id: item.id, name: item.title, content: item.content }));
 
 const faqItems = [
   {

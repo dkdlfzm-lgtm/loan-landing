@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../lib/site-settings";
+import { SHARED_APPROVAL_CASES } from "../lib/approval-cases";
 
 const statSlides = [
   {
@@ -129,7 +130,7 @@ export default function LoanLandingPage() {
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
-  const [approvalCases, setApprovalCases] = useState([]);
+  const [approvalCases, setApprovalCases] = useState(SHARED_APPROVAL_CASES);
   const [promoDismissed, setPromoDismissed] = useState(false);
   const [promoReady, setPromoReady] = useState(false);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
@@ -195,27 +196,7 @@ export default function LoanLandingPage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadApprovalCases() {
-      try {
-        const response = await fetch("/api/reviews?limit=6", { cache: "no-store" });
-        const data = await response.json();
-        if (!response.ok || data?.ok === false) {
-          throw new Error(data?.message || "승인사례를 불러오지 못했습니다.");
-        }
-        if (!cancelled) {
-          setApprovalCases(Array.isArray(data.reviews) ? data.reviews : []);
-        }
-      } catch {
-        if (!cancelled) setApprovalCases([]);
-      }
-    }
-
-    loadApprovalCases();
-    return () => {
-      cancelled = true;
-    };
+    setApprovalCases(SHARED_APPROVAL_CASES);
   }, []);
 
   useEffect(() => {
@@ -836,7 +817,7 @@ export default function LoanLandingPage() {
                   <div className="review-left approval-left">
                     <div className="section-mini">Approval Cases</div>
                     <div className="review-title">승인사례</div>
-                    <p className="review-copy">관리 페이지에서 등록한 승인사례가 이 영역에 바로 노출됩니다.</p>
+                    <p className="review-copy">실제 상담 진행 사례를 확인해 보세요.</p>
                   </div>
 
                   
@@ -844,8 +825,8 @@ export default function LoanLandingPage() {
                     {approvalCases.length === 0 ? (
                       <div className="review-card approval-card">
                         <div className="approval-card-badge">준비중</div>
-                        <div className="review-card-title">등록된 승인사례가 아직 없습니다.</div>
-                        <div className="review-card-desc">홈페이지 관리에서 제목과 내용을 직접 등록하면 이 영역에 바로 표시됩니다.</div>
+                        <div className="review-card-title">승인사례를 준비 중입니다.</div>
+                        <div className="review-card-desc">잠시 후 다시 확인해 주세요.</div>
                       </div>
                     ) : (
                       <>

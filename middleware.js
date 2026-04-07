@@ -1,37 +1,34 @@
-import { NextResponse } from "next/server";
-
-const MOBILE_REGEX = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+import { NextResponse, userAgent } from 'next/server';
 
 export function middleware(request) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/m") ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/manage") ||
-    pathname.startsWith("/manage-mobile") ||
-    pathname.startsWith("/staff") ||
-    pathname.startsWith("/reviews") ||
-    pathname.startsWith("/price-result") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/manage') ||
+    pathname.startsWith('/staff') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/m') ||
+    pathname.startsWith('/reviews') ||
+    pathname.startsWith('/price-result') ||
+    pathname.includes('.')
   ) {
     return NextResponse.next();
   }
 
-  const userAgent = request.headers.get("user-agent") || "";
-  const isMobile = MOBILE_REGEX.test(userAgent);
+  if (pathname !== '/') return NextResponse.next();
 
-  if (pathname === "/" && isMobile) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/m";
-    return NextResponse.rewrite(url);
-  }
+  const { device } = userAgent(request);
+  const isMobile = device.type === 'mobile' || device.type === 'tablet';
+  if (!isMobile) return NextResponse.next();
 
-  return NextResponse.next();
+  const url = request.nextUrl.clone();
+  url.pathname = '/m';
+  url.search = search;
+  return NextResponse.rewrite(url);
 }
 
 export const config = {
-  matcher: ["/((?!.*\\..*).*)"],
+  matcher: ['/((?!favicon.ico).*)'],
 };
