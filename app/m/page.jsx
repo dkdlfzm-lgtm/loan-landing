@@ -232,14 +232,14 @@ export default function MobileLandingPage() {
           <h1 className={styles.heroTitle}><MultiLineTitle text={heroTitle} /></h1>
 
           <div className={styles.quickGrid}>
-            <button type="button" className={`${styles.quickCard} ${styles.primaryCard}`} onClick={() => moveTo(consultRef)}>
+            <button type="button" className={`${styles.quickCard} ${styles.actionCard} ${styles.primaryCard}`} onClick={() => moveTo(consultRef)}>
               <div className={styles.cardHead}>
                 <strong>상담 신청</strong>
               </div>
               <span>이름과 연락처만 남기면 접수 완료</span>
             </button>
 
-            <button type="button" className={styles.quickCard} onClick={() => moveTo(priceRef)}>
+            <button type="button" className={`${styles.quickCard} ${styles.actionCard}`} onClick={() => moveTo(priceRef)}>
               <div className={styles.cardHead}>
                 <strong>시세조회</strong>
               </div>
