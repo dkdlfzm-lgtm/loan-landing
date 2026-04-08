@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./mobile.module.css";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../../lib/site-settings";
-import { SHARED_APPROVAL_CASES } from "../../lib/approval-cases";
 
-const loanTypeOptions = [
+const LOAN_TYPE_OPTIONS = [
   "주택담보대출",
   "전세퇴거자금",
   "경매취하자금",
@@ -15,131 +14,216 @@ const loanTypeOptions = [
   "기타",
 ];
 
-const approvalCases = SHARED_APPROVAL_CASES.map((item) => ({ id: item.id, name: item.title, content: item.content }));
-
-const faqItems = [
+const APPROVAL_CASES = [
   {
-    q: "주택담보대출 한도와 금리는 무엇으로 달라지나요?",
-    a: "담보물 평가, 소득과 신용, 기존 부채, 상품 조건 등에 따라 달라질 수 있습니다. 정확한 조건은 상담 후 확인하시는 것이 가장 빠릅니다.",
+    id: "case-1",
+    name: "김*완님",
+    lines: ["신*은행 3억 2000만원", "피*펀* 1억 3000만원 이용중", "새** 4.9억 4.8% 승인"],
   },
   {
-    q: "대환대출도 상담 가능한가요?",
-    a: "네. 현재 이용 중인 대출 조건을 함께 확인하고 가능한 방향을 안내해드립니다.",
+    id: "case-2",
+    name: "정*빈님",
+    lines: ["신*은행 1억 2000만원", "아*앤* 4500만원 이용중", "원*농* 1.86억 5.2% 승인"],
   },
   {
-    q: "상담 신청하면 얼마나 걸리나요?",
-    a: "접수 확인 후 순차적으로 연락드립니다. 빠른 상담이 필요하시면 대표번호 또는 카카오톡으로 바로 문의해 주세요.",
+    id: "case-3",
+    name: "문*경님",
+    lines: ["국*은행 2억 4000만원", "대* 6000만원 이용중", "오**저축 3.62억 7.3% 승인"],
   },
   {
-    q: "시세조회만 먼저 해봐도 되나요?",
-    a: "네. 시세를 먼저 확인한 뒤 상담 신청까지 이어서 진행하실 수 있습니다.",
+    id: "case-4",
+    name: "김*영님",
+    lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"],
+  },
+  {
+    id: "case-5",
+    name: "박*석님",
+    lines: ["수*은행 2억", "S**저축 9100만원 이용중", "애**저축 3.5억 8.8% 승인"],
+  },
+  {
+    id: "case-6",
+    name: "허*현님",
+    lines: ["우*은행 1억 7000만원", "칵** 5200만원 이용중", "새** 2.49억 5.3% 승인"],
+  },
+  {
+    id: "case-7",
+    name: "한*희님",
+    lines: ["국*은행 8700만원", "티*레* 3500만원 이용중", "오**저축 1.52억 7% 승인"],
+  },
+  {
+    id: "case-8",
+    name: "이*준님",
+    lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"],
+  },
+  {
+    id: "case-9",
+    name: "박*정님",
+    lines: ["애**저축 6억 8000만원 이용중", "", "신* 7.25억 4.9% 승인"],
+  },
+  {
+    id: "case-10",
+    name: "임*주님",
+    lines: ["새** 2억 8900만원 이용중", "", "수*은행 3.15억 5.1% 승인"],
   },
 ];
 
-function getSafeCompanyName(siteSettings) {
-  return siteSettings.company_name || "엔드아이에셋대부";
+const FAQ_ITEMS = [
+  {
+    q: "주택담보대출 금리비교는 왜 꼭 해야 하나요?",
+    a: "금리, 한도, 중도상환수수료, 부대비용에 따라 실제 부담이 달라질 수 있어 여러 조건을 함께 비교하는 것이 중요합니다.",
+  },
+  {
+    q: "한도와 금리는 무엇으로 결정되나요?",
+    a: "담보물 평가, LTV·DSR, 신용점수, 기존 부채, 소득 및 상환능력 등에 따라 달라질 수 있습니다.",
+  },
+  {
+    q: "무직자·주부·프리랜서도 상담 가능한가요?",
+    a: "가능 여부는 금융사와 담보 조건에 따라 달라질 수 있어, 현재 조건을 기준으로 맞춤 상담을 받아보시는 것이 좋습니다.",
+  },
+];
+
+function sanitizePhone(value) {
+  return String(value || "").replace(/[^0-9]/g, "");
 }
 
-function getSafeSubtitle(siteSettings) {
-  return siteSettings.company_subtitle || "주택담보대출 · 대환대출 · 전세퇴거자금 상담";
+function formatDisplayPhone(value) {
+  const digits = sanitizePhone(value);
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10) return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return value || "";
+}
+
+function MultiLineTitle({ text }) {
+  return String(text || "")
+    .split("\n")
+    .filter(Boolean)
+    .map((line, idx) => <span key={`${line}-${idx}`}>{line}</span>);
 }
 
 export default function MobileLandingPage() {
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
-  const [activeFaq, setActiveFaq] = useState(0);
-  const consultRef = useRef(null);
-  const lookupRef = useRef(null);
-  const reviewsRef = useRef(null);
-
-  const [inquiry, setInquiry] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    loanType: loanTypeOptions[0],
-    memo: "",
-  });
-  const [inquirySaving, setInquirySaving] = useState(false);
-  const [inquiryStatus, setInquiryStatus] = useState("");
-
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
-  const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogMessage, setCatalogMessage] = useState("");
+  const [apartmentQuery, setApartmentQuery] = useState("");
+  const [catalogError, setCatalogError] = useState("");
+  const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
+  const [homeInquirySaving, setHomeInquirySaving] = useState(false);
+  const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
+  const [approvalStart, setApprovalStart] = useState(0);
+
+  const consultRef = useRef(null);
+  const priceRef = useRef(null);
+  const approvalRef = useRef(null);
+
+  const displayPhone = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
+  const displayKakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
+  const displayKakaoUrl = siteSettings.kakao_url || DEFAULT_SITE_SETTINGS.kakao_url;
+  const displayLogoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
+  const heroBadge = siteSettings.hero_badge || DEFAULT_SITE_SETTINGS.hero_badge;
+  const heroTitle = siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title;
 
   useEffect(() => {
-    const cached = readCachedSiteSettings();
-    if (cached) setSiteSettings(cached);
-
-    fetch("/api/site-settings", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.settings) {
-          setSiteSettings(data.settings);
-          cacheSiteSettings(data.settings);
+    let cancelled = false;
+    async function loadSettings() {
+      try {
+        const cached = readCachedSiteSettings();
+        if (!cancelled && cached) setSiteSettings(cached);
+        const res = await fetch("/api/site-settings", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || data?.ok === false || !data?.settings) throw new Error();
+        if (!cancelled) {
+          const next = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
+          setSiteSettings(next);
+          cacheSiteSettings(next);
         }
-      })
-      .catch(() => {});
-
+      } catch {
+        if (!cancelled) setSiteSettings(readCachedSiteSettings() || DEFAULT_SITE_SETTINGS);
+      }
+    }
+    loadSettings();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    loadCatalogOptions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    async function loadCatalog() {
+      setCatalogLoading(true);
+      setCatalogError("");
+      try {
+        const query = new URLSearchParams({
+          propertyType: "아파트",
+          city: selectedCity,
+          district: selectedDistrict,
+          town: selectedTown,
+          apartment: selectedApartment,
+          apartmentQuery,
+          area: selectedArea,
+        });
+        const res = await fetch(`/api/property-catalog?${query.toString()}`, { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || data?.ok === false) throw new Error(data?.message || "단지 정보를 불러오지 못했습니다.");
+        if (cancelled) return;
+        setCatalogOptions(data.options || { cities: [], districts: [], towns: [], apartments: [], areas: [] });
+        setSelectedCity(data.query?.city || "");
+        setSelectedDistrict(data.query?.district || "");
+        setSelectedTown(data.query?.town || "");
+        setSelectedApartment(data.query?.apartment || "");
+        setSelectedArea(data.query?.area || "");
+      } catch (error) {
+        if (!cancelled) setCatalogError(error?.message || "단지 정보를 불러오지 못했습니다.");
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    }
+    loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
+
+  useEffect(() => {
+    if (APPROVAL_CASES.length <= 3) return undefined;
+    const timer = window.setInterval(() => {
+      setApprovalStart((prev) => (prev + 1) % APPROVAL_CASES.length);
+    }, 3800);
+    return () => window.clearInterval(timer);
   }, []);
 
-  async function loadCatalogOptions(overrides = {}) {
-    const city = overrides.city ?? selectedCity;
-    const district = overrides.district ?? selectedDistrict;
-    const town = overrides.town ?? selectedTown;
-    const apartment = overrides.apartment ?? selectedApartment;
-    const area = overrides.area ?? selectedArea;
+  const visibleCases = useMemo(() => {
+    const total = APPROVAL_CASES.length;
+    return Array.from({ length: Math.min(3, total) }, (_, idx) => APPROVAL_CASES[(approvalStart + idx) % total]);
+  }, [approvalStart]);
 
-    setCatalogLoading(true);
-    setCatalogMessage("");
-    try {
-      const params = new URLSearchParams({ propertyType: "아파트" });
-      if (city) params.set("city", city);
-      if (district) params.set("district", district);
-      if (town) params.set("town", town);
-      if (apartment) params.set("apartment", apartment);
-      if (area) params.set("area", area);
-
-      const res = await fetch(`/api/property-catalog?${params.toString()}`, { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok || !data?.ok) throw new Error(data?.message || "시세조회 정보를 불러오지 못했습니다.");
-      setCatalogOptions(data.options || { cities: [], districts: [], towns: [], apartments: [], areas: [] });
-      setCatalogMessage(data.warning || "");
-    } catch (error) {
-      setCatalogOptions({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
-      setCatalogMessage(error.message || "시세조회 정보를 불러오지 못했습니다.");
-    } finally {
-      setCatalogLoading(false);
-    }
-  }
-
-  const selectedSummary = useMemo(() => {
-    return [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea].filter(Boolean).join(" · ");
-  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
-
-  function scrollToSection(ref) {
+  function moveTo(ref) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  async function handleInquirySubmit(e) {
-    e.preventDefault();
-    setInquirySaving(true);
-    setInquiryStatus("");
+  async function handleHomeInquirySubmit(event) {
+    event.preventDefault();
+    setHomeInquiryStatus("");
+    if (!homeInquiry.name.trim() || !homeInquiry.phone.trim()) {
+      setHomeInquiryStatus("성함과 연락처를 입력해주세요.");
+      return;
+    }
+
+    setHomeInquirySaving(true);
     try {
       const res = await fetch("/api/inquiries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...inquiry,
-          sourcePage: "mobile",
+          name: homeInquiry.name,
+          phone: homeInquiry.phone,
+          address: homeInquiry.address,
+          loanType: homeInquiry.loanType,
+          sourcePage: "mobile-home",
           propertyType: "아파트",
           city: selectedCity,
           district: selectedDistrict,
@@ -149,224 +233,210 @@ export default function MobileLandingPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data?.ok) throw new Error(data?.message || "상담 신청에 실패했습니다.");
-      setInquiryStatus("상담 신청이 접수되었습니다. 확인 후 연락드리겠습니다.");
-      setInquiry({ name: "", phone: "", address: "", loanType: loanTypeOptions[0], memo: "" });
+      if (!res.ok || data?.ok === false) throw new Error(data?.message || "상담 신청을 저장하지 못했습니다.");
+      setHomeInquiryStatus("상담 신청이 완료되었습니다. 순차적으로 연락드리겠습니다.");
+      setHomeInquiry({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
     } catch (error) {
-      setInquiryStatus(error.message || "상담 신청에 실패했습니다.");
+      setHomeInquiryStatus(error?.message || "상담 신청 중 오류가 발생했습니다.");
     } finally {
-      setInquirySaving(false);
+      setHomeInquirySaving(false);
     }
   }
-
-  function handleLookup() {
-    if (!selectedCity || !selectedDistrict || !selectedTown || !selectedApartment || !selectedArea) {
-      setCatalogMessage("시/도부터 면적까지 모두 선택해 주세요.");
-      return;
-    }
-    const params = new URLSearchParams({
-      city: selectedCity,
-      district: selectedDistrict,
-      town: selectedTown,
-      apartment: selectedApartment,
-      area: selectedArea,
-    });
-    window.location.href = `/price-result?${params.toString()}`;
-  }
-
-  const displayLogoUrl = siteSettings.logo_url || "/andi-logo.png";
-  const displayPhone = siteSettings.phone || "070-8018-7437";
-  const displayKakaoUrl = siteSettings.kakao_url || "https://open.kakao.com/o/sbaltXmi";
-  const displayKakaoId = siteSettings.kakao_id || "ANDi7437";
-  const companyName = getSafeCompanyName(siteSettings);
-  const companySubtitle = getSafeSubtitle(siteSettings);
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.brandWrap}>
-          <div className={styles.logoShell}>
-            <img src={displayLogoUrl} alt={companyName} className={styles.logo} />
+          <div className={styles.logoBox}>
+            <img src={displayLogoUrl} alt={siteSettings.company_name || "로고"} className={styles.logoImage} />
           </div>
           <div className={styles.brandText}>
-            <div className={styles.brandName}>{companyName}</div>
-            <div className={styles.brandSub}>{companySubtitle}</div>
+            <strong>{siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name}</strong>
+            <span>{siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle}</span>
           </div>
         </div>
-        <a href={`tel:${displayPhone}`} className={styles.headerCall}>전화상담</a>
+        <a className={styles.headerCallButton} href={`tel:${sanitizePhone(displayPhone)}`}>전화상담</a>
       </header>
 
       <main className={styles.main}>
         <section className={styles.hero}>
-          <div className={styles.badge}>선택한 시세조회 · 빠른 상담 연결</div>
-          <h1 className={styles.heroTitle}>아파트 시세조회부터<br />대출 상담 신청까지<br />한 번에 연결됩니다</h1>
+          <div className={styles.heroBadge}>{heroBadge}</div>
+          <h1 className={styles.heroTitle}><MultiLineTitle text={heroTitle} /></h1>
 
           <div className={styles.quickGrid}>
-            <button type="button" className={`${styles.quickCard} ${styles.primaryCard}`} onClick={() => scrollToSection(consultRef)}>
+            <button type="button" className={`${styles.quickCard} ${styles.primaryCard}`} onClick={() => moveTo(consultRef)}>
               <strong>상담 신청</strong>
               <span>이름과 연락처만 남기면 접수 완료</span>
             </button>
-            <button type="button" className={styles.quickCard} onClick={() => scrollToSection(lookupRef)}>
+            <button type="button" className={styles.quickCard} onClick={() => moveTo(priceRef)}>
               <strong>시세조회</strong>
               <span>지역과 단지 선택 후 바로 확인</span>
             </button>
+            <a className={styles.quickCard} href={`tel:${sanitizePhone(displayPhone)}`}>
+              <span className={styles.quickLabel}>대표번호</span>
+              <div className={styles.iconCircle}>☎</div>
+              <strong>전화 상담</strong>
+              <b>{formatDisplayPhone(displayPhone).replace(/-/g, "\n")}</b>
+            </a>
+            <a className={`${styles.quickCard} ${styles.kakaoCard}`} href={displayKakaoUrl} target="_blank" rel="noreferrer">
+              <span className={styles.quickLabel}>카카오톡</span>
+              <div className={`${styles.iconCircle} ${styles.kakaoIcon}`}>TALK</div>
+              <strong>카카오톡 상담</strong>
+              <b>{displayKakaoId}</b>
+            </a>
           </div>
         </section>
 
-        <section className={styles.contactSection}>
-          <div className={styles.contactPanel}>
-            <div className={styles.contactLabelBlue}>대표번호</div>
-            <div className={styles.contactIconPhone}>☎</div>
-            <div className={styles.contactTitle}>전화 상담</div>
-            <a href={`tel:${displayPhone}`} className={styles.contactNumber}>{displayPhone.replace(/-/g, "\n")}</a>
-            <div className={styles.contactSub}>빠른 상담 연결</div>
-            <div className={styles.contactDesc}>대표 상담번호로 바로 연결됩니다.</div>
+        <section ref={consultRef} id="mobile-consult" className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <span>상담 신청</span>
+            <h2>간단히 남기면 빠르게 연락드립니다</h2>
           </div>
-
-          <div className={`${styles.contactPanel} ${styles.kakaoPanel}`}>
-            <div className={styles.contactLabelBrown}>카카오톡</div>
-            <div className={styles.contactIconKakao}>TALK</div>
-            <div className={styles.contactTitleDark}>카카오톡 상담</div>
-            <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className={styles.kakaoId}>{displayKakaoId}</a>
-            <div className={styles.contactSubDark}>오픈채팅 바로 연결</div>
-            <div className={styles.contactDescDark}>클릭하면 상담창으로 이동합니다.</div>
-          </div>
-        </section>
-
-        <section ref={consultRef} id="consult" className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div className={styles.sectionMini}>빠른 접수</div>
-            <h2 className={styles.sectionTitle}>상담 신청</h2>
-            <p className={styles.sectionDesc}>성함과 연락처를 남겨주시면 확인 후 연락드립니다.</p>
-          </div>
-
-          <form className={styles.formCard} onSubmit={handleInquirySubmit}>
+          <form className={styles.formCard} onSubmit={handleHomeInquirySubmit}>
             <label className={styles.field}>
               <span>성함</span>
-              <input type="text" placeholder="성함을 입력해 주세요" value={inquiry.name} onChange={(e) => setInquiry((prev) => ({ ...prev, name: e.target.value }))} />
+              <input
+                value={homeInquiry.name}
+                onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="성함을 입력해주세요"
+              />
             </label>
             <label className={styles.field}>
               <span>연락처</span>
-              <input type="text" placeholder="연락처를 입력해 주세요" value={inquiry.phone} onChange={(e) => setInquiry((prev) => ({ ...prev, phone: e.target.value }))} />
+              <input
+                value={homeInquiry.phone}
+                onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="연락처를 입력해주세요"
+                inputMode="tel"
+              />
             </label>
             <label className={styles.field}>
-              <span>주소</span>
-              <input type="text" placeholder="예: 서울시 서초구" value={inquiry.address} onChange={(e) => setInquiry((prev) => ({ ...prev, address: e.target.value }))} />
-            </label>
-            <label className={styles.field}>
-              <span>대출 유형</span>
-              <select value={inquiry.loanType} onChange={(e) => setInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
-                {loanTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              <span>상담 유형</span>
+              <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
+                {LOAN_TYPE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label className={styles.field}>
-              <span>추가 문의</span>
-              <textarea rows={4} placeholder="남기실 내용이 있으면 입력해 주세요" value={inquiry.memo} onChange={(e) => setInquiry((prev) => ({ ...prev, memo: e.target.value }))} />
+              <span>담보 주소</span>
+              <input
+                value={homeInquiry.address}
+                onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))}
+                placeholder="아파트명 또는 주소를 입력해주세요"
+              />
             </label>
-            {inquiryStatus ? <div className={`${styles.status} ${inquiryStatus.includes("접수") ? styles.success : styles.error}`}>{inquiryStatus}</div> : null}
-            <button type="submit" className={styles.submitButton} disabled={inquirySaving}>{inquirySaving ? "접수 중..." : "상담 신청하기"}</button>
+            {homeInquiryStatus ? (
+              <div className={`${styles.formStatus} ${homeInquiryStatus.includes("완료") ? styles.success : styles.error}`}>
+                {homeInquiryStatus}
+              </div>
+            ) : null}
+            <button type="submit" className={styles.submitButton} disabled={homeInquirySaving}>
+              {homeInquirySaving ? "접수 중..." : "상담 신청하기"}
+            </button>
           </form>
         </section>
 
-        <section ref={lookupRef} id="lookup" className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div className={styles.sectionMini}>간편 조회</div>
-            <h2 className={styles.sectionTitle}>시세조회</h2>
-            <p className={styles.sectionDesc}>지역과 단지를 선택하면 바로 조회할 수 있습니다.</p>
+        <section ref={priceRef} id="mobile-price" className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <span>시세조회</span>
+            <h2>지역과 단지를 선택해 확인해보세요</h2>
           </div>
-
           <div className={styles.formCard}>
             <label className={styles.field}>
               <span>시/도</span>
               <select value={selectedCity} onChange={(e) => {
-                const value = e.target.value;
-                setSelectedCity(value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea("");
-                loadCatalogOptions({ city: value, district: "", town: "", apartment: "", area: "" });
+                setSelectedCity(e.target.value);
+                setSelectedDistrict("");
+                setSelectedTown("");
+                setSelectedApartment("");
+                setSelectedArea("");
               }}>
-                <option value="">선택해 주세요</option>
+                <option value="">선택하세요</option>
                 {catalogOptions.cities.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label className={styles.field}>
               <span>시/군/구</span>
               <select value={selectedDistrict} onChange={(e) => {
-                const value = e.target.value;
-                setSelectedDistrict(value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea("");
-                loadCatalogOptions({ city: selectedCity, district: value, town: "", apartment: "", area: "" });
+                setSelectedDistrict(e.target.value);
+                setSelectedTown("");
+                setSelectedApartment("");
+                setSelectedArea("");
               }}>
-                <option value="">선택해 주세요</option>
+                <option value="">선택하세요</option>
                 {catalogOptions.districts.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label className={styles.field}>
               <span>읍/면/동</span>
               <select value={selectedTown} onChange={(e) => {
-                const value = e.target.value;
-                setSelectedTown(value); setSelectedApartment(""); setSelectedArea("");
-                loadCatalogOptions({ city: selectedCity, district: selectedDistrict, town: value, apartment: "", area: "" });
+                setSelectedTown(e.target.value);
+                setSelectedApartment("");
+                setSelectedArea("");
               }}>
-                <option value="">선택해 주세요</option>
+                <option value="">선택하세요</option>
                 {catalogOptions.towns.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label className={styles.field}>
-              <span>아파트</span>
+              <span>아파트명 검색</span>
+              <input value={apartmentQuery} onChange={(e) => setApartmentQuery(e.target.value)} placeholder="아파트명을 입력해주세요" />
+            </label>
+            <label className={styles.field}>
+              <span>단지 선택</span>
               <select value={selectedApartment} onChange={(e) => {
-                const value = e.target.value;
-                setSelectedApartment(value); setSelectedArea("");
-                loadCatalogOptions({ city: selectedCity, district: selectedDistrict, town: selectedTown, apartment: value, area: "" });
+                setSelectedApartment(e.target.value);
+                setSelectedArea("");
               }}>
-                <option value="">선택해 주세요</option>
+                <option value="">선택하세요</option>
                 {catalogOptions.apartments.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label className={styles.field}>
-              <span>면적</span>
+              <span>면적 선택</span>
               <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}>
-                <option value="">선택해 주세요</option>
+                <option value="">선택하세요</option>
                 {catalogOptions.areas.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
-            {selectedSummary ? <div className={styles.summaryBox}>{selectedSummary}</div> : null}
-            {catalogMessage ? <div className={`${styles.status} ${catalogMessage.includes("모두 선택") ? styles.error : styles.info}`}>{catalogMessage}</div> : null}
-            <button type="button" className={styles.submitButton} onClick={handleLookup} disabled={catalogLoading}>
-              {catalogLoading ? "불러오는 중..." : "시세조회 하기"}
-            </button>
+            {catalogLoading ? <div className={styles.inlineNote}>단지 정보를 불러오는 중입니다.</div> : null}
+            {catalogError ? <div className={`${styles.formStatus} ${styles.error}`}>{catalogError}</div> : null}
           </div>
         </section>
 
-        <section ref={reviewsRef} id="reviews" className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div className={styles.sectionMini}>실제 후기</div>
-            <h2 className={styles.sectionTitle}>승인사례</h2>
+        <section ref={approvalRef} id="mobile-approval" className={styles.section}>
+          <div className={styles.sectionHeaderRow}>
+            <div className={styles.sectionHeader}>
+              <span>승인사례</span>
+              <h2>실제 진행 사례를 확인해보세요</h2>
+            </div>
+            <button type="button" className={styles.moreButton} onClick={() => setApprovalStart((prev) => (prev + 1) % APPROVAL_CASES.length)}>
+              다음
+            </button>
           </div>
-          <div className={styles.reviewList}>
-            {approvalCases.map((item) => (
-              <article key={item.id} className={styles.reviewCard}>
-                <div className={styles.reviewTop}>
-                  <strong>승인사례</strong>
-                  <span>{item.name}</span>
+          <div className={styles.caseList}>
+            {visibleCases.map((item) => (
+              <article key={item.id} className={styles.caseCard}>
+                <div className={styles.caseBadge}>승인</div>
+                <strong className={styles.caseName}>{item.name}</strong>
+                <div className={styles.caseLines}>
+                  {item.lines.filter(Boolean).map((line, idx) => <span key={`${item.id}-${idx}`}>{line}</span>)}
                 </div>
-                <p>{item.content}</p>
               </article>
             ))}
           </div>
         </section>
 
         <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div className={styles.sectionMini}>자주 묻는 질문</div>
-            <h2 className={styles.sectionTitle}>FAQ</h2>
+          <div className={styles.sectionHeader}>
+            <span>FAQ</span>
+            <h2>자주 묻는 질문</h2>
           </div>
           <div className={styles.faqList}>
-            {faqItems.map((item, index) => (
-              <div key={item.q} className={styles.faqItem}>
-                <button type="button" className={styles.faqQuestion} onClick={() => setActiveFaq(activeFaq === index ? -1 : index)}>
-                  <span>{item.q}</span>
-                  <span>{activeFaq === index ? "−" : "+"}</span>
-                </button>
-                {activeFaq === index ? <div className={styles.faqAnswer}>{item.a}</div> : null}
-              </div>
+            {FAQ_ITEMS.map((item) => (
+              <article key={item.q} className={styles.faqItem}>
+                <strong>{item.q}</strong>
+                <p>{item.a}</p>
+              </article>
             ))}
           </div>
         </section>
@@ -376,9 +446,9 @@ export default function MobileLandingPage() {
         <div className={styles.legalLines}>
           <div>이자율 : 연6% ~ 연20% 이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용 없음)</div>
           <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
-          <div>과도한 빚은 고통의 시작입니다. 대출 시 귀하의 신용등급이 하락할 수 있습니다.</div>
+          <div>과도한 빚, 고통의 시작입니다. 대출 시 귀하의 신용등급이 하락할 수 있습니다.</div>
         </div>
-        <div className={styles.metaGrid}>
+        <div className={styles.legalMeta}>
           <span>상호 : 엔드아이에셋대부</span>
           <span>대표자(성명) : 최종원</span>
           <span>대표전화 : 070-8018-7437</span>
@@ -391,8 +461,8 @@ export default function MobileLandingPage() {
       </footer>
 
       <div className={styles.bottomBar}>
-        <a href={`tel:${displayPhone}`} className={styles.bottomCall}>전화상담</a>
-        <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className={styles.bottomKakao}>카카오톡 상담</a>
+        <a className={styles.bottomCall} href={`tel:${sanitizePhone(displayPhone)}`}>전화상담</a>
+        <a className={styles.bottomKakao} href={displayKakaoUrl} target="_blank" rel="noreferrer">카카오톡 상담</a>
       </div>
     </div>
   );
