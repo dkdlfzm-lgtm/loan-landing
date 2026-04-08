@@ -15,56 +15,16 @@ const LOAN_TYPE_OPTIONS = [
 ];
 
 const APPROVAL_CASES = [
-  {
-    id: "case-1",
-    name: "김*완님",
-    lines: ["신*은행 3억 2000만원", "피*펀* 1억 3000만원 이용중", "새** 4.9억 4.8% 승인"],
-  },
-  {
-    id: "case-2",
-    name: "정*빈님",
-    lines: ["신*은행 1억 2000만원", "아*앤* 4500만원 이용중", "원*농* 1.86억 5.2% 승인"],
-  },
-  {
-    id: "case-3",
-    name: "문*경님",
-    lines: ["국*은행 2억 4000만원", "대* 6000만원 이용중", "오**저축 3.62억 7.3% 승인"],
-  },
-  {
-    id: "case-4",
-    name: "김*영님",
-    lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"],
-  },
-  {
-    id: "case-5",
-    name: "박*석님",
-    lines: ["수*은행 2억", "S**저축 9100만원 이용중", "애**저축 3.5억 8.8% 승인"],
-  },
-  {
-    id: "case-6",
-    name: "허*현님",
-    lines: ["우*은행 1억 7000만원", "칵** 5200만원 이용중", "새** 2.49억 5.3% 승인"],
-  },
-  {
-    id: "case-7",
-    name: "한*희님",
-    lines: ["국*은행 8700만원", "티*레* 3500만원 이용중", "오**저축 1.52억 7% 승인"],
-  },
-  {
-    id: "case-8",
-    name: "이*준님",
-    lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"],
-  },
-  {
-    id: "case-9",
-    name: "박*정님",
-    lines: ["애**저축 6억 8000만원 이용중", "", "신* 7.25억 4.9% 승인"],
-  },
-  {
-    id: "case-10",
-    name: "임*주님",
-    lines: ["새** 2억 8900만원 이용중", "", "수*은행 3.15억 5.1% 승인"],
-  },
+  { id: "case-1", name: "김*완님", lines: ["신*은행 3억 2000만원", "피*펀* 1억 3000만원 이용중", "새** 4.9억 4.8% 승인"] },
+  { id: "case-2", name: "정*빈님", lines: ["신*은행 1억 2000만원", "아*앤* 4500만원 이용중", "원*농* 1.86억 5.2% 승인"] },
+  { id: "case-3", name: "문*경님", lines: ["국*은행 2억 4000만원", "대* 6000만원 이용중", "오**저축 3.62억 7.3% 승인"] },
+  { id: "case-4", name: "김*영님", lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"] },
+  { id: "case-5", name: "박*석님", lines: ["수*은행 2억", "S**저축 9100만원 이용중", "애**저축 3.5억 8.8% 승인"] },
+  { id: "case-6", name: "허*현님", lines: ["우*은행 1억 7000만원", "칵** 5200만원 이용중", "새** 2.49억 5.3% 승인"] },
+  { id: "case-7", name: "한*희님", lines: ["국*은행 8700만원", "티*레* 3500만원 이용중", "오**저축 1.52억 7% 승인"] },
+  { id: "case-8", name: "이*준님", lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"] },
+  { id: "case-9", name: "박*정님", lines: ["애**저축 6억 8000만원 이용중", "", "신* 7.25억 4.9% 승인"] },
+  { id: "case-10", name: "임*주님", lines: ["새** 2억 8900만원 이용중", "", "수*은행 3.15억 5.1% 승인"] },
 ];
 
 const FAQ_ITEMS = [
@@ -93,11 +53,23 @@ function formatDisplayPhone(value) {
   return value || "";
 }
 
+function formatPhoneForCard(value) {
+  const display = formatDisplayPhone(value);
+  const parts = display.split("-");
+  return parts.length === 3 ? `${parts[0]}-${parts[1]}\n${parts[2]}` : display;
+}
+
 function MultiLineTitle({ text }) {
   return String(text || "")
     .split("\n")
     .filter(Boolean)
     .map((line, idx) => <span key={`${line}-${idx}`}>{line}</span>);
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
 }
 
 export default function MobileLandingPage() {
@@ -114,11 +86,10 @@ export default function MobileLandingPage() {
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
-  const [approvalStart, setApprovalStart] = useState(0);
+  const [casePageIndex, setCasePageIndex] = useState(0);
 
   const consultRef = useRef(null);
   const priceRef = useRef(null);
-  const approvalRef = useRef(null);
 
   const displayPhone = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
   const displayKakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
@@ -126,6 +97,8 @@ export default function MobileLandingPage() {
   const displayLogoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
   const heroBadge = siteSettings.hero_badge || DEFAULT_SITE_SETTINGS.hero_badge;
   const heroTitle = siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title;
+
+  const casePages = useMemo(() => chunkArray(APPROVAL_CASES, 3), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,17 +162,12 @@ export default function MobileLandingPage() {
   }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
 
   useEffect(() => {
-    if (APPROVAL_CASES.length <= 3) return undefined;
+    if (casePages.length <= 1) return undefined;
     const timer = window.setInterval(() => {
-      setApprovalStart((prev) => (prev + 1) % APPROVAL_CASES.length);
-    }, 3800);
+      setCasePageIndex((prev) => (prev + 1) % casePages.length);
+    }, 4200);
     return () => window.clearInterval(timer);
-  }, []);
-
-  const visibleCases = useMemo(() => {
-    const total = APPROVAL_CASES.length;
-    return Array.from({ length: Math.min(3, total) }, (_, idx) => APPROVAL_CASES[(approvalStart + idx) % total]);
-  }, [approvalStart]);
+  }, [casePages.length]);
 
   function moveTo(ref) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -265,24 +233,33 @@ export default function MobileLandingPage() {
 
           <div className={styles.quickGrid}>
             <button type="button" className={`${styles.quickCard} ${styles.primaryCard}`} onClick={() => moveTo(consultRef)}>
-              <strong>상담 신청</strong>
+              <div className={styles.cardHead}>
+                <strong>상담 신청</strong>
+              </div>
               <span>이름과 연락처만 남기면 접수 완료</span>
             </button>
+
             <button type="button" className={styles.quickCard} onClick={() => moveTo(priceRef)}>
-              <strong>시세조회</strong>
+              <div className={styles.cardHead}>
+                <strong>시세조회</strong>
+              </div>
               <span>지역과 단지 선택 후 바로 확인</span>
             </button>
-            <a className={styles.quickCard} href={`tel:${sanitizePhone(displayPhone)}`}>
+
+            <a className={`${styles.quickCard} ${styles.contactCard}`} href={`tel:${sanitizePhone(displayPhone)}`}>
               <span className={styles.quickLabel}>대표번호</span>
               <div className={styles.iconCircle}>☎</div>
-              <strong>전화 상담</strong>
-              <b>{formatDisplayPhone(displayPhone).replace(/-/g, "\n")}</b>
+              <strong>전화상담</strong>
+              <b>{formatPhoneForCard(displayPhone)}</b>
+              <small>클릭 시 바로 연결됩니다</small>
             </a>
-            <a className={`${styles.quickCard} ${styles.kakaoCard}`} href={displayKakaoUrl} target="_blank" rel="noreferrer">
+
+            <a className={`${styles.quickCard} ${styles.contactCard} ${styles.kakaoCard}`} href={displayKakaoUrl} target="_blank" rel="noreferrer">
               <span className={styles.quickLabel}>카카오톡</span>
               <div className={`${styles.iconCircle} ${styles.kakaoIcon}`}>TALK</div>
               <strong>카카오톡 상담</strong>
               <b>{displayKakaoId}</b>
+              <small>클릭 시 바로 연결됩니다</small>
             </a>
           </div>
         </section>
@@ -403,25 +380,47 @@ export default function MobileLandingPage() {
           </div>
         </section>
 
-        <section ref={approvalRef} id="mobile-approval" className={styles.section}>
+        <section id="mobile-approval" className={styles.section}>
           <div className={styles.sectionHeaderRow}>
             <div className={styles.sectionHeader}>
               <span>승인사례</span>
               <h2>실제 진행 사례를 확인해보세요</h2>
             </div>
-            <button type="button" className={styles.moreButton} onClick={() => setApprovalStart((prev) => (prev + 1) % APPROVAL_CASES.length)}>
+            <button type="button" className={styles.moreButton} onClick={() => setCasePageIndex((prev) => (prev + 1) % casePages.length)}>
               다음
             </button>
           </div>
-          <div className={styles.caseList}>
-            {visibleCases.map((item) => (
-              <article key={item.id} className={styles.caseCard}>
-                <div className={styles.caseBadge}>승인</div>
-                <strong className={styles.caseName}>{item.name}</strong>
-                <div className={styles.caseLines}>
-                  {item.lines.filter(Boolean).map((line, idx) => <span key={`${item.id}-${idx}`}>{line}</span>)}
+
+          <div className={styles.caseViewport}>
+            <div
+              className={styles.caseTrack}
+              style={{ transform: `translateX(-${casePageIndex * 100}%)` }}
+            >
+              {casePages.map((page, pageIdx) => (
+                <div key={`page-${pageIdx}`} className={styles.casePage}>
+                  {page.map((item) => (
+                    <article key={item.id} className={styles.caseCard}>
+                      <div className={styles.caseBadge}>승인</div>
+                      <strong className={styles.caseName}>{item.name}</strong>
+                      <div className={styles.caseLines}>
+                        {item.lines.filter(Boolean).map((line, idx) => <span key={`${item.id}-${idx}`}>{line}</span>)}
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.caseDots}>
+            {casePages.map((_, idx) => (
+              <button
+                key={`dot-${idx}`}
+                type="button"
+                aria-label={`${idx + 1}번째 승인사례 보기`}
+                className={`${styles.caseDot} ${idx === casePageIndex ? styles.caseDotActive : ""}`}
+                onClick={() => setCasePageIndex(idx)}
+              />
             ))}
           </div>
         </section>
