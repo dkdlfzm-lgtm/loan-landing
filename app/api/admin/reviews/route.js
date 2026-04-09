@@ -43,13 +43,13 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const title = String(body?.title || "").trim();
+    const name = String(body?.name || body?.title || "관리자 등록 사례").trim() || "관리자 등록 사례";
+    const title = String(body?.title || body?.name || "").trim() || name;
     const content = String(body?.content || "").trim();
-    const name = String(body?.name || "관리자 등록 사례").trim() || "관리자 등록 사례";
     const status = body?.status === "hidden" ? "hidden" : "published";
 
-    if (!title || !content) {
-      return NextResponse.json({ ok: false, message: "제목과 내용을 입력해주세요." }, { status: 400 });
+    if (!name || !content) {
+      return NextResponse.json({ ok: false, message: "고객이름과 내용을 입력해주세요." }, { status: 400 });
     }
 
     const inserted = await supabaseRest("/reviews", {

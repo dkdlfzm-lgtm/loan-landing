@@ -61,7 +61,7 @@ export default function ManagePage() {
   const [reviews, setReviews] = useState([]);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
-  const [reviewForm, setReviewForm] = useState({ customerName: "", currentLoan: "", approvalResult: "", status: "published" });
+  const [reviewForm, setReviewForm] = useState({ name: "", currentLoan: "", approvalResult: "", status: "published" });
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [activeMenu, setActiveMenu] = useState("brand");
@@ -182,15 +182,15 @@ export default function ManagePage() {
   }
 
   function resetReviewForm() {
-    setReviewForm({ customerName: "", currentLoan: "", approvalResult: "", status: "published" });
+    setReviewForm({ name: "", currentLoan: "", approvalResult: "", status: "published" });
     setEditingReviewId(null);
   }
 
   function startEditReview(review) {
-    setEditingReviewId(review.id);
     const parsed = parseApprovalCase(review);
+    setEditingReviewId(review.id);
     setReviewForm({
-      customerName: String(parsed.customerName || ""),
+      name: String(parsed.customerName || ""),
       currentLoan: String(parsed.currentLoan || ""),
       approvalResult: String(parsed.approvalResult || ""),
       status: review.status === "hidden" ? "hidden" : "published",
@@ -203,14 +203,14 @@ export default function ManagePage() {
     setReviewMessage("");
 
     const payload = {
-      name: String(reviewForm.customerName || "").trim(),
-      title: String(reviewForm.customerName || "").trim(),
+      name: String(reviewForm.name || "").trim(),
+      title: String(reviewForm.name || "").trim(),
       content: buildApprovalCaseContent(reviewForm.currentLoan, reviewForm.approvalResult),
       status: reviewForm.status === "hidden" ? "hidden" : "published",
     };
 
     if (!payload.name || !String(reviewForm.currentLoan || "").trim() || !String(reviewForm.approvalResult || "").trim()) {
-      setReviewMessage("고객이름, 이용중 내용, 승인 내용을 입력해주세요.");
+      setReviewMessage("고객이름, 내용, 승인을 입력해주세요.");
       return;
     }
 
@@ -517,7 +517,7 @@ export default function ManagePage() {
                   <div className="two-col compact-two-col">
                     <div className="field">
                       <label>고객이름 입력칸</label>
-                      <input value={reviewForm.customerName} onChange={(e) => setReviewForm((prev) => ({ ...prev, customerName: e.target.value }))} placeholder="예: 김*완님" />
+                      <input value={reviewForm.name} onChange={(e) => setReviewForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="예: 김*완님" />
                     </div>
                     <div className="field">
                       <label>노출 상태</label>
@@ -544,15 +544,18 @@ export default function ManagePage() {
                 {reviewLoading ? <div className="crm-empty-state">승인사례 목록을 불러오는 중입니다.</div> : null}
                 {!reviewLoading ? (
                   <div className="manage-review-list">
-                    {reviews.length === 0 ? <div className="crm-empty-state">등록된 승인사례가 없습니다.</div> : reviews.map((review) => (
+                    {reviews.length === 0 ? <div className="crm-empty-state">등록된 승인사례가 없습니다.</div> : reviews.map((review) => {
+                      const parsed = parseApprovalCase(review);
+                      return (
                       <div key={review.id} className="manage-review-item">
                         <div className="manage-review-copy">
                           <div className="manage-review-topline">
-                            <strong>{parseApprovalCase(review).customerName || review.title}</strong>
+                            <strong>{parsed.customerName || review.title}</strong>
                             <span className={`status-chip ${review.status === "published" ? "status-approved" : "status-hold"}`}>{review.status === "published" ? "노출중" : "숨김"}</span>
                           </div>
                           <div className="manage-review-meta">{String(review.created_at || "").slice(0, 10)} · 조회수 {Number(review.view_count || 0)}</div>
-                          <p><span className="manage-review-current">{parseApprovalCase(review).currentLoan}</span><span className="manage-review-approved">{parseApprovalCase(review).approvalResult}</span></p>
+                          <p>{parsed.currentLoan}</p>
+                          <p style={{ fontWeight: 700, color: '#2457d6' }}>{parsed.approvalResult}</p>
                         </div>
                         <div className="manage-review-actions">
                           <button type="button" className="secondary-btn" onClick={() => startEditReview(review)} disabled={reviewSaving}>수정</button>
@@ -560,7 +563,7 @@ export default function ManagePage() {
                           <button type="button" className="admin-delete-btn" onClick={() => deleteReview(review.id)} disabled={reviewSaving}>삭제</button>
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 ) : null}
               </div>

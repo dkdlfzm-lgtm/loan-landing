@@ -27,8 +27,8 @@ export async function PATCH(request, { params }) {
       payload.name = String(body.name || "관리자 등록 사례").trim() || "관리자 등록 사례";
     }
 
-    if (("title" in payload && !payload.title) || ("content" in payload && !payload.content)) {
-      return NextResponse.json({ ok: false, message: "제목과 내용을 입력해주세요." }, { status: 400 });
+    if (("name" in payload && !payload.name) || ("title" in payload && !payload.title) || ("content" in payload && !payload.content)) {
+      return NextResponse.json({ ok: false, message: "고객이름과 내용을 입력해주세요." }, { status: 400 });
     }
 
     const updated = await supabaseRest(`/reviews?id=eq.${params.id}`, {

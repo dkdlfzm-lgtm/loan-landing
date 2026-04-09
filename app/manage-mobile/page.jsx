@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, parseBoolean } from "../../lib/site-settings";
+import { buildApprovalCaseContent, parseApprovalCase } from "../../lib/approval-case-format";
 
 const MENUS = [
   { key: "brand", label: "기본정보" },
@@ -60,7 +61,7 @@ export default function ManageMobilePage() {
   const [reviews, setReviews] = useState([]);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
-  const [reviewForm, setReviewForm] = useState({ title: "", content: "", status: "published" });
+  const [reviewForm, setReviewForm] = useState({ name: "", currentLoan: "", approvalResult: "", status: "published" });
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [activeMenu, setActiveMenu] = useState("brand");
@@ -182,15 +183,17 @@ export default function ManageMobilePage() {
   }
 
   function resetReviewForm() {
-    setReviewForm({ title: "", content: "", status: "published" });
+    setReviewForm({ name: "", currentLoan: "", approvalResult: "", status: "published" });
     setEditingReviewId(null);
   }
 
   function startEditReview(review) {
+    const parsed = parseApprovalCase(review);
     setEditingReviewId(review.id);
     setReviewForm({
-      title: String(review.title || ""),
-      content: String(review.content || ""),
+      name: String(parsed.customerName || ""),
+      currentLoan: String(parsed.currentLoan || ""),
+      approvalResult: String(parsed.approvalResult || ""),
       status: review.status === "hidden" ? "hidden" : "published",
     });
     setReviewMessage("");
@@ -201,13 +204,14 @@ export default function ManageMobilePage() {
     setReviewMessage("");
 
     const payload = {
-      title: String(reviewForm.title || "").trim(),
-      content: String(reviewForm.content || "").trim(),
+      name: String(reviewForm.name || "").trim(),
+      title: String(reviewForm.name || "").trim(),
+      content: buildApprovalCaseContent(reviewForm.currentLoan, reviewForm.approvalResult),
       status: reviewForm.status === "hidden" ? "hidden" : "published",
     };
 
-    if (!payload.title || !payload.content) {
-      setReviewMessage("제목과 내용을 입력해주세요.");
+    if (!payload.name || !String(reviewForm.currentLoan || "").trim() || !String(reviewForm.approvalResult || "").trim()) {
+      setReviewMessage("고객이름, 내용, 승인을 입력해주세요.");
       return;
     }
 
@@ -514,8 +518,8 @@ export default function ManageMobilePage() {
                 <form className="form-stack" onSubmit={handleReviewSubmit}>
                   <div className="two-col compact-two-col">
                     <div className="field">
-                      <label>사례 제목</label>
-                      <input value={reviewForm.title} onChange={(e) => setReviewForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="예: 아파트 담보대출 승인 사례" />
+                      <label>고객이름 입력칸</label>
+                      <input value={reviewForm.name} onChange={(e) => setReviewForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="예: 김*완님" />
                     </div>
                     <div className="field">
                       <label>노출 상태</label>
@@ -526,8 +530,12 @@ export default function ManageMobilePage() {
                     </div>
                   </div>
                   <div className="field">
-                    <label>사례 내용</label>
-                    <textarea rows={6} value={reviewForm.content} onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))} placeholder="승인사례 내용을 입력하세요." />
+                    <label>내용</label>
+                    <textarea rows={4} value={reviewForm.currentLoan} onChange={(e) => setReviewForm((prev) => ({ ...prev, currentLoan: e.target.value }))} placeholder="예: 신*은행 3억 2000만원, 피*펀* 1억 3000만원 이용중" />
+                  </div>
+                  <div className="field">
+                    <label>승인</label>
+                    <textarea rows={3} value={reviewForm.approvalResult} onChange={(e) => setReviewForm((prev) => ({ ...prev, approvalResult: e.target.value }))} placeholder="예: 새** 4.9억 4.8% 승인" />
                   </div>
                   <div className="manage-actions">
                     <button type="button" className="secondary-btn" onClick={resetReviewForm} disabled={reviewSaving}>새 글 작성</button>
@@ -538,15 +546,18 @@ export default function ManageMobilePage() {
                 {reviewLoading ? <div className="crm-empty-state">승인사례 목록을 불러오는 중입니다.</div> : null}
                 {!reviewLoading ? (
                   <div className="manage-review-list">
-                    {reviews.length === 0 ? <div className="crm-empty-state">등록된 승인사례가 없습니다.</div> : reviews.map((review) => (
+                    {reviews.length === 0 ? <div className="crm-empty-state">등록된 승인사례가 없습니다.</div> : reviews.map((review) => {
+                      const parsed = parseApprovalCase(review);
+                      return (
                       <div key={review.id} className="manage-review-item">
                         <div className="manage-review-copy">
                           <div className="manage-review-topline">
-                            <strong>{review.title}</strong>
+                            <strong>{parsed.customerName || review.title}</strong>
                             <span className={`status-chip ${review.status === "published" ? "status-approved" : "status-hold"}`}>{review.status === "published" ? "노출중" : "숨김"}</span>
                           </div>
                           <div className="manage-review-meta">{String(review.created_at || "").slice(0, 10)} · 조회수 {Number(review.view_count || 0)}</div>
-                          <p>{review.content}</p>
+                          <p>{parsed.currentLoan}</p>
+                          <p style={{ fontWeight: 700, color: '#2457d6' }}>{parsed.approvalResult}</p>
                         </div>
                         <div className="manage-review-actions">
                           <button type="button" className="secondary-btn" onClick={() => startEditReview(review)} disabled={reviewSaving}>수정</button>
@@ -554,7 +565,7 @@ export default function ManageMobilePage() {
                           <button type="button" className="admin-delete-btn" onClick={() => deleteReview(review.id)} disabled={reviewSaving}>삭제</button>
                         </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 ) : null}
               </div>
