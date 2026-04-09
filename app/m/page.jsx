@@ -14,7 +14,7 @@ const LOAN_TYPE_OPTIONS = [
   "기타",
 ];
 
-const APPROVAL_CASES = [
+const FALLBACK_APPROVAL_CASES = [
   { id: "case-1", name: "김*완님", lines: ["신*은행 3억 2000만원", "피*펀* 1억 3000만원 이용중", "새** 4.9억 4.8% 승인"] },
   { id: "case-2", name: "정*빈님", lines: ["신*은행 1억 2000만원", "아*앤* 4500만원 이용중", "원*농* 1.86억 5.2% 승인"] },
   { id: "case-3", name: "문*경님", lines: ["국*은행 2억 4000만원", "대* 6000만원 이용중", "오**저축 3.62억 7.3% 승인"] },
@@ -87,6 +87,7 @@ export default function MobileLandingPage() {
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [casePageIndex, setCasePageIndex] = useState(0);
+  const [approvalCases, setApprovalCases] = useState(FALLBACK_APPROVAL_CASES);
 
   const consultRef = useRef(null);
   const priceRef = useRef(null);
@@ -98,7 +99,7 @@ export default function MobileLandingPage() {
   const heroBadge = siteSettings.hero_badge || DEFAULT_SITE_SETTINGS.hero_badge;
   const heroTitle = siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title;
 
-  const casePages = useMemo(() => chunkArray(APPROVAL_CASES, 3), []);
+  const casePages = useMemo(() => chunkArray(approvalCases, 3), [approvalCases]);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +120,46 @@ export default function MobileLandingPage() {
       }
     }
     loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadApprovalCases() {
+      try {
+        const res = await fetch("/api/reviews?limit=50", { cache: "no-store" });
+        const data = await res.json();
+
+        if (!res.ok || data?.ok === false) {
+          throw new Error(data?.message || "승인사례를 불러오지 못했습니다.");
+        }
+
+        const nextCases = Array.isArray(data?.reviews)
+          ? data.reviews
+              .filter((item) => item?.status !== "hidden")
+              .map((item) => ({
+                id: item.id,
+                name: String(item.title || item.name || "승인사례"),
+                lines: String(item.content || "")
+                  .split(/\r?\n/)
+                  .map((line) => line.trim())
+                  .filter(Boolean),
+              }))
+              .filter((item) => item.name || item.lines.length)
+          : [];
+
+        if (!cancelled) {
+          setApprovalCases(nextCases.length ? nextCases : FALLBACK_APPROVAL_CASES);
+        }
+      } catch {
+        if (!cancelled) setApprovalCases(FALLBACK_APPROVAL_CASES);
+      }
+    }
+
+    loadApprovalCases();
     return () => {
       cancelled = true;
     };
@@ -160,6 +201,10 @@ export default function MobileLandingPage() {
       cancelled = true;
     };
   }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
+
+  useEffect(() => {
+    setCasePageIndex(0);
+  }, [casePages.length]);
 
   useEffect(() => {
     if (casePages.length <= 1) return undefined;

@@ -196,8 +196,49 @@ export default function LoanLandingPage() {
   }, []);
 
   useEffect(() => {
-    setApprovalCases(SHARED_APPROVAL_CASES);
+    let cancelled = false;
+
+    async function loadApprovalCases() {
+      try {
+        const response = await fetch("/api/reviews?limit=50", { cache: "no-store" });
+        const data = await response.json();
+
+        if (!response.ok || data?.ok === false) {
+          throw new Error(data?.message || "승인사례를 불러오지 못했습니다.");
+        }
+
+        const nextCases = Array.isArray(data?.reviews)
+          ? data.reviews
+              .filter((item) => item?.status !== "hidden")
+              .map((item) => ({
+                id: item.id,
+                title: String(item.title || item.name || "승인사례"),
+                content: String(item.content || "").trim(),
+              }))
+              .filter((item) => item.title || item.content)
+          : [];
+
+        if (!cancelled) {
+          setApprovalCases(nextCases.length ? nextCases : SHARED_APPROVAL_CASES);
+        }
+      } catch {
+        if (!cancelled) {
+          setApprovalCases(SHARED_APPROVAL_CASES);
+        }
+      }
+    }
+
+    loadApprovalCases();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    setApprovalSlide(0);
+    setApprovalDirection("next");
+    setApprovalAnimating(false);
+  }, [approvalCases.length]);
 
   useEffect(() => {
     let cancelled = false;
