@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./mobile.module.css";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../../lib/site-settings";
+import { SHARED_APPROVAL_CASES } from "../../lib/approval-cases";
+import { mapReviewToApprovalCard } from "../../lib/approval-case-format";
 
 const LOAN_TYPE_OPTIONS = [
   "주택담보대출",
@@ -14,18 +16,12 @@ const LOAN_TYPE_OPTIONS = [
   "기타",
 ];
 
-const FALLBACK_APPROVAL_CASES = [
-  { id: "case-1", name: "김*완님", lines: ["신*은행 3억 2000만원", "피*펀* 1억 3000만원 이용중", "새** 4.9억 4.8% 승인"] },
-  { id: "case-2", name: "정*빈님", lines: ["신*은행 1억 2000만원", "아*앤* 4500만원 이용중", "원*농* 1.86억 5.2% 승인"] },
-  { id: "case-3", name: "문*경님", lines: ["국*은행 2억 4000만원", "대* 6000만원 이용중", "오**저축 3.62억 7.3% 승인"] },
-  { id: "case-4", name: "김*영님", lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"] },
-  { id: "case-5", name: "박*석님", lines: ["수*은행 2억", "S**저축 9100만원 이용중", "애**저축 3.5억 8.8% 승인"] },
-  { id: "case-6", name: "허*현님", lines: ["우*은행 1억 7000만원", "칵** 5200만원 이용중", "새** 2.49억 5.3% 승인"] },
-  { id: "case-7", name: "한*희님", lines: ["국*은행 8700만원", "티*레* 3500만원 이용중", "오**저축 1.52억 7% 승인"] },
-  { id: "case-8", name: "이*준님", lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"] },
-  { id: "case-9", name: "박*정님", lines: ["애**저축 6억 8000만원 이용중", "", "신* 7.25억 4.9% 승인"] },
-  { id: "case-10", name: "임*주님", lines: ["새** 2억 8900만원 이용중", "", "수*은행 3.15억 5.1% 승인"] },
-];
+const APPROVAL_CASES = SHARED_APPROVAL_CASES.map((item) => ({
+  id: item.id,
+  customerName: item.title,
+  currentLoan: String(item.content || "").split("\n")[0] || "",
+  approvalResult: String(item.content || "").split("\n").slice(1).join(" ") || "",
+}));
 
 const FAQ_ITEMS = [
   {
@@ -87,7 +83,7 @@ export default function MobileLandingPage() {
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [casePageIndex, setCasePageIndex] = useState(0);
-  const [approvalCases, setApprovalCases] = useState(FALLBACK_APPROVAL_CASES);
+  const [approvalCases, setApprovalCases] = useState(APPROVAL_CASES);
 
   const consultRef = useRef(null);
   const priceRef = useRef(null);
@@ -127,38 +123,15 @@ export default function MobileLandingPage() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function loadApprovalCases() {
       try {
-        const res = await fetch("/api/reviews?limit=50", { cache: "no-store" });
-        const data = await res.json();
-
-        if (!res.ok || data?.ok === false) {
-          throw new Error(data?.message || "승인사례를 불러오지 못했습니다.");
-        }
-
-        const nextCases = Array.isArray(data?.reviews)
-          ? data.reviews
-              .filter((item) => item?.status !== "hidden")
-              .map((item) => ({
-                id: item.id,
-                name: String(item.title || item.name || "승인사례"),
-                lines: String(item.content || "")
-                  .split(/\r?\n/)
-                  .map((line) => line.trim())
-                  .filter(Boolean),
-              }))
-              .filter((item) => item.name || item.lines.length)
-          : [];
-
-        if (!cancelled) {
-          setApprovalCases(nextCases.length ? nextCases : FALLBACK_APPROVAL_CASES);
-        }
-      } catch {
-        if (!cancelled) setApprovalCases(FALLBACK_APPROVAL_CASES);
-      }
+        const response = await fetch("/api/reviews?limit=20", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok || data?.ok === false) throw new Error();
+        const next = Array.isArray(data.reviews) ? data.reviews.map(mapReviewToApprovalCard).filter((item) => item.customerName && item.currentLoan && item.approvalResult) : [];
+        if (!cancelled && next.length) setApprovalCases(next);
+      } catch {}
     }
-
     loadApprovalCases();
     return () => {
       cancelled = true;
@@ -201,10 +174,6 @@ export default function MobileLandingPage() {
       cancelled = true;
     };
   }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
-
-  useEffect(() => {
-    setCasePageIndex(0);
-  }, [casePages.length]);
 
   useEffect(() => {
     if (casePages.length <= 1) return undefined;
@@ -446,9 +415,10 @@ export default function MobileLandingPage() {
                   {page.map((item) => (
                     <article key={item.id} className={styles.caseCard}>
                       <div className={styles.caseBadge}>승인</div>
-                      <strong className={styles.caseName}>{item.name}</strong>
+                      <strong className={styles.caseName}>{item.customerName || item.title}</strong>
                       <div className={styles.caseLines}>
-                        {item.lines.filter(Boolean).map((line, idx) => <span key={`${item.id}-${idx}`}>{line}</span>)}
+                        <span>{item.currentLoan}</span>
+                        <span className={styles.caseApproval}>{item.approvalResult}</span>
                       </div>
                     </article>
                   ))}

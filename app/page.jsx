@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../lib/site-settings";
 import { SHARED_APPROVAL_CASES } from "../lib/approval-cases";
+import { mapReviewToApprovalCard } from "../lib/approval-case-format";
 
 const statSlides = [
   {
@@ -130,7 +131,7 @@ export default function LoanLandingPage() {
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
-  const [approvalCases, setApprovalCases] = useState(SHARED_APPROVAL_CASES);
+  const [approvalCases, setApprovalCases] = useState(SHARED_APPROVAL_CASES.map(mapReviewToApprovalCard));
   const [promoDismissed, setPromoDismissed] = useState(false);
   const [promoReady, setPromoReady] = useState(false);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
@@ -197,48 +198,20 @@ export default function LoanLandingPage() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function loadApprovalCases() {
       try {
-        const response = await fetch("/api/reviews?limit=50", { cache: "no-store" });
+        const response = await fetch("/api/reviews?limit=20", { cache: "no-store" });
         const data = await response.json();
-
-        if (!response.ok || data?.ok === false) {
-          throw new Error(data?.message || "승인사례를 불러오지 못했습니다.");
-        }
-
-        const nextCases = Array.isArray(data?.reviews)
-          ? data.reviews
-              .filter((item) => item?.status !== "hidden")
-              .map((item) => ({
-                id: item.id,
-                title: String(item.title || item.name || "승인사례"),
-                content: String(item.content || "").trim(),
-              }))
-              .filter((item) => item.title || item.content)
-          : [];
-
-        if (!cancelled) {
-          setApprovalCases(nextCases.length ? nextCases : SHARED_APPROVAL_CASES);
-        }
+        if (!response.ok || data?.ok === false) throw new Error();
+        const next = Array.isArray(data.reviews) ? data.reviews.map(mapReviewToApprovalCard).filter((item) => item.customerName && item.currentLoan && item.approvalResult) : [];
+        if (!cancelled) setApprovalCases(next.length ? next : SHARED_APPROVAL_CASES.map(mapReviewToApprovalCard));
       } catch {
-        if (!cancelled) {
-          setApprovalCases(SHARED_APPROVAL_CASES);
-        }
+        if (!cancelled) setApprovalCases(SHARED_APPROVAL_CASES.map(mapReviewToApprovalCard));
       }
     }
-
     loadApprovalCases();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
-
-  useEffect(() => {
-    setApprovalSlide(0);
-    setApprovalDirection("next");
-    setApprovalAnimating(false);
-  }, [approvalCases.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -938,8 +911,11 @@ export default function LoanLandingPage() {
                                 className={`review-card approval-card ${idx === 0 && approvalDirection === "next" ? "is-primary" : ""}`}
                               >
                                 <div className="approval-card-badge">승인</div>
-                                <div className="review-card-title">{item.title}</div>
-                                <div className="review-card-desc">{item.content}</div>
+                                <div className="review-card-title approval-customer-name">{item.customerName || item.title}</div>
+                                <div className="review-card-desc approval-card-desc">
+                                  <div className="approval-current-loan">{item.currentLoan || ""}</div>
+                                  <div className="approval-approved-result">{item.approvalResult || item.content}</div>
+                                </div>
                               </article>
                             ))}
                           </div>

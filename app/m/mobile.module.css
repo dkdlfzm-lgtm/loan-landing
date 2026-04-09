@@ -564,3 +564,8 @@
     font-size: 21px;
   }
 }
+
+.caseApproval {
+  color: #2f63ce;
+  font-weight: 800;
+}

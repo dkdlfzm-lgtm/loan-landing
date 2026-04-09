@@ -2074,3 +2074,11 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
     transform:translateX(calc(-100% - 18px));
   }
 }
+
+.approval-customer-name{font-weight:900;color:#10213f;}
+.approval-card-desc{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.approval-current-loan{color:#526076;font-weight:600;line-height:1.7;}
+.approval-approved-result{color:#2f63ce;font-weight:800;line-height:1.7;}
+.manage-review-item p{display:flex;flex-direction:column;gap:6px;}
+.manage-review-current{color:#526076;font-weight:600;}
+.manage-review-approved{color:#2f63ce;font-weight:800;}
