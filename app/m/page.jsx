@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./mobile.module.css";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../../lib/site-settings";
-import { SHARED_APPROVAL_CASES } from "../../lib/approval-cases";
 import { mapReviewToApprovalCard } from "../../lib/approval-case-format";
 
 const LOAN_TYPE_OPTIONS = [
@@ -16,12 +15,26 @@ const LOAN_TYPE_OPTIONS = [
   "기타",
 ];
 
-const APPROVAL_CASES = SHARED_APPROVAL_CASES.map((item) => ({
-  id: item.id,
-  customerName: item.title,
-  currentLoan: String(item.content || "").split("\n")[0] || "",
-  approvalResult: String(item.content || "").split("\n").slice(1).join(" ") || "",
-}));
+const FALLBACK_APPROVAL_CASES = [
+  { id: "case-1", title: "김*완님", content: `신*은행 3억 2000만원
+피*펀* 1억 3000만원 이용중
+새** 4.9억 4.8% 승인`, lines: ["신*은행 3억 2000만원", "피*펀* 1억 3000만원 이용중", "새** 4.9억 4.8% 승인"] },
+  { id: "case-2", title: "정*빈님", content: `신*은행 1억 2000만원
+아*앤* 4500만원 이용중
+원*농* 1.86억 5.2% 승인`, lines: ["신*은행 1억 2000만원", "아*앤* 4500만원 이용중", "원*농* 1.86억 5.2% 승인"] },
+  { id: "case-3", title: "문*경님", content: `국*은행 2억 4000만원
+대* 6000만원 이용중
+오**저축 3.62억 7.3% 승인`, lines: ["국*은행 2억 4000만원", "대* 6000만원 이용중", "오**저축 3.62억 7.3% 승인"] },
+  { id: "case-4", title: "김*영님", content: `수*은행 3억 4000만원
+세입자 보증금 1억 이용중
+퇴거자금 유*** 1.1억 14% 승인`, lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"] },
+  { id: "case-5", title: "박*석님", content: `수*은행 2억
+S**저축 9100만원 이용중
+애**저축 3.5억 8.8% 승인`, lines: ["수*은행 2억", "S**저축 9100만원 이용중", "애**저축 3.5억 8.8% 승인"] },
+  { id: "case-6", title: "허*현님", content: `우*은행 1억 7000만원
+칵** 5200만원 이용중
+새** 2.49억 5.3% 승인`, lines: ["우*은행 1억 7000만원", "칵** 5200만원 이용중", "새** 2.49억 5.3% 승인"] },
+];
 
 const FAQ_ITEMS = [
   {
@@ -83,7 +96,7 @@ export default function MobileLandingPage() {
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [casePageIndex, setCasePageIndex] = useState(0);
-  const [approvalCases, setApprovalCases] = useState(APPROVAL_CASES);
+  const [approvalCases, setApprovalCases] = useState(FALLBACK_APPROVAL_CASES);
 
   const consultRef = useRef(null);
   const priceRef = useRef(null);
@@ -123,15 +136,28 @@ export default function MobileLandingPage() {
 
   useEffect(() => {
     let cancelled = false;
+
     async function loadApprovalCases() {
       try {
-        const response = await fetch("/api/reviews?limit=20", { cache: "no-store" });
-        const data = await response.json();
-        if (!response.ok || data?.ok === false) throw new Error();
-        const next = Array.isArray(data.reviews) ? data.reviews.map(mapReviewToApprovalCard).filter((item) => item.customerName && item.currentLoan && item.approvalResult) : [];
-        if (!cancelled && next.length) setApprovalCases(next);
-      } catch {}
+        const res = await fetch("/api/reviews?limit=20", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || data?.ok === false) throw new Error(data?.message || "승인사례를 불러오지 못했습니다.");
+
+        const rows = Array.isArray(data?.reviews) ? data.reviews : [];
+        const mapped = rows.map(mapReviewToApprovalCard).filter((item) => item.title || item.content);
+
+        if (!cancelled) {
+          setApprovalCases(mapped.length ? mapped : FALLBACK_APPROVAL_CASES);
+          setCasePageIndex(0);
+        }
+      } catch {
+        if (!cancelled) {
+          setApprovalCases(FALLBACK_APPROVAL_CASES);
+          setCasePageIndex(0);
+        }
+      }
     }
+
     loadApprovalCases();
     return () => {
       cancelled = true;
@@ -400,7 +426,7 @@ export default function MobileLandingPage() {
               <span>승인사례</span>
               <h2>실제 진행 사례를 확인해보세요</h2>
             </div>
-            <button type="button" className={styles.moreButton} onClick={() => setCasePageIndex((prev) => (prev + 1) % casePages.length)}>
+            <button type="button" className={styles.moreButton} onClick={() => { if (!casePages.length) return; setCasePageIndex((prev) => (prev + 1) % casePages.length); }}>
               다음
             </button>
           </div>
@@ -415,10 +441,9 @@ export default function MobileLandingPage() {
                   {page.map((item) => (
                     <article key={item.id} className={styles.caseCard}>
                       <div className={styles.caseBadge}>승인</div>
-                      <strong className={styles.caseName}>{item.customerName || item.title}</strong>
+                      <strong className={styles.caseName}>{item.title}</strong>
                       <div className={styles.caseLines}>
-                        <span>{item.currentLoan}</span>
-                        <span className={styles.caseApproval}>{item.approvalResult}</span>
+                        {(item.lines || []).filter(Boolean).map((line, idx) => <span key={`${item.id}-${idx}`}>{line}</span>)}
                       </div>
                     </article>
                   ))}
