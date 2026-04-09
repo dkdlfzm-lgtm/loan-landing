@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, readCachedSiteSettings } from "../lib/site-settings";
-import { SHARED_APPROVAL_CASES } from "../lib/approval-cases";
 import { mapReviewToApprovalCard } from "../lib/approval-case-format";
 
 const statSlides = [
@@ -131,7 +130,7 @@ export default function LoanLandingPage() {
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
-  const [approvalCases, setApprovalCases] = useState(SHARED_APPROVAL_CASES);
+  const [approvalCases, setApprovalCases] = useState([]);
   const [promoDismissed, setPromoDismissed] = useState(false);
   const [promoReady, setPromoReady] = useState(false);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
@@ -147,12 +146,12 @@ export default function LoanLandingPage() {
         const nextCases = Array.isArray(data.reviews)
           ? data.reviews.map(mapReviewToApprovalCard).filter((item) => item.customerName || item.title)
           : [];
-        if (!cancelled && nextCases.length) {
+        if (!cancelled) {
           setApprovalCases(nextCases);
           setApprovalSlide((prev) => Math.min(prev, Math.max(nextCases.length - 1, 0)));
         }
       } catch {
-        if (!cancelled) setApprovalCases(SHARED_APPROVAL_CASES);
+        if (!cancelled) setApprovalCases([]);
       }
     }
     loadApprovalCases();
@@ -221,9 +220,6 @@ export default function LoanLandingPage() {
     };
   }, []);
 
-  useEffect(() => {
-    setApprovalCases(SHARED_APPROVAL_CASES);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

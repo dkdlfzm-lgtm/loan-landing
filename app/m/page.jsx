@@ -15,19 +15,6 @@ const LOAN_TYPE_OPTIONS = [
   "기타",
 ];
 
-const FALLBACK_APPROVAL_CASES = [
-  { id: "case-1", name: "김*완님", lines: ["신*은행 3억 2000만원", "피*펀* 1억 3000만원 이용중", "새** 4.9억 4.8% 승인"] },
-  { id: "case-2", name: "정*빈님", lines: ["신*은행 1억 2000만원", "아*앤* 4500만원 이용중", "원*농* 1.86억 5.2% 승인"] },
-  { id: "case-3", name: "문*경님", lines: ["국*은행 2억 4000만원", "대* 6000만원 이용중", "오**저축 3.62억 7.3% 승인"] },
-  { id: "case-4", name: "김*영님", lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"] },
-  { id: "case-5", name: "박*석님", lines: ["수*은행 2억", "S**저축 9100만원 이용중", "애**저축 3.5억 8.8% 승인"] },
-  { id: "case-6", name: "허*현님", lines: ["우*은행 1억 7000만원", "칵** 5200만원 이용중", "새** 2.49억 5.3% 승인"] },
-  { id: "case-7", name: "한*희님", lines: ["국*은행 8700만원", "티*레* 3500만원 이용중", "오**저축 1.52억 7% 승인"] },
-  { id: "case-8", name: "이*준님", lines: ["수*은행 3억 4000만원", "세입자 보증금 1억 이용중", "퇴거자금 유*** 1.1억 14% 승인"] },
-  { id: "case-9", name: "박*정님", lines: ["애**저축 6억 8000만원 이용중", "", "신* 7.25억 4.9% 승인"] },
-  { id: "case-10", name: "임*주님", lines: ["새** 2억 8900만원 이용중", "", "수*은행 3.15억 5.1% 승인"] },
-];
-
 const FAQ_ITEMS = [
   {
     q: "주택담보대출 금리비교는 왜 꼭 해야 하나요?",
@@ -99,7 +86,7 @@ export default function MobileLandingPage() {
   const heroBadge = siteSettings.hero_badge || DEFAULT_SITE_SETTINGS.hero_badge;
   const heroTitle = siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title;
 
-  const [approvalCases, setApprovalCases] = useState(FALLBACK_APPROVAL_CASES);
+  const [approvalCases, setApprovalCases] = useState([]);
   const casePages = useMemo(() => chunkArray(approvalCases, 3), [approvalCases]);
 
   useEffect(() => {
@@ -139,12 +126,12 @@ export default function MobileLandingPage() {
               return { id: card.id, name: card.customerName || card.title, lines: [card.currentLoan, card.approvalResult].filter(Boolean) };
             }).filter((item) => item.name)
           : [];
-        if (!cancelled && nextCases.length) {
+        if (!cancelled) {
           setApprovalCases(nextCases);
           setCasePageIndex(0);
         }
       } catch {
-        if (!cancelled) setApprovalCases(FALLBACK_APPROVAL_CASES);
+        if (!cancelled) setApprovalCases([]);
       }
     }
     loadApprovalCases();
