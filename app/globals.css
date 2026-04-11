@@ -1482,10 +1482,19 @@ textarea { resize: vertical; }
 .crm-table-no-scroll { overflow: visible; }
 .crm-empty-cell { text-align: center; color: var(--slate-500); padding: 32px !important; }
 .crm-row-selected, .crm-table tbody tr.crm-row-selected { background: var(--blue-50) !important; box-shadow: inset 3px 0 0 var(--blue-600); }
-.crm-status-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 4px 10px; border-radius: var(--radius-full); font-size: 11px; font-weight: 800; border: 1px solid transparent; white-space: nowrap; }
+.crm-status-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 4px 10px; border-radius: var(--radius-full); font-size: 11px; font-weight: 800; border: 1px solid transparent; }
 .crm-status-new { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
-.crm-status-contacted { background: var(--blue-50); color: var(--blue-600); border-color: #bfdbfe; }
-.crm-status-closed { background: var(--green-bg); color: #047857; border-color: #a7f3d0; }
+.crm-status-absent { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.crm-status-recall { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.crm-status-hold { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.crm-status-rejected { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.crm-status-progress, .crm-status-contacted { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+.crm-status-preapproved { background: #ecfeff; color: #0f766e; border-color: #99f6e4; }
+.crm-status-approved, .crm-status-closed { background: #dcfce7; color: #166534; border-color: #86efac; }
+.crm-status-default { background: var(--slate-50); color: var(--slate-600); border-color: var(--slate-200); }
+.crm-assignee-chip { min-width: 92px; }
+.crm-assignee-assigned { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.crm-assignee-unassigned { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
 .crm-classic-grid-xl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .crm-classic-row { border: 1px solid var(--slate-200); background: var(--slate-50); border-radius: var(--radius-md); padding: 14px 16px; display: grid; gap: 4px; }
 .crm-classic-row span { font-size: 11px; color: var(--slate-500); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -2083,5 +2092,16 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 .manage-review-current{color:#526076;font-weight:600;}
 .manage-review-approved{color:#2f63ce;font-weight:800;}
 
-.crm-status-assigned { background: #e0edff; color: #1d4ed8; border-color: #bfd4ff; }
-.crm-status-unassigned { background: #fff7ed; color: #ea580c; border-color: #fed7aa; }
+.mobile-preview-shell { background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%); }
+.manage-mobile-preview-frame { width: min(390px, 100%); margin: 0 auto; padding: 14px; border-radius: 32px; background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); box-shadow: 0 22px 50px rgba(15, 23, 42, 0.22); }
+.manage-mobile-hero-preview { min-height: 420px; padding: 22px 18px 20px; border-radius: 24px; background: linear-gradient(135deg, #0f2f61 0%, #2563eb 100%); color: #fff; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
+.manage-mobile-hero-badge { display: inline-flex; align-self: flex-start; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.1); font-size: 12px; font-weight: 800; }
+.manage-mobile-hero-title { display: grid; gap: 4px; font-size: 34px; line-height: 1.24; font-weight: 900; letter-spacing: -0.04em; }
+.manage-mobile-hero-title span { display: block; }
+.manage-mobile-hero-desc { margin: 0; color: rgba(255,255,255,0.88); font-size: 15px; line-height: 1.7; }
+.manage-mobile-feature-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.manage-mobile-feature-chip { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); font-size: 12px; font-weight: 800; }
+.manage-mobile-preview-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+.manage-mobile-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 18px; border-radius: 999px; font-size: 14px; font-weight: 900; }
+.manage-mobile-btn-primary { background: #fff; color: #0f172a; }
+.manage-mobile-btn-secondary { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.4); }

@@ -48,14 +48,6 @@ function statusClassName(value) {
   return map[value] || "crm-status-default";
 }
 
-function assigneeLabel(item) {
-  return item?.assigned_staff_account_id ? (item.assignee || "배정완료") : "미배정";
-}
-
-function assigneeClassName(item) {
-  return item?.assigned_staff_account_id ? "crm-status-assigned" : "crm-status-unassigned";
-}
-
 function OwnerLogin({ password, setPassword, error, onSubmit }) {
   return (
     <div className="site-wrap admin-wrap">
@@ -446,7 +438,7 @@ export default function AdminOwnerPage() {
                             <td><strong>{item.name}</strong></td>
                             <td>{item.phone}</td>
                             <td>{item.loan_type || "미입력"}</td>
-                            <td><span className={`crm-status-chip ${assigneeClassName(item)}`}>{assigneeLabel(item)}</span></td>
+                            <td><span className={`crm-status-chip crm-assignee-chip ${(item.assigned_staff_account_id ? "crm-assignee-assigned" : "crm-assignee-unassigned")}`}>{item.assignee || "미배정"}</span></td>
                             <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{statusLabel(item.status)}</span></td>
                             <td>{formatReviewDateTime(item.created_at)}</td>
                           </tr>
@@ -464,7 +456,7 @@ export default function AdminOwnerPage() {
                         <div className="crm-classic-grid-xl">
                           <div className="crm-classic-row"><span>고객명</span><strong>{selectedInquiry.name}</strong></div>
                           <div className="crm-classic-row"><span>연락처</span><strong>{selectedInquiry.phone}</strong></div>
-                          <div className="crm-classic-row"><span>현재 담당자</span><strong><span className={`crm-status-chip ${assigneeClassName(selectedInquiry)}`}>{assigneeLabel(selectedInquiry)}</span></strong></div>
+                          <div className="crm-classic-row"><span>현재 담당자</span><strong><span className={`crm-status-chip crm-assignee-chip ${(selectedInquiry.assigned_staff_account_id ? "crm-assignee-assigned" : "crm-assignee-unassigned")}`}>{selectedInquiry.assignee || "미배정"}</span></strong></div>
                           <div className="crm-classic-row"><span>대출상품</span><strong>{selectedInquiry.loan_type || "미입력"}</strong></div>
                           <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
                           <div className="crm-classic-row crm-classic-row-wide"><span>접수 메모</span><strong>{selectedInquiry.memo || "입력된 메모가 없습니다."}</strong></div>
