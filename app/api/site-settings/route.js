@@ -33,6 +33,18 @@ const SELECT_FIELDS = [
   "middle_banner_description",
   "middle_banner_button_text",
   "middle_banner_button_url",
+  "representative_name",
+  "business_registration_number",
+  "brokerage_registration_number",
+  "lending_registration_number",
+  "company_address",
+  "registration_agency",
+  "footer_legal_line_1",
+  "footer_legal_line_2",
+  "footer_legal_line_3",
+  "footer_legal_line_4",
+  "footer_legal_line_5",
+  "footer_copyright",
   "updated_at",
 ].join(",");
 
@@ -56,13 +68,14 @@ export async function GET(request) {
   }
 
   try {
-    let row = await fetchScope(scope);
-    let resolvedScope = scope;
-    if (!row && scope === "mobile") {
-      row = await fetchScope("main");
-      resolvedScope = row ? "main" : scope;
+    if (scope === "mobile") {
+      const [mainRow, mobileRow] = await Promise.all([fetchScope("main"), fetchScope("mobile")]);
+      const merged = { ...(mainRow || {}), ...(mobileRow || {}), scope: "mobile" };
+      return NextResponse.json({ ok: true, settings: normalizeSiteSettings(merged), resolvedScope: mobileRow ? "mobile" : "main", fallback: !mainRow && !mobileRow });
     }
-    return NextResponse.json({ ok: true, settings: normalizeSiteSettings({ ...row, scope }), resolvedScope, fallback: !row });
+
+    const row = await fetchScope("main");
+    return NextResponse.json({ ok: true, settings: normalizeSiteSettings({ ...row, scope: "main" }), resolvedScope: "main", fallback: !row });
   } catch {
     return NextResponse.json({ ok: true, settings: { ...DEFAULT_SITE_SETTINGS, scope }, fallback: true });
   }

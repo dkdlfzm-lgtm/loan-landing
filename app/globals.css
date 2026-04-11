@@ -1482,7 +1482,7 @@ textarea { resize: vertical; }
 .crm-table-no-scroll { overflow: visible; }
 .crm-empty-cell { text-align: center; color: var(--slate-500); padding: 32px !important; }
 .crm-row-selected, .crm-table tbody tr.crm-row-selected { background: var(--blue-50) !important; box-shadow: inset 3px 0 0 var(--blue-600); }
-.crm-status-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 4px 10px; border-radius: var(--radius-full); font-size: 11px; font-weight: 800; border: 1px solid transparent; }
+.crm-status-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; padding: 4px 10px; border-radius: var(--radius-full); font-size: 11px; font-weight: 800; border: 1px solid transparent; white-space: nowrap; }
 .crm-status-new { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
 .crm-status-contacted { background: var(--blue-50); color: var(--blue-600); border-color: #bfdbfe; }
 .crm-status-closed { background: var(--green-bg); color: #047857; border-color: #a7f3d0; }
@@ -2082,3 +2082,6 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 .manage-review-item p{display:flex;flex-direction:column;gap:6px;}
 .manage-review-current{color:#526076;font-weight:600;}
 .manage-review-approved{color:#2f63ce;font-weight:800;}
+
+.crm-status-assigned { background: #e0edff; color: #1d4ed8; border-color: #bfd4ff; }
+.crm-status-unassigned { background: #fff7ed; color: #ea580c; border-color: #fed7aa; }

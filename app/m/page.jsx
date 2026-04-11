@@ -93,18 +93,18 @@ export default function MobileLandingPage() {
     let cancelled = false;
     async function loadSettings() {
       try {
-        const cached = readCachedSiteSettings();
+        const cached = readCachedSiteSettings("mobile");
         if (!cancelled && cached) setSiteSettings(cached);
-        const res = await fetch("/api/site-settings", { cache: "no-store" });
+        const res = await fetch("/api/site-settings?scope=mobile", { cache: "no-store" });
         const data = await res.json();
         if (!res.ok || data?.ok === false || !data?.settings) throw new Error();
         if (!cancelled) {
           const next = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
           setSiteSettings(next);
-          cacheSiteSettings(next);
+          cacheSiteSettings(next, "mobile");
         }
       } catch {
-        if (!cancelled) setSiteSettings(readCachedSiteSettings() || DEFAULT_SITE_SETTINGS);
+        if (!cancelled) setSiteSettings(readCachedSiteSettings("mobile") || DEFAULT_SITE_SETTINGS);
       }
     }
     loadSettings();
@@ -459,19 +459,23 @@ export default function MobileLandingPage() {
 
       <footer className={styles.footer}>
         <div className={styles.legalLines}>
-          <div>이자율 : 연6% ~ 연20% 이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용 없음)</div>
-          <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
-          <div>과도한 빚, 고통의 시작입니다. 대출 시 귀하의 신용등급이 하락할 수 있습니다.</div>
+          {[
+            siteSettings.footer_legal_line_1,
+            siteSettings.footer_legal_line_2,
+            siteSettings.footer_legal_line_3,
+            siteSettings.footer_legal_line_4,
+            siteSettings.footer_legal_line_5,
+          ].filter(Boolean).map((line, idx) => <div key={`mobile-legal-${idx}`}>{line}</div>)}
         </div>
         <div className={styles.legalMeta}>
-          <span>상호 : 엔드아이에셋대부</span>
-          <span>대표자(성명) : 최종원</span>
-          <span>대표전화 : 070-8018-7437</span>
-          <span>사업자등록번호 : 739-08-03168</span>
-          <span>대부중개업 등록번호 : 2025-서울서초-0084</span>
-          <span>대부업 등록번호 : 2025-서울서초-0083(대부업)</span>
-          <span>사업자주소 : 서울특별시 서초구 서초중앙로 114, 일광빌딩 지하2층 B204호</span>
-          <span>등록기관 : 서초구청 일자리경제과 (02-2155-8752)</span>
+          <span>상호 : {siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name}</span>
+          <span>대표자(성명) : {siteSettings.representative_name || DEFAULT_SITE_SETTINGS.representative_name}</span>
+          <span>대표전화 : {siteSettings.phone || DEFAULT_SITE_SETTINGS.phone}</span>
+          <span>사업자등록번호 : {siteSettings.business_registration_number || DEFAULT_SITE_SETTINGS.business_registration_number}</span>
+          <span>대부중개업 등록번호 : {siteSettings.brokerage_registration_number || DEFAULT_SITE_SETTINGS.brokerage_registration_number}</span>
+          <span>대부업 등록번호 : {siteSettings.lending_registration_number || DEFAULT_SITE_SETTINGS.lending_registration_number}</span>
+          <span>사업자주소 : {siteSettings.company_address || DEFAULT_SITE_SETTINGS.company_address}</span>
+          <span>등록기관 : {siteSettings.registration_agency || DEFAULT_SITE_SETTINGS.registration_agency}</span>
         </div>
       </footer>
 

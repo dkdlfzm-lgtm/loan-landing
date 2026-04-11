@@ -9,7 +9,6 @@ const MENUS = [
   { key: "hero", label: "메인 배너" },
   { key: "middle", label: "중간 배너" },
   { key: "notice", label: "공지·팝업" },
-  { key: "reviews", label: "승인사례 관리" },
 ];
 
 function ManagerLogin({ password, setPassword, error, onSubmit }) {
@@ -20,7 +19,7 @@ function ManagerLogin({ password, setPassword, error, onSubmit }) {
           <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
             <div className="section-mini">모바일 관리 페이지</div>
             <h1 className="section-title reviews-page-title">모바일 홈페이지 관리 로그인</h1>
-            <p className="card-desc">모바일 전용 랜딩페이지의 브랜드, 배너, 공지, 팝업, 승인사례 노출을 관리하는 전용 페이지입니다.</p>
+            <p className="card-desc">모바일 전용 랜딩페이지의 브랜드, 배너, 공지, 팝업 노출을 관리하는 전용 페이지입니다. 승인사례 관리는 PC 관리페이지에서 수정합니다.</p>
             <div className="field">
               <label>관리자 비밀번호</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
@@ -80,7 +79,6 @@ export default function ManageMobilePage() {
       return;
     }
     fetchSettings();
-    fetchReviews();
   }, [authenticated]);
 
   async function fetchSettings() {

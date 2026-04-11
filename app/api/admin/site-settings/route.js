@@ -34,6 +34,18 @@ const FIELD_CONFIG = [
   ["middle_banner_description", "text"],
   ["middle_banner_button_text", "text"],
   ["middle_banner_button_url", "text"],
+  ["representative_name", "text"],
+  ["business_registration_number", "text"],
+  ["brokerage_registration_number", "text"],
+  ["lending_registration_number", "text"],
+  ["company_address", "text"],
+  ["registration_agency", "text"],
+  ["footer_legal_line_1", "text"],
+  ["footer_legal_line_2", "text"],
+  ["footer_legal_line_3", "text"],
+  ["footer_legal_line_4", "text"],
+  ["footer_legal_line_5", "text"],
+  ["footer_copyright", "text"],
 ];
 
 const SELECT_FIELDS = FIELD_CONFIG.map(([field]) => field).concat("updated_at").join(",");
