@@ -17,6 +17,7 @@ const STATUS_OPTIONS = [
   { value: "승인", label: "승인" },
 ];
 const AUTO_REFRESH_MS = 5000;
+const PAGE_SESSION_KEY = "staff_page_session_active";
 
 function statusLabel(value) {
   return STATUS_OPTIONS.find((item) => item.value === value)?.label || value || "미정";
@@ -34,6 +35,10 @@ function statusClassName(value) {
     승인: "crm-status-approved",
   };
   return map[value] || "crm-status-default";
+}
+
+function assigneeClassName(value) {
+  return value && value !== "미배정" ? "assigned" : "unassigned";
 }
 
 function LoginView({ form, setForm, loginError, handleLogin }) {
@@ -73,7 +78,7 @@ function Sidebar({ activeTab, setActiveTab, handleLogout, account }) {
       <div className="crm-sidebar-brand">
         <div className="crm-sidebar-eyebrow">직원 전용</div>
         <strong>상담 CRM</strong>
-        <span>{account?.display_name || account?.username || "직원"}님에게 배정된 고객만 표시됩니다.</span>
+        <span>{account?.display_name || account?.username || "직원"}님으로 로그인되어 있으며 배정된 고객만 표시됩니다.</span>
       </div>
       <nav className="crm-sidebar-nav">
         {tabs.map((tab) => (
@@ -114,7 +119,14 @@ export default function StaffPage() {
   useEffect(() => {
     fetch("/api/staff/session", { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => {
+      .then(async (d) => {
+        const hasPageSession = typeof window !== "undefined" && window.sessionStorage.getItem(PAGE_SESSION_KEY) === "1";
+        if (d.authenticated && !hasPageSession) {
+          await fetch("/api/staff/logout", { method: "POST" }).catch(() => null);
+          setAuthenticated(false);
+          setAccount(null);
+          return;
+        }
         setAuthenticated(Boolean(d.authenticated));
         setAccount(d.account || null);
         setNoteAuthor(d.account?.display_name || d.account?.username || "");
@@ -224,6 +236,7 @@ export default function StaffPage() {
     });
     const data = await res.json();
     if (!res.ok || !data.ok) return setLoginError(data.message || "로그인에 실패했습니다.");
+    if (typeof window !== "undefined") window.sessionStorage.setItem(PAGE_SESSION_KEY, "1");
     setAccount(data.account || null);
     setNoteAuthor(data.account?.display_name || data.account?.username || "");
     setLoginForm({ username: "", password: "" });
@@ -231,6 +244,7 @@ export default function StaffPage() {
   }
 
   async function handleLogout() {
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(PAGE_SESSION_KEY);
     await fetch("/api/staff/logout", { method: "POST" });
     setAuthenticated(false);
     setAccount(null);
@@ -288,6 +302,14 @@ export default function StaffPage() {
             </div>
           </header>
 
+          <div className="crm-session-banner">
+            <div>
+              <strong>{account?.display_name || account?.username || "직원"}님으로 로그인 중</strong>
+              <span>현재 로그인한 직원 계정에서만 배정 고객과 상담 이력을 확인할 수 있습니다.</span>
+            </div>
+            <div className="crm-session-badge">계정: {account?.display_name || account?.username || "확인 필요"}{account?.username ? ` (${account.username})` : ""}</div>
+          </div>
+
           {activeTab === "overview" ? (
             <div className="crm-overview-grid owner-overview-grid">
               <div className="crm-summary-grid crm-summary-grid-pro">
@@ -320,7 +342,7 @@ export default function StaffPage() {
                         <td><strong>{item.name}</strong></td>
                         <td>{item.phone}</td>
                         <td>{item.loan_type || "미입력"}</td>
-                        <td>{item.assignee || account?.display_name || "미배정"}</td>
+                        <td><span className={`crm-assignee-chip ${assigneeClassName(item.assignee || account?.display_name || "미배정")}`}>{item.assignee || account?.display_name || "미배정"}</span></td>
                         <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{statusLabel(item.status)}</span></td>
                         <td>{formatReviewDateTime(item.created_at)}</td>
                       </tr>
@@ -338,7 +360,7 @@ export default function StaffPage() {
                     <div className="crm-classic-grid-xl">
                       <div className="crm-classic-row"><span>고객명</span><strong>{selectedInquiry.name}</strong></div>
                       <div className="crm-classic-row"><span>연락처</span><strong>{selectedInquiry.phone}</strong></div>
-                      <div className="crm-classic-row"><span>담당자</span><strong>{selectedInquiry.assignee || account?.display_name || "미배정"}</strong></div>
+                      <div className="crm-classic-row"><span>담당자</span><strong><span className={`crm-assignee-chip ${assigneeClassName(selectedInquiry.assignee || account?.display_name || "미배정")}`}>{selectedInquiry.assignee || account?.display_name || "미배정"}</span></strong></div>
                       <div className="crm-classic-row"><span>대출상품</span><strong>{selectedInquiry.loan_type || "미입력"}</strong></div>
                       <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
                       <div className="crm-classic-row crm-classic-row-wide"><span>접수 메모</span><strong>{selectedInquiry.memo || "입력된 메모가 없습니다."}</strong></div>
