@@ -569,3 +569,35 @@
   color: #2f63ce;
   font-weight: 800;
 }
+
+
+.inlineTwo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.calcCard {
+  margin-top: 8px;
+  border-radius: 20px;
+  border: 1px solid #dbe5f5;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.calcRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.calcRow strong {
+  color: #1f4fd8;
+  font-size: 15px;
+  font-weight: 900;
+}

@@ -15,6 +15,12 @@ const LOAN_TYPE_OPTIONS = [
   "기타",
 ];
 
+const RATE_BY_TYPE = {
+  원리금균등: "5.2",
+  원금균등: "5.0",
+  만기일시상환: "5.4",
+};
+
 const FAQ_ITEMS = [
   {
     q: "주택담보대출 금리비교는 왜 꼭 해야 하나요?",
@@ -60,8 +66,13 @@ function chunkArray(items, size) {
   return chunks;
 }
 
+function formatNumber(value) {
+  if (!Number.isFinite(value)) return "0";
+  return Math.round(value).toLocaleString("ko-KR");
+}
+
 export default function MobileLandingPage() {
-  const [siteSettings, setSiteSettings] = useState({ ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
+  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [selectedCity, setSelectedCity] = useState("");
@@ -69,8 +80,11 @@ export default function MobileLandingPage() {
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
-  const [apartmentQuery, setApartmentQuery] = useState("");
   const [catalogError, setCatalogError] = useState("");
+  const [loanAmount, setLoanAmount] = useState("");
+  const [interestRate, setInterestRate] = useState(RATE_BY_TYPE["원리금균등"]);
+  const [repaymentType, setRepaymentType] = useState("원리금균등");
+  const [loanMonths, setLoanMonths] = useState("360");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
@@ -93,18 +107,18 @@ export default function MobileLandingPage() {
     let cancelled = false;
     async function loadSettings() {
       try {
-        const cached = readCachedSiteSettings("mobile");
+        const cached = readCachedSiteSettings();
         if (!cancelled && cached) setSiteSettings(cached);
-        const res = await fetch("/api/site-settings?scope=mobile", { cache: "no-store" });
+        const res = await fetch("/api/site-settings", { cache: "no-store" });
         const data = await res.json();
         if (!res.ok || data?.ok === false || !data?.settings) throw new Error();
         if (!cancelled) {
           const next = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
           setSiteSettings(next);
-          cacheSiteSettings(next, "mobile");
+          cacheSiteSettings(next);
         }
       } catch {
-        if (!cancelled) setSiteSettings(readCachedSiteSettings("mobile") || { ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
+        if (!cancelled) setSiteSettings(readCachedSiteSettings() || DEFAULT_SITE_SETTINGS);
       }
     }
     loadSettings();
@@ -152,7 +166,6 @@ export default function MobileLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
-          apartmentQuery,
           area: selectedArea,
         });
         const res = await fetch(`/api/property-catalog?${query.toString()}`, { cache: "no-store" });
@@ -175,7 +188,7 @@ export default function MobileLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
+  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
 
   useEffect(() => {
     if (casePages.length <= 1) return undefined;
@@ -184,6 +197,52 @@ export default function MobileLandingPage() {
     }, 4200);
     return () => window.clearInterval(timer);
   }, [casePages.length]);
+
+  const calcResult = useMemo(() => {
+    const principal = Number(String(loanAmount).replace(/,/g, ""));
+    const annualRate = Number(interestRate);
+    const months = Number(loanMonths);
+
+    if (!principal || !annualRate || !months || months <= 0) {
+      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0 };
+    }
+
+    const monthlyRate = annualRate / 100 / 12;
+    let monthlyPayment = 0;
+    let totalPayment = 0;
+    let totalInterest = 0;
+
+    if (repaymentType === "원리금균등") {
+      if (monthlyRate === 0) {
+        monthlyPayment = principal / months;
+      } else {
+        monthlyPayment =
+          (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) /
+          (Math.pow(1 + monthlyRate, months) - 1);
+      }
+      totalPayment = monthlyPayment * months;
+      totalInterest = totalPayment - principal;
+    } else if (repaymentType === "원금균등") {
+      const monthlyPrincipal = principal / months;
+      const avgMonthlyInterest =
+        (principal * monthlyRate + monthlyPrincipal * monthlyRate) / 2;
+      monthlyPayment = monthlyPrincipal + avgMonthlyInterest;
+      totalInterest = (principal * monthlyRate * (months + 1)) / 2;
+      totalPayment = principal + totalInterest;
+    } else {
+      monthlyPayment = principal * monthlyRate;
+      totalInterest = monthlyPayment * months;
+      totalPayment = principal + totalInterest;
+    }
+
+    return { monthlyPayment, totalInterest, totalPayment };
+  }, [loanAmount, interestRate, repaymentType, loanMonths]);
+
+  function handleRepaymentTypeChange(nextType) {
+    setRepaymentType(nextType);
+    setInterestRate(RATE_BY_TYPE[nextType] || "");
+    setLoanMonths((prev) => (prev && String(prev).trim() !== "" ? prev : "360"));
+  }
 
   function moveTo(ref) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -371,10 +430,6 @@ export default function MobileLandingPage() {
               </select>
             </label>
             <label className={styles.field}>
-              <span>아파트명 검색</span>
-              <input value={apartmentQuery} onChange={(e) => setApartmentQuery(e.target.value)} placeholder="아파트명을 입력해주세요" />
-            </label>
-            <label className={styles.field}>
               <span>단지 선택</span>
               <select value={selectedApartment} onChange={(e) => {
                 setSelectedApartment(e.target.value);
@@ -393,6 +448,56 @@ export default function MobileLandingPage() {
             </label>
             {catalogLoading ? <div className={styles.inlineNote}>단지 정보를 불러오는 중입니다.</div> : null}
             {catalogError ? <div className={`${styles.formStatus} ${styles.error}`}>{catalogError}</div> : null}
+          </div>
+        </section>
+
+        <section id="mobile-calculator" className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <span>이율계산기</span>
+            <h2>대출 조건을 간편하게 계산해보세요</h2>
+          </div>
+          <div className={styles.formCard}>
+            <div className={styles.inlineTwo}>
+              <label className={styles.field}>
+                <span>대출 금액</span>
+                <input
+                  value={loanAmount}
+                  onChange={(e) => setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="예: 300000000"
+                />
+              </label>
+              <label className={styles.field}>
+                <span>연 이율(%)</span>
+                <input
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
+                  placeholder="예: 5.2"
+                />
+              </label>
+            </div>
+            <div className={styles.inlineTwo}>
+              <label className={styles.field}>
+                <span>상환 방식</span>
+                <select value={repaymentType} onChange={(e) => handleRepaymentTypeChange(e.target.value)}>
+                  <option>원리금균등</option>
+                  <option>원금균등</option>
+                  <option>만기일시상환</option>
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>기간(개월)</span>
+                <input
+                  value={loanMonths}
+                  onChange={(e) => setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="예: 360"
+                />
+              </label>
+            </div>
+            <div className={styles.calcCard}>
+              <div className={styles.calcRow}><span>예상 월 상환액</span><strong>{formatNumber(calcResult.monthlyPayment)}원</strong></div>
+              <div className={styles.calcRow}><span>총 이자</span><strong>{formatNumber(calcResult.totalInterest)}원</strong></div>
+              <div className={styles.calcRow}><span>총 상환금액</span><strong>{formatNumber(calcResult.totalPayment)}원</strong></div>
+            </div>
           </div>
         </section>
 
