@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "../../../../lib/admin-auth";
 import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings, parseBoolean } from "../../../../lib/site-settings";
 import { isSupabaseConfigured, supabaseRest } from "../../../../lib/supabase-rest";
+import { canManageSite, getAuthenticatedStaffAccount } from "../../../../lib/staff-auth";
 
 const FIELD_CONFIG = [
   ["company_name", "text"],
@@ -34,24 +35,18 @@ const FIELD_CONFIG = [
   ["middle_banner_description", "text"],
   ["middle_banner_button_text", "text"],
   ["middle_banner_button_url", "text"],
-  ["representative_name", "text"],
-  ["business_registration_number", "text"],
-  ["brokerage_registration_number", "text"],
-  ["lending_registration_number", "text"],
-  ["company_address", "text"],
-  ["registration_agency", "text"],
-  ["footer_legal_line_1", "text"],
-  ["footer_legal_line_2", "text"],
-  ["footer_legal_line_3", "text"],
-  ["footer_legal_line_4", "text"],
-  ["footer_legal_line_5", "text"],
-  ["footer_copyright", "text"],
 ];
 
 const SELECT_FIELDS = FIELD_CONFIG.map(([field]) => field).concat("updated_at").join(",");
 
+async function isSiteManagerAuthenticated() {
+  if (await isAdminAuthenticated()) return true;
+  const account = await getAuthenticatedStaffAccount();
+  return canManageSite(account);
+}
+
 export async function GET(request) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
+  if (!(await isSiteManagerAuthenticated())) return NextResponse.json({ ok: false, message: "홈페이지 관리 권한이 필요합니다." }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get("scope") === "mobile" ? "mobile" : "main";
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, settings: { ...DEFAULT_SITE_SETTINGS, scope }, fallback: true });
@@ -70,7 +65,7 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
+  if (!(await isSiteManagerAuthenticated())) return NextResponse.json({ ok: false, message: "홈페이지 관리 권한이 필요합니다." }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get("scope") === "mobile" ? "mobile" : "main";
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });

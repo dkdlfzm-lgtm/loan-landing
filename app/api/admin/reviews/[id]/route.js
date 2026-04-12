@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "../../../../../lib/admin-auth";
 import { isSupabaseConfigured, supabaseRest } from "../../../../../lib/supabase-rest";
+import { canManageSite, getAuthenticatedStaffAccount } from "../../../../../lib/staff-auth";
+
+async function isSiteManagerAuthenticated() {
+  if (await isAdminAuthenticated()) return true;
+  const account = await getAuthenticatedStaffAccount();
+  return canManageSite(account);
+}
 
 export async function PATCH(request, { params }) {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
+  if (!(await isSiteManagerAuthenticated())) {
+    return NextResponse.json({ ok: false, message: "홈페이지 관리 권한이 필요합니다." }, { status: 401 });
   }
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });
@@ -43,8 +50,8 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(_request, { params }) {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
+  if (!(await isSiteManagerAuthenticated())) {
+    return NextResponse.json({ ok: false, message: "홈페이지 관리 권한이 필요합니다." }, { status: 401 });
   }
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });

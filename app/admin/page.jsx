@@ -25,6 +25,18 @@ const OWNER_TABS = [
 const AUTO_REFRESH_MS = 5000;
 const PAGE_SESSION_KEY = "admin_page_session_active";
 
+const STAFF_ROLE_OPTIONS = [
+  { value: "marketing", label: "마케팅담당" },
+  { value: "cs", label: "CS담당" },
+  { value: "worker", label: "실무자" },
+  { value: "admin", label: "관리자" },
+];
+
+function roleLabel(role) {
+  return STAFF_ROLE_OPTIONS.find((item) => item.value === role)?.label || "실무자";
+}
+
+
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return <div className={`crm-summary-card crm-tone-${tone}`}><span>{title}</span><strong>{value}</strong><small>{subtitle}</small></div>;
 }
@@ -110,7 +122,7 @@ export default function AdminOwnerPage() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newStaff, setNewStaff] = useState({ name: "", note: "" });
-  const [newAccount, setNewAccount] = useState({ username: "", password: "", display_name: "", staff_member_id: "" });
+  const [newAccount, setNewAccount] = useState({ username: "", password: "", display_name: "", staff_member_id: "", role: "worker" });
   const [staffMessage, setStaffMessage] = useState(null);
   const [accountMessage, setAccountMessage] = useState(null);
   const [customerMessage, setCustomerMessage] = useState(null);
@@ -240,13 +252,14 @@ export default function AdminOwnerPage() {
       password: newAccount.password,
       display_name: newAccount.display_name,
       staff_member_id: newAccount.staff_member_id || null,
+      role: newAccount.role || "worker",
     };
     const res = await fetch("/api/admin/staff-accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await res.json();
     if (!res.ok || !data.ok) return setAccountMessage({ type: "error", text: data.message || "직원 계정 생성 실패" });
     setAccounts((prev) => [data.account, ...prev]);
-    setNewAccount({ username: "", password: "", display_name: "", staff_member_id: "" });
-    setAccountMessage({ type: "success", text: "직원 계정이 생성되었습니다. 이제 해당 계정으로 직원 페이지 로그인 가능합니다." });
+    setNewAccount({ username: "", password: "", display_name: "", staff_member_id: "", role: "worker" });
+    setAccountMessage({ type: "success", text: "직원 계정이 생성되었습니다. 직책에 따라 접속 가능한 페이지가 자동으로 구분됩니다." });
   }
 
   async function patchAccount(id, body) {
@@ -449,8 +462,8 @@ export default function AdminOwnerPage() {
                       <colgroup><col style={{ width: "14%" }} /><col style={{ width: "14%" }} /><col style={{ width: "18%" }} /><col style={{ width: "16%" }} /><col style={{ width: "12%" }} /><col style={{ width: "26%" }} /></colgroup>
                       <thead><tr><th>고객명</th><th>연락처</th><th>대출상품</th><th>담당자</th><th>상태</th><th>접수일시</th></tr></thead>
                       <tbody>
-                        {loading ? <tr><td colSpan={6} className="crm-empty-cell">불러오는 중...</td></tr> : null}
-                        {!loading && filteredInquiries.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">검색 결과가 없습니다.</td></tr> : null}
+                        {loading ? <tr><td colSpan={7} className="crm-empty-cell">불러오는 중...</td></tr> : null}
+                        {!loading && filteredInquiries.length === 0 ? <tr><td colSpan={7} className="crm-empty-cell">검색 결과가 없습니다.</td></tr> : null}
                         {!loading && filteredInquiries.map((item) => (
                           <tr key={item.id} onClick={() => setSelectedId(item.id)} className={item.id === selectedId ? "crm-row-selected" : ""}>
                             <td><strong>{item.name}</strong></td>
@@ -541,7 +554,7 @@ export default function AdminOwnerPage() {
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern">
                     <thead><tr><th>직원 계정</th><th>전체</th><th>신규</th><th>재통화예정</th><th>진행중·가승인</th><th>승인</th></tr></thead>
-                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.recallCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td></tr>)}</tbody>
+                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={7} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.recallCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td></tr>)}</tbody>
                   </table>
                 </div>
               </section>
@@ -573,11 +586,14 @@ export default function AdminOwnerPage() {
               </section>
 
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>직원 로그인 계정 관리</h3><span>관리자 페이지에서 만든 계정으로만 직원 페이지에 로그인할 수 있습니다.</span></div>
+                <div className="crm-section-header"><h3>직원 로그인 계정 관리</h3><span>직책을 지정하면 접속 가능한 페이지가 자동으로 제한됩니다. 마케팅담당은 홈페이지 관리만, CS담당/실무자는 직원 CRM만 접속 가능합니다.</span></div>
                 <form className="crm-account-form" onSubmit={addStaffAccount}>
                   <input value={newAccount.username} onChange={(e) => setNewAccount((p) => ({ ...p, username: e.target.value }))} placeholder="로그인 아이디" />
                   <input type="password" value={newAccount.password} onChange={(e) => setNewAccount((p) => ({ ...p, password: e.target.value }))} placeholder="초기 비밀번호" />
                   <input value={newAccount.display_name} onChange={(e) => setNewAccount((p) => ({ ...p, display_name: e.target.value }))} placeholder="표시 이름" />
+                  <select value={newAccount.role} onChange={(e) => setNewAccount((p) => ({ ...p, role: e.target.value }))}>
+                    {STAFF_ROLE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
                   <select value={newAccount.staff_member_id} onChange={(e) => setNewAccount((p) => ({ ...p, staff_member_id: e.target.value, display_name: p.display_name || activeAssigneeOptions.find((item) => item.id === e.target.value)?.name || "" }))}>
                     <option value="">담당자 연결 안함</option>
                     {activeAssigneeOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -587,14 +603,19 @@ export default function AdminOwnerPage() {
                 {accountMessage ? <div className={`api-status ${accountMessage.type}`}>{accountMessage.text}</div> : null}
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern">
-                    <thead><tr><th>표시 이름</th><th>로그인 아이디</th><th>연결 담당자</th><th>상태</th><th>비밀번호 재설정</th><th>관리</th></tr></thead>
+                    <thead><tr><th>표시 이름</th><th>로그인 아이디</th><th>직책</th><th>연결 담당자</th><th>상태</th><th>비밀번호 재설정</th><th>관리</th></tr></thead>
                     <tbody>
-                      {accounts.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">등록된 직원 계정이 없습니다.</td></tr> : accounts.map((item) => {
+                      {accounts.length === 0 ? <tr><td colSpan={7} className="crm-empty-cell">등록된 직원 계정이 없습니다.</td></tr> : accounts.map((item) => {
                         const linked = assignees.find((assignee) => assignee.id === item.staff_member_id);
                         return (
                           <tr key={item.id}>
                             <td><strong>{item.display_name || item.username}</strong></td>
                             <td>{item.username}</td>
+                            <td>
+                              <select className="crm-inline-select" value={item.role || "worker"} onChange={(e) => patchAccount(item.id, { role: e.target.value })}>
+                                {STAFF_ROLE_OPTIONS.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                              </select>
+                            </td>
                             <td>{linked?.name || "-"}</td>
                             <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{item.status === "active" ? "사용중" : "중지"}</span></td>
                             <td>

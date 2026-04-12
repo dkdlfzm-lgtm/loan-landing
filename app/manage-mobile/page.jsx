@@ -9,24 +9,41 @@ const MENUS = [
   { key: "hero", label: "메인 배너" },
   { key: "middle", label: "중간 배너" },
   { key: "notice", label: "공지·팝업" },
-  ];
+  { key: "reviews", label: "승인사례 관리" },
+];
 
-function ManagerLogin({ password, setPassword, error, onSubmit }) {
+function ManagerLogin({ adminPassword, setAdminPassword, loginForm, setLoginForm, error, onAdminSubmit, onStaffSubmit }) {
   return (
     <div className="site-wrap admin-wrap">
       <main className="section reviews-main-section">
         <div className="container admin-login-shell">
-          <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
-            <div className="section-mini">모바일 관리 페이지</div>
-            <h1 className="section-title reviews-page-title">모바일 홈페이지 관리 로그인</h1>
-            <p className="card-desc">모바일 전용 랜딩페이지의 브랜드, 배너, 공지, 팝업 노출을 관리하는 전용 페이지입니다.</p>
-            <div className="field">
-              <label>관리자 비밀번호</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
-            </div>
-            {error ? <div className="api-status error">{error}</div> : null}
-            <button type="submit" className="primary-btn">로그인</button>
-          </form>
+          <div className="manage-login-grid">
+            <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onAdminSubmit}>
+              <div className="section-mini">관리자 비밀번호</div>
+              <h1 className="section-title reviews-page-title">모바일 홈페이지 관리 로그인</h1>
+              <p className="card-desc">관리자 비밀번호로 접속할 수 있습니다.</p>
+              <div className="field">
+                <label>관리자 비밀번호</label>
+                <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
+              </div>
+              <button type="submit" className="primary-btn">관리자 로그인</button>
+            </form>
+            <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onStaffSubmit}>
+              <div className="section-mini">마케팅 전용 계정</div>
+              <h2 className="section-title reviews-page-title">직원 계정으로 로그인</h2>
+              <p className="card-desc">직책이 마케팅담당 또는 관리자여야 홈페이지 관리 페이지에 접속할 수 있습니다.</p>
+              <div className="field">
+                <label>직원 아이디</label>
+                <input type="text" value={loginForm.username} onChange={(e) => setLoginForm((prev) => ({ ...prev, username: e.target.value }))} placeholder="직원 아이디 입력" />
+              </div>
+              <div className="field">
+                <label>직원 비밀번호</label>
+                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((prev) => ({ ...prev, password: e.target.value }))} placeholder="직원 비밀번호 입력" />
+              </div>
+              {error ? <div className="api-status error">{error}</div> : null}
+              <button type="submit" className="primary-btn">직원 로그인</button>
+            </form>
+          </div>
         </div>
       </main>
     </div>
@@ -50,7 +67,9 @@ function ToggleField({ checked, onChange, label, description }) {
 
 export default function ManageMobilePage() {
   const [authenticated, setAuthenticated] = useState(null);
-  const [password, setPassword] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [viewer, setViewer] = useState(null);
   const [error, setError] = useState("");
   const [siteSettings, setSiteSettings] = useState({ ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
   const [loading, setLoading] = useState(true);
@@ -67,10 +86,23 @@ export default function ManageMobilePage() {
   const settingsScope = "mobile";
 
   useEffect(() => {
-    fetch("/api/admin/session", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setAuthenticated(Boolean(d.authenticated)))
-      .catch(() => setAuthenticated(false));
+    Promise.all([
+      fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ authenticated: false })),
+      fetch("/api/staff/session", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ authenticated: false })),
+    ]).then(([adminSession, staffSession]) => {
+      if (adminSession?.authenticated) {
+        setViewer({ type: "admin", label: "관리자" });
+        setAuthenticated(true);
+        return;
+      }
+      const role = String(staffSession?.account?.role || "");
+      if (staffSession?.authenticated && ["marketing", "admin"].includes(role)) {
+        setViewer({ type: "staff", label: staffSession.account?.display_name || staffSession.account?.username || "직원", roleLabel: staffSession.account?.role_label || role });
+        setAuthenticated(true);
+        return;
+      }
+      setAuthenticated(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -79,6 +111,7 @@ export default function ManageMobilePage() {
       return;
     }
     fetchSettings();
+    fetchReviews();
   }, [authenticated]);
 
   async function fetchSettings() {
@@ -118,25 +151,49 @@ export default function ManageMobilePage() {
     }
   }
 
-  async function handleLogin(e) {
+  async function handleAdminLogin(e) {
     e.preventDefault();
     setError("");
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password: adminPassword }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
       setError(data.message || "로그인 실패");
       return;
     }
+    setViewer({ type: "admin", label: "관리자" });
+    setAuthenticated(true);
+  }
+
+  async function handleStaffLogin(e) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch("/api/staff/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(loginForm),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.message || "로그인 실패");
+      return;
+    }
+    if (!["marketing", "admin"].includes(String(data.account?.role || ""))) {
+      await fetch("/api/staff/logout", { method: "POST" }).catch(() => null);
+      setError("마케팅담당 또는 관리자 직책만 홈페이지 관리 페이지에 접속할 수 있습니다.");
+      return;
+    }
+    setViewer({ type: "staff", label: data.account?.display_name || data.account?.username || "직원", roleLabel: data.account?.role_label || "마케팅담당" });
     setAuthenticated(true);
   }
 
   async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
+    await Promise.all([fetch("/api/admin/logout", { method: "POST" }).catch(() => null), fetch("/api/staff/logout", { method: "POST" }).catch(() => null)]);
     setAuthenticated(false);
+    setViewer(null);
   }
 
   async function handleSave(e) {
@@ -283,7 +340,7 @@ export default function ManageMobilePage() {
     : undefined;
 
   if (authenticated === null) return <div className="site-wrap"><main className="section"><div className="container"><div className="white-panel">불러오는 중...</div></div></main></div>;
-  if (!authenticated) return <ManagerLogin password={password} setPassword={setPassword} error={error} onSubmit={handleLogin} />;
+  if (!authenticated) return <ManagerLogin adminPassword={adminPassword} setAdminPassword={setAdminPassword} loginForm={loginForm} setLoginForm={setLoginForm} error={error} onAdminSubmit={handleAdminLogin} onStaffSubmit={handleStaffLogin} />;
 
   return (
     <div className="site-wrap admin-wrap">
@@ -312,7 +369,7 @@ export default function ManageMobilePage() {
           <section className="crm-main manage-main">
             <div className="white-panel crm-settings-panel manage-header-panel">
               <div className="section-mini">운영용 모바일 홈페이지 관리</div>
-              <h1 className="section-title">브랜드/배너/공지 설정</h1>
+              <h1 className="section-title">브랜드/배너/공지/승인사례 설정</h1>
               <p className="card-desc">PC 관리와 분리해서 모바일 전용 문구와 배너를 따로 관리할 수 있습니다.</p>
               {lastSavedAt ? <div className="crm-last-sync">최근 저장: {lastSavedAt.toLocaleString("ko-KR")}</div> : null}
             </div>
@@ -432,18 +489,16 @@ export default function ManageMobilePage() {
                         <div className="field"><label>메인 버튼 1</label><input value={siteSettings.hero_primary_cta || ""} onChange={(e) => updateField("hero_primary_cta", e.target.value)} /></div>
                         <div className="field"><label>메인 버튼 2</label><input value={siteSettings.hero_secondary_cta || ""} onChange={(e) => updateField("hero_secondary_cta", e.target.value)} /></div>
                       </div>
-                      <div className="manage-preview-shell mobile-preview-shell">
-                        <div className="manage-preview-head">모바일 메인 배너 미리보기</div>
-                        <div className="manage-mobile-preview-frame">
-                          <div className="manage-mobile-hero-preview" style={heroStyle}>
-                            <div className="manage-mobile-hero-badge">{siteSettings.hero_badge}</div>
-                            <div className="manage-mobile-hero-title">{heroTitleLines.map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</div>
-                            <p className="manage-mobile-hero-desc">{siteSettings.hero_description}</p>
-                            {heroFeatures.length ? <div className="manage-mobile-feature-list">{heroFeatures.map((item) => <span key={item} className="manage-mobile-feature-chip">{item}</span>)}</div> : null}
-                            <div className="manage-mobile-preview-actions">
-                              <span className="manage-mobile-btn manage-mobile-btn-primary">{siteSettings.hero_primary_cta}</span>
-                              <span className="manage-mobile-btn manage-mobile-btn-secondary">{siteSettings.hero_secondary_cta}</span>
-                            </div>
+                      <div className="manage-preview-shell">
+                        <div className="manage-preview-head">메인 배너 미리보기</div>
+                        <div className="manage-hero-preview" style={heroStyle}>
+                          <div className="hero-pill">{siteSettings.hero_badge}</div>
+                          <div className="manage-hero-title">{heroTitleLines.map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</div>
+                          <p>{siteSettings.hero_description}</p>
+                          {heroFeatures.length ? <div className="hero-feature-list">{heroFeatures.map((item) => <span key={item} className="hero-feature-chip">{item}</span>)}</div> : null}
+                          <div className="manage-preview-actions">
+                            <span className="btn btn-white manage-preview-btn">{siteSettings.hero_primary_cta}</span>
+                            <span className="btn btn-outline manage-preview-btn dark-outline">{siteSettings.hero_secondary_cta}</span>
                           </div>
                         </div>
                       </div>
@@ -503,7 +558,7 @@ export default function ManageMobilePage() {
               )}
             </div>
 
-            {false ? (
+            {activeMenu === "reviews" ? (
               <div className="white-panel crm-settings-panel manage-review-panel">
                 <div className="manage-section-head">
                   <div>

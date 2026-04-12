@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
 import { subscribeSupabaseTable } from "../../lib/realtime-browser";
 
+
 const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "프리랜서", "무직"];
 const STATUS_OPTIONS = [
   { value: "all", label: "전체" },
@@ -40,6 +41,15 @@ function statusClassName(value) {
 function assigneeClassName(value) {
   return value && value !== "미배정" ? "assigned" : "unassigned";
 }
+function canOpenStaffPage(account) {
+  return ["admin", "cs", "worker"].includes(String(account?.role || ""));
+}
+
+function roleLabel(role) {
+  const map = { admin: "관리자", cs: "CS담당", worker: "실무자", marketing: "마케팅담당" };
+  return map[String(role || "")] || "실무자";
+}
+
 
 function LoginView({ form, setForm, loginError, handleLogin }) {
   return (
@@ -78,7 +88,7 @@ function Sidebar({ activeTab, setActiveTab, handleLogout, account }) {
       <div className="crm-sidebar-brand">
         <div className="crm-sidebar-eyebrow">직원 전용</div>
         <strong>상담 CRM</strong>
-        <span>{account?.display_name || account?.username || "직원"}님으로 로그인되어 있으며 배정된 고객만 표시됩니다.</span>
+        <span><strong>{account?.display_name || account?.username || "직원"}</strong> · {account?.role_label || roleLabel(account?.role)} 계정으로 로그인되어 있으며 배정된 고객만 표시됩니다.</span>
       </div>
       <nav className="crm-sidebar-nav">
         {tabs.map((tab) => (
@@ -125,6 +135,12 @@ export default function StaffPage() {
           await fetch("/api/staff/logout", { method: "POST" }).catch(() => null);
           setAuthenticated(false);
           setAccount(null);
+          return;
+        }
+        if (d.authenticated && !canOpenStaffPage(d.account)) {
+          setAuthenticated(false);
+          setAccount(null);
+          setLoginError("CS담당, 실무자, 관리자 직책만 직원 CRM에 접속할 수 있습니다.");
           return;
         }
         setAuthenticated(Boolean(d.authenticated));
@@ -236,6 +252,10 @@ export default function StaffPage() {
     });
     const data = await res.json();
     if (!res.ok || !data.ok) return setLoginError(data.message || "로그인에 실패했습니다.");
+    if (!canOpenStaffPage(data.account)) {
+      await fetch("/api/staff/logout", { method: "POST" }).catch(() => null);
+      return setLoginError("CS담당, 실무자, 관리자 직책만 직원 CRM에 접속할 수 있습니다.");
+    }
     if (typeof window !== "undefined") window.sessionStorage.setItem(PAGE_SESSION_KEY, "1");
     setAccount(data.account || null);
     setNoteAuthor(data.account?.display_name || data.account?.username || "");
@@ -299,6 +319,7 @@ export default function StaffPage() {
               <div className="section-mini">직원 전용 페이지</div>
               <h1>배정 고객 상담 관리</h1>
               <p>관리자가 배정한 고객만 표시되며, 다른 담당자 고객정보는 볼 수 없습니다.</p>
+              {account ? <div className="crm-active-user-banner"><strong>{account.display_name || account.username}</strong><span>{account.role_label || roleLabel(account.role)} 계정으로 로그인 중</span></div> : null}
             </div>
           </header>
 

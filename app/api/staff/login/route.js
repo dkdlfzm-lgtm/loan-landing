@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { STAFF_COOKIE_NAME, createStaffToken, findStaffAccountByCredentials, getStaffCookieOptions, requireStaffConfigured } from "../../../../lib/staff-auth";
+import { STAFF_COOKIE_NAME, createStaffToken, findStaffAccountByCredentials, getStaffCookieOptions, getStaffRoleLabel, requireStaffConfigured } from "../../../../lib/staff-auth";
 
 export async function POST(request) {
   try {
@@ -17,6 +17,8 @@ export async function POST(request) {
         id: account.id,
         username: account.username,
         display_name: account.display_name || account.username,
+        role: account.role,
+        role_label: getStaffRoleLabel(account.role),
       },
     });
     response.cookies.set(STAFF_COOKIE_NAME, createStaffToken(account), getStaffCookieOptions());

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "../../../../lib/admin-auth";
 import { isSupabaseConfigured, supabaseRest } from "../../../../lib/supabase-rest";
-import { hashStaffPassword } from "../../../../lib/staff-auth";
+import { hashStaffPassword, normalizeStaffRole } from "../../../../lib/staff-auth";
 
 export async function GET() {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const accounts = await supabaseRest("/staff_accounts", {
       query: {
-        select: "id,username,display_name,status,staff_member_id,created_at,updated_at",
+        select: "id,username,display_name,status,staff_member_id,role,created_at,updated_at",
         order: "created_at.desc",
         limit: 200,
       },
@@ -31,6 +31,7 @@ export async function POST(request) {
     const password = String(body.password || "").trim();
     const display_name = String(body.display_name || "").trim();
     const staff_member_id = body.staff_member_id ? String(body.staff_member_id).trim() : null;
+    const role = normalizeStaffRole(body.role);
 
     if (!username || !password || !display_name) {
       return NextResponse.json({ ok: false, message: "아이디, 비밀번호, 표시 이름을 모두 입력해주세요." }, { status: 400 });
@@ -45,6 +46,7 @@ export async function POST(request) {
         display_name,
         status: "active",
         staff_member_id,
+        role,
       }],
     });
 

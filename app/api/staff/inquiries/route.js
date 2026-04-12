@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAuthenticatedStaffAccount } from "../../../../lib/staff-auth";
+import { canAccessStaffCRM, requireAuthenticatedStaffAccount } from "../../../../lib/staff-auth";
 import { isSupabaseConfigured, supabaseRest } from "../../../../lib/supabase-rest";
 
 export async function GET() {
   try {
     const account = await requireAuthenticatedStaffAccount();
+    if (!canAccessStaffCRM(account)) {
+      return NextResponse.json({ ok: false, message: "직원 CRM 접근 권한이 없습니다." }, { status: 403 });
+    }
     if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: 'Supabase 환경변수가 설정되지 않았습니다.' }, { status: 500 });
 
     const inquiries = await supabaseRest('/inquiries', {

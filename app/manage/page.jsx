@@ -10,25 +10,40 @@ const MENUS = [
   { key: "middle", label: "중간 배너" },
   { key: "notice", label: "공지·팝업" },
   { key: "reviews", label: "승인사례 관리" },
-  { key: "business", label: "업체·사업자 정보" },
 ];
 
-function ManagerLogin({ password, setPassword, error, onSubmit }) {
+function ManagerLogin({ adminPassword, setAdminPassword, loginForm, setLoginForm, error, onAdminSubmit, onStaffSubmit }) {
   return (
     <div className="site-wrap admin-wrap">
       <main className="section reviews-main-section">
         <div className="container admin-login-shell">
-          <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
-            <div className="section-mini">관리 페이지</div>
-            <h1 className="section-title reviews-page-title">홈페이지 관리 로그인</h1>
-            <p className="card-desc">브랜드, 배너, 공지, 팝업, 승인사례 노출을 관리하는 전용 페이지입니다.</p>
-            <div className="field">
-              <label>관리자 비밀번호</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
-            </div>
-            {error ? <div className="api-status error">{error}</div> : null}
-            <button type="submit" className="primary-btn">로그인</button>
-          </form>
+          <div className="manage-login-grid">
+            <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onAdminSubmit}>
+              <div className="section-mini">관리자 비밀번호</div>
+              <h1 className="section-title reviews-page-title">홈페이지 관리 로그인</h1>
+              <p className="card-desc">관리자 비밀번호로 접속할 수 있습니다.</p>
+              <div className="field">
+                <label>관리자 비밀번호</label>
+                <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="관리자 비밀번호 입력" />
+              </div>
+              <button type="submit" className="primary-btn">관리자 로그인</button>
+            </form>
+            <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onStaffSubmit}>
+              <div className="section-mini">마케팅 전용 계정</div>
+              <h2 className="section-title reviews-page-title">직원 계정으로 로그인</h2>
+              <p className="card-desc">직책이 마케팅담당 또는 관리자여야 홈페이지 관리 페이지에 접속할 수 있습니다.</p>
+              <div className="field">
+                <label>직원 아이디</label>
+                <input type="text" value={loginForm.username} onChange={(e) => setLoginForm((prev) => ({ ...prev, username: e.target.value }))} placeholder="직원 아이디 입력" />
+              </div>
+              <div className="field">
+                <label>직원 비밀번호</label>
+                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((prev) => ({ ...prev, password: e.target.value }))} placeholder="직원 비밀번호 입력" />
+              </div>
+              {error ? <div className="api-status error">{error}</div> : null}
+              <button type="submit" className="primary-btn">직원 로그인</button>
+            </form>
+          </div>
         </div>
       </main>
     </div>
@@ -52,7 +67,9 @@ function ToggleField({ checked, onChange, label, description }) {
 
 export default function ManagePage() {
   const [authenticated, setAuthenticated] = useState(null);
-  const [password, setPassword] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [viewer, setViewer] = useState(null);
   const [error, setError] = useState("");
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -68,10 +85,23 @@ export default function ManagePage() {
   const [activeMenu, setActiveMenu] = useState("brand");
 
   useEffect(() => {
-    fetch("/api/admin/session", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setAuthenticated(Boolean(d.authenticated)))
-      .catch(() => setAuthenticated(false));
+    Promise.all([
+      fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ authenticated: false })),
+      fetch("/api/staff/session", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ authenticated: false })),
+    ]).then(([adminSession, staffSession]) => {
+      if (adminSession?.authenticated) {
+        setViewer({ type: "admin", label: "관리자" });
+        setAuthenticated(true);
+        return;
+      }
+      const role = String(staffSession?.account?.role || "");
+      if (staffSession?.authenticated && ["marketing", "admin"].includes(role)) {
+        setViewer({ type: "staff", label: staffSession.account?.display_name || staffSession.account?.username || "직원", roleLabel: staffSession.account?.role_label || role });
+        setAuthenticated(true);
+        return;
+      }
+      setAuthenticated(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -120,25 +150,49 @@ export default function ManagePage() {
     }
   }
 
-  async function handleLogin(e) {
+  async function handleAdminLogin(e) {
     e.preventDefault();
     setError("");
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password: adminPassword }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
       setError(data.message || "로그인 실패");
       return;
     }
+    setViewer({ type: "admin", label: "관리자" });
+    setAuthenticated(true);
+  }
+
+  async function handleStaffLogin(e) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch("/api/staff/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(loginForm),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      setError(data.message || "로그인 실패");
+      return;
+    }
+    if (!["marketing", "admin"].includes(String(data.account?.role || ""))) {
+      await fetch("/api/staff/logout", { method: "POST" }).catch(() => null);
+      setError("마케팅담당 또는 관리자 직책만 홈페이지 관리 페이지에 접속할 수 있습니다.");
+      return;
+    }
+    setViewer({ type: "staff", label: data.account?.display_name || data.account?.username || "직원", roleLabel: data.account?.role_label || "마케팅담당" });
     setAuthenticated(true);
   }
 
   async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
+    await Promise.all([fetch("/api/admin/logout", { method: "POST" }).catch(() => null), fetch("/api/staff/logout", { method: "POST" }).catch(() => null)]);
     setAuthenticated(false);
+    setViewer(null);
   }
 
   async function handleSave(e) {
@@ -285,7 +339,7 @@ export default function ManagePage() {
     : undefined;
 
   if (authenticated === null) return <div className="site-wrap"><main className="section"><div className="container"><div className="white-panel">불러오는 중...</div></div></main></div>;
-  if (!authenticated) return <ManagerLogin password={password} setPassword={setPassword} error={error} onSubmit={handleLogin} />;
+  if (!authenticated) return <ManagerLogin adminPassword={adminPassword} setAdminPassword={setAdminPassword} loginForm={loginForm} setLoginForm={setLoginForm} error={error} onAdminSubmit={handleAdminLogin} onStaffSubmit={handleStaffLogin} />;
 
   return (
     <div className="site-wrap admin-wrap">
@@ -313,8 +367,8 @@ export default function ManagePage() {
           <section className="crm-main manage-main">
             <div className="white-panel crm-settings-panel manage-header-panel">
               <div className="section-mini">운영용 홈페이지 관리</div>
-              <h1 className="section-title">브랜드/배너/공지/승인사례/사업자 정보 설정</h1>
-              <p className="card-desc">좌측 메뉴에서 필요한 영역만 골라 바로 수정할 수 있습니다.</p>
+              <h1 className="section-title">브랜드/배너/공지/승인사례 설정</h1>
+              <p className="card-desc">좌측 메뉴에서 필요한 영역만 골라 바로 수정할 수 있습니다.</p>{viewer ? <div className="crm-login-badge">현재 접속: <strong>{viewer.label}</strong>{viewer.roleLabel ? ` · ${viewer.roleLabel}` : ""}</div> : null}
               {lastSavedAt ? <div className="crm-last-sync">최근 저장: {lastSavedAt.toLocaleString("ko-KR")}</div> : null}
             </div>
 
@@ -491,48 +545,6 @@ export default function ManagePage() {
                       <div className="field"><label>팝업 설명 문구</label><textarea rows={4} value={siteSettings.popup_description || ""} onChange={(e) => updateField("popup_description", e.target.value)} /></div>
                       <div className="field"><label>팝업 버튼 링크</label><input value={siteSettings.popup_button_url || ""} onChange={(e) => updateField("popup_button_url", e.target.value)} placeholder="#contact 또는 https://..." /></div>
                     </section>
-                  ) : null}
-
-                  {activeMenu === "business" ? (
-                    <>
-                      <section className="manage-section-block">
-                        <div className="manage-section-head">
-                          <div>
-                            <div className="section-mini">업체 기본 정보</div>
-                            <h2 className="manage-section-title">푸터에 노출되는 사업자 정보</h2>
-                          </div>
-                        </div>
-                        <div className="two-col compact-two-col">
-                          <div className="field"><label>상호</label><input value={siteSettings.company_name || ""} onChange={(e) => updateField("company_name", e.target.value)} /></div>
-                          <div className="field"><label>대표자(성명)</label><input value={siteSettings.representative_name || ""} onChange={(e) => updateField("representative_name", e.target.value)} /></div>
-                        </div>
-                        <div className="two-col compact-two-col">
-                          <div className="field"><label>대표전화</label><input value={siteSettings.phone || ""} onChange={(e) => updateField("phone", e.target.value)} /></div>
-                          <div className="field"><label>사업자등록번호</label><input value={siteSettings.business_registration_number || ""} onChange={(e) => updateField("business_registration_number", e.target.value)} /></div>
-                        </div>
-                        <div className="two-col compact-two-col">
-                          <div className="field"><label>대부중개업 등록번호</label><input value={siteSettings.brokerage_registration_number || ""} onChange={(e) => updateField("brokerage_registration_number", e.target.value)} /></div>
-                          <div className="field"><label>대부업 등록번호</label><input value={siteSettings.lending_registration_number || ""} onChange={(e) => updateField("lending_registration_number", e.target.value)} /></div>
-                        </div>
-                        <div className="field"><label>사업자주소</label><input value={siteSettings.company_address || ""} onChange={(e) => updateField("company_address", e.target.value)} /></div>
-                        <div className="field"><label>등록기관</label><input value={siteSettings.registration_agency || ""} onChange={(e) => updateField("registration_agency", e.target.value)} /></div>
-                      </section>
-
-                      <section className="manage-section-block">
-                        <div className="manage-section-head">
-                          <div>
-                            <div className="section-mini">법정 문구 관리</div>
-                            <h2 className="manage-section-title">하단 고지 문구</h2>
-                          </div>
-                        </div>
-                        <div className="field"><label>법정문구 1</label><textarea rows={3} value={siteSettings.footer_legal_line_1 || ""} onChange={(e) => updateField("footer_legal_line_1", e.target.value)} /></div>
-                        <div className="field"><label>법정문구 2</label><textarea rows={2} value={siteSettings.footer_legal_line_2 || ""} onChange={(e) => updateField("footer_legal_line_2", e.target.value)} /></div>
-                        <div className="field"><label>법정문구 3</label><textarea rows={2} value={siteSettings.footer_legal_line_3 || ""} onChange={(e) => updateField("footer_legal_line_3", e.target.value)} /></div>
-                        <div className="field"><label>법정문구 4</label><textarea rows={3} value={siteSettings.footer_legal_line_4 || ""} onChange={(e) => updateField("footer_legal_line_4", e.target.value)} /></div>
-                        <div className="field"><label>법정문구 5</label><textarea rows={2} value={siteSettings.footer_legal_line_5 || ""} onChange={(e) => updateField("footer_legal_line_5", e.target.value)} /></div>
-                        <div className="field"><label>카피라이트</label><input value={siteSettings.footer_copyright || ""} onChange={(e) => updateField("footer_copyright", e.target.value)} /></div>
-                      </section>
-                    </>
                   ) : null}
 
                   {message ? <div className={`api-status ${message.type === "success" ? "success" : "error"}`}>{message.text}</div> : null}
