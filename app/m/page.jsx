@@ -15,12 +15,6 @@ const LOAN_TYPE_OPTIONS = [
   "기타",
 ];
 
-const RATE_BY_TYPE = {
-  원리금균등: "5.2",
-  원금균등: "5.0",
-  만기일시상환: "5.4",
-};
-
 const FAQ_ITEMS = [
   {
     q: "주택담보대출 금리비교는 왜 꼭 해야 하나요?",
@@ -35,6 +29,17 @@ const FAQ_ITEMS = [
     a: "가능 여부는 금융사와 담보 조건에 따라 달라질 수 있어, 현재 조건을 기준으로 맞춤 상담을 받아보시는 것이 좋습니다.",
   },
 ];
+
+const repaymentDefaults = {
+  "원리금균등": "4.9",
+  "원금균등": "5.1",
+  "만기일시상환": "5.4",
+};
+
+function formatNumber(value) {
+  if (!Number.isFinite(value)) return "0";
+  return Math.round(value).toLocaleString("ko-KR");
+}
 
 function sanitizePhone(value) {
   return String(value || "").replace(/[^0-9]/g, "");
@@ -66,11 +71,6 @@ function chunkArray(items, size) {
   return chunks;
 }
 
-function formatNumber(value) {
-  if (!Number.isFinite(value)) return "0";
-  return Math.round(value).toLocaleString("ko-KR");
-}
-
 export default function MobileLandingPage() {
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -81,14 +81,14 @@ export default function MobileLandingPage() {
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
   const [catalogError, setCatalogError] = useState("");
-  const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState(RATE_BY_TYPE["원리금균등"]);
-  const [repaymentType, setRepaymentType] = useState("원리금균등");
-  const [loanMonths, setLoanMonths] = useState("360");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [casePageIndex, setCasePageIndex] = useState(0);
+  const [loanAmount, setLoanAmount] = useState("");
+  const [interestRate, setInterestRate] = useState("");
+  const [repaymentType, setRepaymentType] = useState("");
+  const [loanMonths, setLoanMonths] = useState("");
 
   const consultRef = useRef(null);
   const priceRef = useRef(null);
@@ -102,6 +102,33 @@ export default function MobileLandingPage() {
 
   const [approvalCases, setApprovalCases] = useState([]);
   const casePages = useMemo(() => chunkArray(approvalCases, 3), [approvalCases]);
+  const calcResult = useMemo(() => {
+    const principal = Number(String(loanAmount).replace(/,/g, ""));
+    const annualRate = Number(interestRate);
+    const months = Number(loanMonths);
+    if (!principal || !annualRate || !months || months <= 0) return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0 };
+    const monthlyRate = annualRate / 100 / 12;
+    let monthlyPayment = 0;
+    let totalPayment = 0;
+    let totalInterest = 0;
+    if (repaymentType === "원리금균등") {
+      if (monthlyRate === 0) monthlyPayment = principal / months;
+      else monthlyPayment = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+      totalPayment = monthlyPayment * months;
+      totalInterest = totalPayment - principal;
+    } else if (repaymentType === "원금균등") {
+      const monthlyPrincipal = principal / months;
+      const avgMonthlyInterest = (principal * monthlyRate + monthlyPrincipal * monthlyRate) / 2;
+      monthlyPayment = monthlyPrincipal + avgMonthlyInterest;
+      totalInterest = (principal * monthlyRate * (months + 1)) / 2;
+      totalPayment = principal + totalInterest;
+    } else {
+      monthlyPayment = principal * monthlyRate;
+      totalInterest = monthlyPayment * months;
+      totalPayment = principal + totalInterest;
+    }
+    return { monthlyPayment, totalInterest, totalPayment };
+  }, [loanAmount, interestRate, repaymentType, loanMonths]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +153,14 @@ export default function MobileLandingPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!repaymentType) {
+      setInterestRate("");
+      return;
+    }
+    setInterestRate(repaymentDefaults[repaymentType] || "");
+  }, [repaymentType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +188,14 @@ export default function MobileLandingPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!repaymentType) {
+      setInterestRate("");
+      return;
+    }
+    setInterestRate(repaymentDefaults[repaymentType] || "");
+  }, [repaymentType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,52 +240,6 @@ export default function MobileLandingPage() {
     }, 4200);
     return () => window.clearInterval(timer);
   }, [casePages.length]);
-
-  const calcResult = useMemo(() => {
-    const principal = Number(String(loanAmount).replace(/,/g, ""));
-    const annualRate = Number(interestRate);
-    const months = Number(loanMonths);
-
-    if (!principal || !annualRate || !months || months <= 0) {
-      return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0 };
-    }
-
-    const monthlyRate = annualRate / 100 / 12;
-    let monthlyPayment = 0;
-    let totalPayment = 0;
-    let totalInterest = 0;
-
-    if (repaymentType === "원리금균등") {
-      if (monthlyRate === 0) {
-        monthlyPayment = principal / months;
-      } else {
-        monthlyPayment =
-          (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) /
-          (Math.pow(1 + monthlyRate, months) - 1);
-      }
-      totalPayment = monthlyPayment * months;
-      totalInterest = totalPayment - principal;
-    } else if (repaymentType === "원금균등") {
-      const monthlyPrincipal = principal / months;
-      const avgMonthlyInterest =
-        (principal * monthlyRate + monthlyPrincipal * monthlyRate) / 2;
-      monthlyPayment = monthlyPrincipal + avgMonthlyInterest;
-      totalInterest = (principal * monthlyRate * (months + 1)) / 2;
-      totalPayment = principal + totalInterest;
-    } else {
-      monthlyPayment = principal * monthlyRate;
-      totalInterest = monthlyPayment * months;
-      totalPayment = principal + totalInterest;
-    }
-
-    return { monthlyPayment, totalInterest, totalPayment };
-  }, [loanAmount, interestRate, repaymentType, loanMonths]);
-
-  function handleRepaymentTypeChange(nextType) {
-    setRepaymentType(nextType);
-    setInterestRate(RATE_BY_TYPE[nextType] || "");
-    setLoanMonths((prev) => (prev && String(prev).trim() !== "" ? prev : "360"));
-  }
 
   function moveTo(ref) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -453,51 +450,38 @@ export default function MobileLandingPage() {
 
         <section id="mobile-calculator" className={styles.section}>
           <div className={styles.sectionHeader}>
-            <span>이율계산기</span>
-            <h2>대출 조건을 간편하게 계산해보세요</h2>
+            <span>이율 계산기</span>
+            <h2>간편하게 월 상환 예상액을 확인해보세요</h2>
           </div>
-          <div className={styles.formCard}>
-            <div className={styles.inlineTwo}>
+          <div className={`${styles.formCard} ${styles.calcCard}`}>
+            <div className={styles.calcGrid}>
               <label className={styles.field}>
                 <span>대출 금액</span>
-                <input
-                  value={loanAmount}
-                  onChange={(e) => setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))}
-                  placeholder="예: 300000000"
-                />
+                <input type="text" placeholder="대출 금액" value={loanAmount} onChange={(e) => setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" />
               </label>
               <label className={styles.field}>
                 <span>연 이율(%)</span>
-                <input
-                  value={interestRate}
-                  onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder="예: 5.2"
-                />
+                <input type="text" placeholder="연 이율(%)" value={interestRate} onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" />
               </label>
-            </div>
-            <div className={styles.inlineTwo}>
               <label className={styles.field}>
-                <span>상환 방식</span>
-                <select value={repaymentType} onChange={(e) => handleRepaymentTypeChange(e.target.value)}>
-                  <option>원리금균등</option>
-                  <option>원금균등</option>
-                  <option>만기일시상환</option>
+                <span>상환방식</span>
+                <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
+                  <option value="">상환방식을 선택</option>
+                  <option value="원리금균등">원리금균등</option>
+                  <option value="원금균등">원금균등</option>
+                  <option value="만기일시상환">만기일시상환</option>
                 </select>
               </label>
               <label className={styles.field}>
                 <span>기간(개월)</span>
-                <input
-                  value={loanMonths}
-                  onChange={(e) => setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))}
-                  placeholder="예: 360"
-                />
+                <input type="text" placeholder="기간(개월)" value={loanMonths} onChange={(e) => setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" />
               </label>
             </div>
-            <div className={styles.calcCard}>
-              <div className={styles.calcRow}><span>예상 월 상환액</span><strong>{formatNumber(calcResult.monthlyPayment)}원</strong></div>
-              <div className={styles.calcRow}><span>총 이자</span><strong>{formatNumber(calcResult.totalInterest)}원</strong></div>
-              <div className={styles.calcRow}><span>총 상환금액</span><strong>{formatNumber(calcResult.totalPayment)}원</strong></div>
+            <div className={styles.calcResultBox}>
+              <div className={styles.calcResultLabel}>예상 월 상환액</div>
+              <div className={styles.calcResultValue}>{formatNumber(calcResult.monthlyPayment)}원</div>
             </div>
+            <div className={styles.calcHelper}>상환방식을 선택하면 기준 이율이 자동 입력되며, 연 이율은 직접 수정할 수 있습니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
           </div>
         </section>
 

@@ -56,6 +56,7 @@
 }
 
 .brandText strong {
+  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   font-size: 18px;
   line-height: 1.2;
   font-weight: 800;
@@ -104,6 +105,7 @@
 }
 
 .heroTitle {
+  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   margin: 14px 0 18px;
   font-size: 20px;
   line-height: 1.42;
@@ -146,6 +148,7 @@
 }
 
 .quickCard strong {
+  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   display: block;
   font-size: 17px;
   line-height: 1.28;
@@ -279,6 +282,7 @@
 }
 
 .sectionHeader h2 {
+  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   margin: 10px 0 0;
   font-size: 24px;
   line-height: 1.35;
@@ -571,33 +575,9 @@
 }
 
 
-.inlineTwo {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.calcCard {
-  margin-top: 8px;
-  border-radius: 20px;
-  border: 1px solid #dbe5f5;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
-  padding: 14px;
-  display: grid;
-  gap: 10px;
-}
-
-.calcRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 14px;
-  color: #475569;
-}
-
-.calcRow strong {
-  color: #1f4fd8;
-  font-size: 15px;
-  font-weight: 900;
-}
+.calcCard { padding: 18px 16px; }
+.calcGrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.calcResultBox { margin-top: 6px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(180deg, #eff5ff 0%, #e8f0ff 100%); border: 1px solid #d9e5ff; }
+.calcResultLabel { font-size: 12px; font-weight: 800; color: #365aa8; }
+.calcResultValue { margin-top: 6px; font-family: var(--font-heading, "Noto Serif KR", Georgia, serif); font-size: 28px; line-height: 1.2; font-weight: 900; color: #12203d; letter-spacing: -0.03em; }
+.calcHelper { margin-top: 10px; font-size: 13px; line-height: 1.65; color: #5f6f89; }
