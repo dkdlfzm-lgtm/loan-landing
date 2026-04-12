@@ -21,6 +21,15 @@ const OWNER_TABS = [
   { key: "customers", label: "고객 배정" },
   { key: "performance", label: "실적 관리" },
   { key: "staff", label: "담당자·직원 계정" },
+  { key: "db", label: "DB 관리" },
+];
+
+const DB_TABLE_OPTIONS = [
+  { value: "inquiries", label: "상담 접수" },
+  { value: "reviews", label: "승인사례" },
+  { value: "staff_accounts", label: "직원 계정" },
+  { value: "staff_members", label: "담당자 목록" },
+  { value: "site_settings", label: "사이트 설정" },
 ];
 const AUTO_REFRESH_MS = 5000;
 
@@ -95,6 +104,40 @@ function groupCounts(items, getKey) {
   return [...map.entries()].map(([name, count]) => ({ name, count }));
 }
 
+function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
+  if (typeof window === "undefined") return;
+  const blob = new Blob([text], { type: mime });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function toCsv(rows) {
+  if (!rows.length) return "";
+  const columns = Array.from(rows.reduce((set, row) => {
+    Object.keys(row || {}).forEach((key) => set.add(key));
+    return set;
+  }, new Set()));
+  const esc = (value) => {
+    const str = value === null || value === undefined ? "" : String(value);
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  return [columns.join(","), ...rows.map((row) => columns.map((col) => esc(row?.[col])).join(","))].join("\n");
+}
+
+function toTextDump(tableLabel, rows) {
+  if (!rows.length) return `${tableLabel}\n\n데이터가 없습니다.`;
+  return `${tableLabel}\n\n` + rows.map((row, index) => {
+    const lines = Object.entries(row || {}).map(([key, value]) => `${key}: ${value === null || value === undefined ? "" : value}`);
+    return `[${index + 1}]\n${lines.join("\n")}`;
+  }).join("\n\n");
+}
+
 export default function AdminOwnerPage() {
   const [authenticated, setAuthenticated] = useState(null);
   const [password, setPassword] = useState("");
@@ -122,6 +165,16 @@ export default function AdminOwnerPage() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [dbTable, setDbTable] = useState("inquiries");
+  const [dbRows, setDbRows] = useState([]);
+  const [dbPrimaryKey, setDbPrimaryKey] = useState("id");
+  const [dbEditableFields, setDbEditableFields] = useState([]);
+  const [dbDeletable, setDbDeletable] = useState(false);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [dbMessage, setDbMessage] = useState(null);
+  const [dbSelectedKey, setDbSelectedKey] = useState("");
+  const [dbEditorText, setDbEditorText] = useState("{}");
+  const [dbSaving, setDbSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
@@ -153,6 +206,101 @@ export default function AdminOwnerPage() {
     if (!authenticated) return;
     loadData().catch(() => setLoading(false));
   }, [authenticated]);
+
+  async function loadDbTable(table = dbTable) {
+    setDbLoading(true);
+    setDbMessage(null);
+    try {
+      const res = await fetch(`/api/admin/db?table=${table}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "DB 데이터를 불러오지 못했습니다.");
+      const rows = Array.isArray(data.rows) ? data.rows : [];
+      setDbRows(rows);
+      setDbPrimaryKey(data.primaryKey || "id");
+      setDbEditableFields(Array.isArray(data.editableFields) ? data.editableFields : []);
+      setDbDeletable(Boolean(data.deletable));
+      const firstKey = rows[0]?.[data.primaryKey || "id"] ? String(rows[0][data.primaryKey || "id"]) : "";
+      setDbSelectedKey((prev) => prev || firstKey);
+      const selected = rows.find((row) => String(row?.[data.primaryKey || "id"] || "") === (dbSelectedKey || firstKey)) || rows[0] || {};
+      setDbEditorText(JSON.stringify(selected, null, 2));
+    } catch (error) {
+      setDbRows([]);
+      setDbMessage({ type: "error", text: error.message || "DB 데이터를 불러오지 못했습니다." });
+      setDbEditorText("{}");
+    } finally {
+      setDbLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!authenticated || activeTab !== "db") return;
+    loadDbTable(dbTable).catch(() => null);
+  }, [authenticated, activeTab, dbTable]);
+
+  useEffect(() => {
+    if (!dbRows.length) {
+      setDbEditorText("{}");
+      return;
+    }
+    const selected = dbRows.find((row) => String(row?.[dbPrimaryKey] || "") === String(dbSelectedKey || "")) || dbRows[0];
+    if (selected) {
+      const nextKey = String(selected?.[dbPrimaryKey] || "");
+      if (nextKey && nextKey !== dbSelectedKey) setDbSelectedKey(nextKey);
+      setDbEditorText(JSON.stringify(selected, null, 2));
+    }
+  }, [dbRows, dbSelectedKey, dbPrimaryKey]);
+
+  async function handleDbSave() {
+    setDbSaving(true);
+    setDbMessage(null);
+    try {
+      const parsed = JSON.parse(dbEditorText || "{}");
+      const key = String(parsed?.[dbPrimaryKey] || dbSelectedKey || "").trim();
+      if (!key) throw new Error("수정할 행을 먼저 선택해주세요.");
+      const values = Object.fromEntries(dbEditableFields.map((field) => [field, parsed?.[field]]).filter(([, value]) => value !== undefined));
+      const res = await fetch("/api/admin/db", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: dbTable, key, values }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "DB 저장에 실패했습니다.");
+      setDbMessage({ type: "success", text: "선택한 DB 행을 저장했습니다." });
+      await loadDbTable(dbTable);
+      setDbSelectedKey(key);
+    } catch (error) {
+      setDbMessage({ type: "error", text: error.message || "DB 저장에 실패했습니다." });
+    } finally {
+      setDbSaving(false);
+    }
+  }
+
+  async function handleDbDelete() {
+    const key = String(dbSelectedKey || "").trim();
+    if (!key) return setDbMessage({ type: "error", text: "삭제할 행을 먼저 선택해주세요." });
+    if (!window.confirm("선택한 DB 행을 삭제할까요?")) return;
+    setDbSaving(true);
+    setDbMessage(null);
+    try {
+      const res = await fetch(`/api/admin/db?table=${dbTable}&key=${encodeURIComponent(key)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "DB 삭제에 실패했습니다.");
+      setDbMessage({ type: "success", text: "선택한 DB 행을 삭제했습니다." });
+      setDbSelectedKey("");
+      await loadDbTable(dbTable);
+    } catch (error) {
+      setDbMessage({ type: "error", text: error.message || "DB 삭제에 실패했습니다." });
+    } finally {
+      setDbSaving(false);
+    }
+  }
+
+  function handleDbExport(type) {
+    const tableLabel = DB_TABLE_OPTIONS.find((item) => item.value === dbTable)?.label || dbTable;
+    if (type === "json") return downloadTextFile(`${dbTable}.json`, JSON.stringify(dbRows, null, 2), "application/json;charset=utf-8");
+    if (type === "csv") return downloadTextFile(`${dbTable}.csv`, toCsv(dbRows), "text/csv;charset=utf-8");
+    return downloadTextFile(`${dbTable}.txt`, toTextDump(tableLabel, dbRows));
+  }
 
   useEffect(() => {
     if (!authenticated) return;
@@ -438,7 +586,7 @@ export default function AdminOwnerPage() {
                             <td><strong>{item.name}</strong></td>
                             <td>{item.phone}</td>
                             <td>{item.loan_type || "미입력"}</td>
-                            <td><span className={`crm-status-chip crm-assignee-chip ${(item.assigned_staff_account_id ? "crm-assignee-assigned" : "crm-assignee-unassigned")}`}>{item.assignee || "미배정"}</span></td>
+                            <td>{item.assignee || "미배정"}</td>
                             <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{statusLabel(item.status)}</span></td>
                             <td>{formatReviewDateTime(item.created_at)}</td>
                           </tr>
@@ -456,7 +604,7 @@ export default function AdminOwnerPage() {
                         <div className="crm-classic-grid-xl">
                           <div className="crm-classic-row"><span>고객명</span><strong>{selectedInquiry.name}</strong></div>
                           <div className="crm-classic-row"><span>연락처</span><strong>{selectedInquiry.phone}</strong></div>
-                          <div className="crm-classic-row"><span>현재 담당자</span><strong><span className={`crm-status-chip crm-assignee-chip ${(selectedInquiry.assigned_staff_account_id ? "crm-assignee-assigned" : "crm-assignee-unassigned")}`}>{selectedInquiry.assignee || "미배정"}</span></strong></div>
+                          <div className="crm-classic-row"><span>현재 담당자</span><strong>{selectedInquiry.assignee || "미배정"}</strong></div>
                           <div className="crm-classic-row"><span>대출상품</span><strong>{selectedInquiry.loan_type || "미입력"}</strong></div>
                           <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
                           <div className="crm-classic-row crm-classic-row-wide"><span>접수 메모</span><strong>{selectedInquiry.memo || "입력된 메모가 없습니다."}</strong></div>
@@ -531,6 +679,63 @@ export default function AdminOwnerPage() {
                 <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">연도별 접수 건수</div><div className="crm-stats-list">{yearlyRows.map((row) => <div key={row.name} className="crm-stats-row"><strong>{row.name}년</strong><span>{row.count}건</span></div>)}</div></section>
                 <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">월별 접수 건수</div><div className="crm-stats-list">{monthlyRows.map((row) => <div key={row.name} className="crm-stats-row"><strong>{row.name}</strong><span>{row.count}건</span></div>)}</div></section>
               </div>
+            </div>
+          ) : null}
+
+
+          {activeTab === "db" ? (
+            <div className="owner-db-shell">
+              <section className="crm-panel crm-panel-xl">
+                <div className="crm-section-header"><h3>DB 관리</h3><span>주요 테이블 데이터를 확인하고 TXT/CSV/JSON으로 내보낼 수 있습니다.</span></div>
+                <div className="crm-toolbar crm-toolbar-xl crm-toolbar-db">
+                  <select value={dbTable} onChange={(e) => { setDbTable(e.target.value); setDbSelectedKey(""); }}>
+                    {DB_TABLE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <button type="button" className="secondary-btn" onClick={() => loadDbTable(dbTable)}>새로고침</button>
+                  <button type="button" className="secondary-btn" onClick={() => handleDbExport("txt")}>TXT 저장</button>
+                  <button type="button" className="secondary-btn" onClick={() => handleDbExport("csv")}>CSV 저장</button>
+                  <button type="button" className="secondary-btn" onClick={() => handleDbExport("json")}>JSON 저장</button>
+                </div>
+                {dbMessage ? <div className={`api-status ${dbMessage.type}`}>{dbMessage.text}</div> : null}
+                <div className="owner-db-grid">
+                  <div className="crm-table-wrap crm-table-modern-wrap owner-db-table-wrap">
+                    <table className="crm-table crm-table-modern">
+                      <thead>
+                        <tr>
+                          <th>{dbPrimaryKey}</th>
+                          <th>요약</th>
+                          <th>생성일/수정일</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dbLoading ? <tr><td colSpan={3} className="crm-empty-cell">불러오는 중...</td></tr> : null}
+                        {!dbLoading && dbRows.length === 0 ? <tr><td colSpan={3} className="crm-empty-cell">불러온 데이터가 없습니다.</td></tr> : null}
+                        {!dbLoading && dbRows.map((row) => {
+                          const key = String(row?.[dbPrimaryKey] || "");
+                          const summary = row?.name || row?.title || row?.display_name || row?.company_name || row?.phone || row?.scope || "-";
+                          const stamp = row?.updated_at || row?.created_at || "-";
+                          return (
+                            <tr key={key} onClick={() => setDbSelectedKey(key)} className={key === String(dbSelectedKey || "") ? "crm-row-selected" : ""}>
+                              <td><strong>{key}</strong></td>
+                              <td>{summary}</td>
+                              <td>{String(stamp || "-")}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="crm-panel owner-db-editor-panel">
+                    <div className="crm-section-header"><h3>선택 행 확인 / 수정</h3><span>아래 JSON에서 지원 필드만 수정 저장할 수 있습니다.</span></div>
+                    <div className="crm-muted-box db-editable-fields">수정 가능 필드: {dbEditableFields.length ? dbEditableFields.join(", ") : "없음"}</div>
+                    <textarea className="owner-db-editor" value={dbEditorText} onChange={(e) => setDbEditorText(e.target.value)} spellCheck={false} />
+                    <div className="crm-action-row owner-db-actions">
+                      <button type="button" className="primary-btn" disabled={dbSaving} onClick={handleDbSave}>{dbSaving ? "저장 중..." : "선택 행 저장"}</button>
+                      {dbDeletable ? <button type="button" className="secondary-btn danger" disabled={dbSaving} onClick={handleDbDelete}>선택 행 삭제</button> : null}
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           ) : null}
 

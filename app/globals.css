@@ -2083,23 +2083,51 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 .manage-review-current{color:#526076;font-weight:600;}
 .manage-review-approved{color:#2f63ce;font-weight:800;}
 
-
-h1,
-h2,
-h3,
-h4,
-.section-mini,
-.brand-title,
-.review-title,
-.home-calc-title,
-.review-card-title,
-.result-main-price,
-.consult-modal-title,
-.notice-pop-title {
-  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
-  letter-spacing: -0.03em;
+.owner-db-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
+  gap: 18px;
+  margin-top: 18px;
 }
 
-input, select, textarea, button {
-  font-family: var(--font-body, "Noto Sans KR", -apple-system, BlinkMacSystemFont, system-ui, sans-serif);
+.owner-db-table-wrap {
+  max-height: 680px;
+  overflow: auto;
+}
+
+.owner-db-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.owner-db-editor {
+  min-height: 560px;
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.owner-db-actions {
+  justify-content: flex-end;
+}
+
+.crm-toolbar-db {
+  flex-wrap: wrap;
+}
+
+.db-editable-fields {
+  white-space: normal;
+  line-height: 1.5;
+}
+
+@media (max-width: 1180px) {
+  .owner-db-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-db-editor {
+    min-height: 360px;
+  }
 }
