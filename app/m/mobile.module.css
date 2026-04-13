@@ -3,6 +3,7 @@
   background: #f5f7fb;
   color: #15213a;
   padding-bottom: 92px;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
 .header {
@@ -56,7 +57,6 @@
 }
 
 .brandText strong {
-  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   font-size: 18px;
   line-height: 1.2;
   font-weight: 800;
@@ -105,7 +105,6 @@
 }
 
 .heroTitle {
-  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   margin: 14px 0 18px;
   font-size: 20px;
   line-height: 1.42;
@@ -148,7 +147,6 @@
 }
 
 .quickCard strong {
-  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   display: block;
   font-size: 17px;
   line-height: 1.28;
@@ -282,7 +280,6 @@
 }
 
 .sectionHeader h2 {
-  font-family: var(--font-heading, "Noto Serif KR", Georgia, serif);
   margin: 10px 0 0;
   font-size: 24px;
   line-height: 1.35;
@@ -550,6 +547,25 @@
   color: #2f2514;
 }
 
+
+.disabledLink {
+  pointer-events: none;
+}
+
+.disabledLink small,
+.disabledLink b {
+  display: none;
+}
+
+.disabledLink .quickLabel,
+.disabledLink strong {
+  opacity: 0.9;
+}
+
+.bottomBar .disabledLink {
+  opacity: 0.72;
+}
+
 @media (max-width: 360px) {
   .heroTitle {
     font-size: 18px;
@@ -573,11 +589,3 @@
   color: #2f63ce;
   font-weight: 800;
 }
-
-
-.calcCard { padding: 18px 16px; }
-.calcGrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-.calcResultBox { margin-top: 6px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(180deg, #eff5ff 0%, #e8f0ff 100%); border: 1px solid #d9e5ff; }
-.calcResultLabel { font-size: 12px; font-weight: 800; color: #365aa8; }
-.calcResultValue { margin-top: 6px; font-family: var(--font-heading, "Noto Serif KR", Georgia, serif); font-size: 28px; line-height: 1.2; font-weight: 900; color: #12203d; letter-spacing: -0.03em; }
-.calcHelper { margin-top: 10px; font-size: 13px; line-height: 1.65; color: #5f6f89; }

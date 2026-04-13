@@ -30,17 +30,6 @@ const FAQ_ITEMS = [
   },
 ];
 
-const repaymentDefaults = {
-  "원리금균등": "4.9",
-  "원금균등": "5.1",
-  "만기일시상환": "5.4",
-};
-
-function formatNumber(value) {
-  if (!Number.isFinite(value)) return "0";
-  return Math.round(value).toLocaleString("ko-KR");
-}
-
 function sanitizePhone(value) {
   return String(value || "").replace(/[^0-9]/g, "");
 }
@@ -80,55 +69,29 @@ export default function MobileLandingPage() {
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
+  const [apartmentQuery, setApartmentQuery] = useState("");
   const [catalogError, setCatalogError] = useState("");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
   const [casePageIndex, setCasePageIndex] = useState(0);
-  const [loanAmount, setLoanAmount] = useState("");
-  const [interestRate, setInterestRate] = useState("");
-  const [repaymentType, setRepaymentType] = useState("");
-  const [loanMonths, setLoanMonths] = useState("");
 
   const consultRef = useRef(null);
   const priceRef = useRef(null);
 
-  const displayPhone = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
-  const displayKakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
-  const displayKakaoUrl = siteSettings.kakao_url || DEFAULT_SITE_SETTINGS.kakao_url;
+  const displayPhone = siteSettings.phone ?? DEFAULT_SITE_SETTINGS.phone;
+  const displayKakaoId = siteSettings.kakao_id ?? DEFAULT_SITE_SETTINGS.kakao_id;
+  const displayKakaoUrl = siteSettings.kakao_url ?? DEFAULT_SITE_SETTINGS.kakao_url;
   const displayLogoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
   const heroBadge = siteSettings.hero_badge || DEFAULT_SITE_SETTINGS.hero_badge;
   const heroTitle = siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title;
+  const hasPhoneLink = Boolean(sanitizePhone(displayPhone));
+  const hasPhoneText = Boolean(String(displayPhone || '').trim());
+  const hasKakaoUrl = Boolean(String(displayKakaoUrl || '').trim());
+  const hasKakaoId = Boolean(String(displayKakaoId || '').trim());
 
   const [approvalCases, setApprovalCases] = useState([]);
   const casePages = useMemo(() => chunkArray(approvalCases, 3), [approvalCases]);
-  const calcResult = useMemo(() => {
-    const principal = Number(String(loanAmount).replace(/,/g, ""));
-    const annualRate = Number(interestRate);
-    const months = Number(loanMonths);
-    if (!principal || !annualRate || !months || months <= 0) return { monthlyPayment: 0, totalInterest: 0, totalPayment: 0 };
-    const monthlyRate = annualRate / 100 / 12;
-    let monthlyPayment = 0;
-    let totalPayment = 0;
-    let totalInterest = 0;
-    if (repaymentType === "원리금균등") {
-      if (monthlyRate === 0) monthlyPayment = principal / months;
-      else monthlyPayment = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
-      totalPayment = monthlyPayment * months;
-      totalInterest = totalPayment - principal;
-    } else if (repaymentType === "원금균등") {
-      const monthlyPrincipal = principal / months;
-      const avgMonthlyInterest = (principal * monthlyRate + monthlyPrincipal * monthlyRate) / 2;
-      monthlyPayment = monthlyPrincipal + avgMonthlyInterest;
-      totalInterest = (principal * monthlyRate * (months + 1)) / 2;
-      totalPayment = principal + totalInterest;
-    } else {
-      monthlyPayment = principal * monthlyRate;
-      totalInterest = monthlyPayment * months;
-      totalPayment = principal + totalInterest;
-    }
-    return { monthlyPayment, totalInterest, totalPayment };
-  }, [loanAmount, interestRate, repaymentType, loanMonths]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,14 +116,6 @@ export default function MobileLandingPage() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!repaymentType) {
-      setInterestRate("");
-      return;
-    }
-    setInterestRate(repaymentDefaults[repaymentType] || "");
-  }, [repaymentType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,14 +145,6 @@ export default function MobileLandingPage() {
   }, []);
 
   useEffect(() => {
-    if (!repaymentType) {
-      setInterestRate("");
-      return;
-    }
-    setInterestRate(repaymentDefaults[repaymentType] || "");
-  }, [repaymentType]);
-
-  useEffect(() => {
     let cancelled = false;
     async function loadCatalog() {
       setCatalogLoading(true);
@@ -209,6 +156,7 @@ export default function MobileLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
+          apartmentQuery,
           area: selectedArea,
         });
         const res = await fetch(`/api/property-catalog?${query.toString()}`, { cache: "no-store" });
@@ -231,7 +179,7 @@ export default function MobileLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
+  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
 
   useEffect(() => {
     if (casePages.length <= 1) return undefined;
@@ -295,7 +243,7 @@ export default function MobileLandingPage() {
             <span>{siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle}</span>
           </div>
         </div>
-        <a className={styles.headerCallButton} href={`tel:${sanitizePhone(displayPhone)}`}>전화상담</a>
+        <a className={`${styles.headerCallButton} ${!hasPhoneLink ? styles.disabledLink : ""}`} href={hasPhoneLink ? `tel:${sanitizePhone(displayPhone)}` : "#"} aria-disabled={!hasPhoneLink}>전화상담</a>
       </header>
 
       <main className={styles.main}>
@@ -318,20 +266,20 @@ export default function MobileLandingPage() {
               <span>지역과 단지 선택 후 바로 확인</span>
             </button>
 
-            <a className={`${styles.quickCard} ${styles.contactCard}`} href={`tel:${sanitizePhone(displayPhone)}`}>
+            <a className={`${styles.quickCard} ${styles.contactCard} ${!hasPhoneLink ? styles.disabledLink : ""}`} href={hasPhoneLink ? `tel:${sanitizePhone(displayPhone)}` : "#"} aria-disabled={!hasPhoneLink}>
               <span className={styles.quickLabel}>대표번호</span>
               <div className={styles.iconCircle}>☎</div>
               <strong>전화상담</strong>
-              <b>{formatPhoneForCard(displayPhone)}</b>
-              <small>클릭 시 바로 연결됩니다</small>
+              {hasPhoneText ? <b>{formatPhoneForCard(displayPhone)}</b> : null}
+              {hasPhoneLink ? <small>클릭 시 바로 연결됩니다</small> : null}
             </a>
 
-            <a className={`${styles.quickCard} ${styles.contactCard} ${styles.kakaoCard}`} href={displayKakaoUrl} target="_blank" rel="noreferrer">
+            <a className={`${styles.quickCard} ${styles.contactCard} ${styles.kakaoCard} ${!hasKakaoUrl ? styles.disabledLink : ""}`} href={hasKakaoUrl ? displayKakaoUrl : "#"} target={hasKakaoUrl ? "_blank" : undefined} rel={hasKakaoUrl ? "noreferrer" : undefined} aria-disabled={!hasKakaoUrl}>
               <span className={styles.quickLabel}>카카오톡</span>
               <div className={`${styles.iconCircle} ${styles.kakaoIcon}`}>TALK</div>
               <strong>카카오톡 상담</strong>
-              <b>{displayKakaoId}</b>
-              <small>클릭 시 바로 연결됩니다</small>
+              {hasKakaoId ? <b>{displayKakaoId}</b> : null}
+              {hasKakaoUrl ? <small>클릭 시 바로 연결됩니다</small> : null}
             </a>
           </div>
         </section>
@@ -427,6 +375,10 @@ export default function MobileLandingPage() {
               </select>
             </label>
             <label className={styles.field}>
+              <span>아파트명 검색</span>
+              <input value={apartmentQuery} onChange={(e) => setApartmentQuery(e.target.value)} placeholder="아파트명을 입력해주세요" />
+            </label>
+            <label className={styles.field}>
               <span>단지 선택</span>
               <select value={selectedApartment} onChange={(e) => {
                 setSelectedApartment(e.target.value);
@@ -445,43 +397,6 @@ export default function MobileLandingPage() {
             </label>
             {catalogLoading ? <div className={styles.inlineNote}>단지 정보를 불러오는 중입니다.</div> : null}
             {catalogError ? <div className={`${styles.formStatus} ${styles.error}`}>{catalogError}</div> : null}
-          </div>
-        </section>
-
-        <section id="mobile-calculator" className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <span>이율 계산기</span>
-            <h2>간편하게 월 상환 예상액을 확인해보세요</h2>
-          </div>
-          <div className={`${styles.formCard} ${styles.calcCard}`}>
-            <div className={styles.calcGrid}>
-              <label className={styles.field}>
-                <span>대출 금액</span>
-                <input type="text" placeholder="대출 금액" value={loanAmount} onChange={(e) => setLoanAmount(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" />
-              </label>
-              <label className={styles.field}>
-                <span>연 이율(%)</span>
-                <input type="text" placeholder="연 이율(%)" value={interestRate} onChange={(e) => setInterestRate(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" />
-              </label>
-              <label className={styles.field}>
-                <span>상환방식</span>
-                <select value={repaymentType} onChange={(e) => setRepaymentType(e.target.value)}>
-                  <option value="">상환방식을 선택</option>
-                  <option value="원리금균등">원리금균등</option>
-                  <option value="원금균등">원금균등</option>
-                  <option value="만기일시상환">만기일시상환</option>
-                </select>
-              </label>
-              <label className={styles.field}>
-                <span>기간(개월)</span>
-                <input type="text" placeholder="기간(개월)" value={loanMonths} onChange={(e) => setLoanMonths(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" />
-              </label>
-            </div>
-            <div className={styles.calcResultBox}>
-              <div className={styles.calcResultLabel}>예상 월 상환액</div>
-              <div className={styles.calcResultValue}>{formatNumber(calcResult.monthlyPayment)}원</div>
-            </div>
-            <div className={styles.calcHelper}>상환방식을 선택하면 기준 이율이 자동 입력되며, 연 이율은 직접 수정할 수 있습니다. 금액과 기간을 입력해 월 상환 예상액을 확인해보세요.</div>
           </div>
         </section>
 
@@ -565,8 +480,8 @@ export default function MobileLandingPage() {
       </footer>
 
       <div className={styles.bottomBar}>
-        <a className={styles.bottomCall} href={`tel:${sanitizePhone(displayPhone)}`}>전화상담</a>
-        <a className={styles.bottomKakao} href={displayKakaoUrl} target="_blank" rel="noreferrer">카카오톡 상담</a>
+        <a className={`${styles.bottomCall} ${!hasPhoneLink ? styles.disabledLink : ""}`} href={hasPhoneLink ? `tel:${sanitizePhone(displayPhone)}` : "#"} aria-disabled={!hasPhoneLink}>전화상담</a>
+        <a className={`${styles.bottomKakao} ${!hasKakaoUrl ? styles.disabledLink : ""}`} href={hasKakaoUrl ? displayKakaoUrl : "#"} target={hasKakaoUrl ? "_blank" : undefined} rel={hasKakaoUrl ? "noreferrer" : undefined} aria-disabled={!hasKakaoUrl}>카카오톡 상담</a>
       </div>
     </div>
   );
