@@ -142,8 +142,7 @@ function toCsv(rows) {
   }, new Set()));
   const esc = (value) => {
     const str = value === null || value === undefined ? "" : String(value);
-    return /[",
-]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
   };
   return [columns.join(","), ...rows.map((row) => columns.map((col) => esc(row?.[col])).join(","))].join("\n");
 }
