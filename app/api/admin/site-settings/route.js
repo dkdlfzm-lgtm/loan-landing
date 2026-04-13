@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "../../../../lib/admin-auth";
 import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings, parseBoolean } from "../../../../lib/site-settings";
 import { isSupabaseConfigured, supabaseRest } from "../../../../lib/supabase-rest";
-import { canManageSite, getAuthenticatedStaffAccount } from "../../../../lib/staff-auth";
 
 const FIELD_CONFIG = [
   ["company_name", "text"],
@@ -39,14 +38,8 @@ const FIELD_CONFIG = [
 
 const SELECT_FIELDS = FIELD_CONFIG.map(([field]) => field).concat("updated_at").join(",");
 
-async function isSiteManagerAuthenticated() {
-  if (await isAdminAuthenticated()) return true;
-  const account = await getAuthenticatedStaffAccount();
-  return canManageSite(account);
-}
-
 export async function GET(request) {
-  if (!(await isSiteManagerAuthenticated())) return NextResponse.json({ ok: false, message: "홈페이지 관리 권한이 필요합니다." }, { status: 401 });
+  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get("scope") === "mobile" ? "mobile" : "main";
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: true, settings: { ...DEFAULT_SITE_SETTINGS, scope }, fallback: true });
@@ -65,7 +58,7 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  if (!(await isSiteManagerAuthenticated())) return NextResponse.json({ ok: false, message: "홈페이지 관리 권한이 필요합니다." }, { status: 401 });
+  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: "관리자 인증이 필요합니다." }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get("scope") === "mobile" ? "mobile" : "main";
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." }, { status: 500 });
@@ -76,7 +69,7 @@ export async function PATCH(request) {
       if (type === "boolean") {
         payload[field] = parseBoolean(body?.[field], DEFAULT_SITE_SETTINGS[field]);
       } else {
-        payload[field] = String(body?.[field] ?? DEFAULT_SITE_SETTINGS[field] ?? "").trim();
+        payload[field] = body?.[field] === undefined || body?.[field] === null ? String(DEFAULT_SITE_SETTINGS[field] ?? "").trim() : String(body[field]).trim();
       }
     }
     const saved = await supabaseRest("/site_settings", {

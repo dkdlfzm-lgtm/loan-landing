@@ -61,7 +61,7 @@ function chunkArray(items, size) {
 }
 
 export default function MobileLandingPage() {
-  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+  const [siteSettings, setSiteSettings] = useState({ ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [selectedCity, setSelectedCity] = useState("");
@@ -97,18 +97,18 @@ export default function MobileLandingPage() {
     let cancelled = false;
     async function loadSettings() {
       try {
-        const cached = readCachedSiteSettings();
+        const cached = readCachedSiteSettings("mobile");
         if (!cancelled && cached) setSiteSettings(cached);
-        const res = await fetch("/api/site-settings", { cache: "no-store" });
+        const res = await fetch("/api/site-settings?scope=mobile", { cache: "no-store" });
         const data = await res.json();
         if (!res.ok || data?.ok === false || !data?.settings) throw new Error();
         if (!cancelled) {
           const next = { ...DEFAULT_SITE_SETTINGS, ...data.settings };
           setSiteSettings(next);
-          cacheSiteSettings(next);
+          cacheSiteSettings(next, "mobile");
         }
       } catch {
-        if (!cancelled) setSiteSettings(readCachedSiteSettings() || DEFAULT_SITE_SETTINGS);
+        if (!cancelled) setSiteSettings(readCachedSiteSettings("mobile") || { ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
       }
     }
     loadSettings();
