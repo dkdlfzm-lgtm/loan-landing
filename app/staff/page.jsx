@@ -50,6 +50,26 @@ function roleLabel(role) {
   return map[String(role || "")] || "실무자";
 }
 
+function AccessDeniedView({ account, onLogout }) {
+  return (
+    <div className="site-wrap admin-wrap">
+      <main className="section reviews-main-section">
+        <div className="container admin-login-shell">
+          <div className="review-write-card admin-login-card admin-login-card-pro access-denied-card">
+            <div className="section-mini">접근 권한 없음</div>
+            <h1 className="section-title reviews-page-title">직원 CRM에 접속할 수 없는 계정입니다.</h1>
+            <p className="card-desc">현재 로그인한 계정은 {account?.display_name || account?.username || "직원"} / {account?.role_label || roleLabel(account?.role)} 입니다. 마케팅담당 계정은 홈페이지 관리 페이지에서만 사용할 수 있습니다.</p>
+            <div className="access-denied-actions">
+              <a className="primary-btn" href="/manage">PC 홈페이지 관리로 이동</a>
+              <a className="secondary-btn" href="/manage-mobile">모바일 관리로 이동</a>
+              <button type="button" className="secondary-btn" onClick={onLogout}>로그아웃</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
 
 function LoginView({ form, setForm, loginError, handleLogin }) {
   return (
@@ -97,6 +117,9 @@ function Sidebar({ activeTab, setActiveTab, handleLogout, account }) {
           </button>
         ))}
       </nav>
+      {String(account?.role || "") === "admin" ? <a className="nav-btn crm-ghost-link" href="/admin">관리자 페이지 열기</a> : null}
+      {String(account?.role || "") === "admin" ? <a className="nav-btn crm-ghost-link" href="/manage">PC 홈페이지 관리</a> : null}
+      {String(account?.role || "") === "admin" ? <a className="nav-btn crm-ghost-link" href="/manage-mobile">모바일 홈페이지 관리</a> : null}
       <button type="button" className="nav-btn admin-logout-btn crm-sidebar-logout" onClick={handleLogout}>로그아웃</button>
     </aside>
   );
@@ -124,6 +147,7 @@ export default function StaffPage() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   useEffect(() => {
@@ -139,15 +163,17 @@ export default function StaffPage() {
         }
         if (d.authenticated && !canOpenStaffPage(d.account)) {
           setAuthenticated(false);
-          setAccount(null);
-          setLoginError("CS담당, 실무자, 관리자 직책만 직원 CRM에 접속할 수 있습니다.");
+          setAccessDenied(true);
+          setAccount(d.account || null);
+          setNoteAuthor(d.account?.display_name || d.account?.username || "");
           return;
         }
+        setAccessDenied(false);
         setAuthenticated(Boolean(d.authenticated));
         setAccount(d.account || null);
         setNoteAuthor(d.account?.display_name || d.account?.username || "");
       })
-      .catch(() => setAuthenticated(false));
+      .catch(() => { setAccessDenied(false); setAuthenticated(false); });
   }, []);
 
   async function loadData({ silent = false } = {}) {
@@ -307,6 +333,7 @@ export default function StaffPage() {
   }
 
   if (authenticated === null) return <div className="site-wrap"><main className="section"><div className="container">로딩 중...</div></main></div>;
+  if (!authenticated && accessDenied) return <AccessDeniedView account={account} onLogout={handleLogout} />;
   if (!authenticated) return <LoginView form={loginForm} setForm={setLoginForm} loginError={loginError} handleLogin={handleLogin} />;
 
   return (

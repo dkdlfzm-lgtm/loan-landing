@@ -4,6 +4,27 @@ import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_SITE_SETTINGS, cacheSiteSettings, parseBoolean } from "../../lib/site-settings";
 import { buildApprovalCaseContent, parseApprovalCase } from "../../lib/approval-case-format";
 
+function AccessDeniedView({ title, description, primaryHref, primaryLabel, secondaryHref, secondaryLabel, onLogout }) {
+  return (
+    <div className="site-wrap admin-wrap">
+      <main className="section reviews-main-section">
+        <div className="container admin-login-shell">
+          <div className="review-write-card admin-login-card admin-login-card-pro access-denied-card">
+            <div className="section-mini">접근 권한 없음</div>
+            <h1 className="section-title reviews-page-title">{title}</h1>
+            <p className="card-desc">{description}</p>
+            <div className="access-denied-actions">
+              {primaryHref ? <a className="primary-btn" href={primaryHref}>{primaryLabel}</a> : null}
+              {secondaryHref ? <a className="secondary-btn" href={secondaryHref}>{secondaryLabel}</a> : null}
+              <button type="button" className="secondary-btn" onClick={onLogout}>로그아웃</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 const MENUS = [
   { key: "brand", label: "기본정보" },
   { key: "hero", label: "메인 배너" },
@@ -83,6 +104,7 @@ export default function ManageMobilePage() {
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [activeMenu, setActiveMenu] = useState("brand");
+  const [accessDenied, setAccessDenied] = useState(null);
   const settingsScope = "mobile";
 
   useEffect(() => {
@@ -91,16 +113,32 @@ export default function ManageMobilePage() {
       fetch("/api/staff/session", { cache: "no-store" }).then((r) => r.json()).catch(() => ({ authenticated: false })),
     ]).then(([adminSession, staffSession]) => {
       if (adminSession?.authenticated) {
-        setViewer({ type: "admin", label: "관리자" });
+        setViewer({ type: "admin", label: "관리자", role: "admin" });
+        setAccessDenied(null);
         setAuthenticated(true);
         return;
       }
       const role = String(staffSession?.account?.role || "");
       if (staffSession?.authenticated && ["marketing", "admin"].includes(role)) {
-        setViewer({ type: "staff", label: staffSession.account?.display_name || staffSession.account?.username || "직원", roleLabel: staffSession.account?.role_label || role });
+        setViewer({ type: "staff", label: staffSession.account?.display_name || staffSession.account?.username || "직원", role, roleLabel: staffSession.account?.role_label || role });
+        setAccessDenied(null);
         setAuthenticated(true);
         return;
       }
+      if (staffSession?.authenticated) {
+        setViewer({ type: "staff", label: staffSession.account?.display_name || staffSession.account?.username || "직원", role, roleLabel: staffSession.account?.role_label || role });
+        setAccessDenied({
+          title: "모바일 홈페이지 관리 권한이 없는 계정입니다.",
+          description: "마케팅담당 또는 관리자 계정만 홈페이지 관리 페이지에 접속할 수 있습니다.",
+          primaryHref: "/staff",
+          primaryLabel: "직원 페이지로 이동",
+          secondaryHref: "/manage",
+          secondaryLabel: "PC 관리 보기",
+        });
+        setAuthenticated(false);
+        return;
+      }
+      setAccessDenied(null);
       setAuthenticated(false);
     });
   }, []);
@@ -164,7 +202,8 @@ export default function ManageMobilePage() {
       setError(data.message || "로그인 실패");
       return;
     }
-    setViewer({ type: "admin", label: "관리자" });
+    setViewer({ type: "admin", label: "관리자", role: "admin" });
+    setAccessDenied(null);
     setAuthenticated(true);
   }
 
@@ -340,7 +379,10 @@ export default function ManageMobilePage() {
     : undefined;
 
   if (authenticated === null) return <div className="site-wrap"><main className="section"><div className="container"><div className="white-panel">불러오는 중...</div></div></main></div>;
+  if (!authenticated && accessDenied) return <AccessDeniedView {...accessDenied} onLogout={handleLogout} />;
   if (!authenticated) return <ManagerLogin adminPassword={adminPassword} setAdminPassword={setAdminPassword} loginForm={loginForm} setLoginForm={setLoginForm} error={error} onAdminSubmit={handleAdminLogin} onStaffSubmit={handleStaffLogin} />;
+
+  const canOpenAdmin = viewer?.type === "admin" || String(viewer?.role || "") === "admin";
 
   return (
     <div className="site-wrap admin-wrap">
@@ -361,8 +403,7 @@ export default function ManageMobilePage() {
             </nav>
             <a className="nav-btn crm-ghost-link" href="/m" target="_blank" rel="noreferrer">모바일 미리보기</a>
             <a className="nav-btn crm-ghost-link" href="/manage">PC 홈페이지 관리</a>
-            <a className="nav-btn crm-ghost-link" href="/admin">관리자 페이지 열기</a>
-            <a className="nav-btn crm-ghost-link" href="/staff">직원 페이지 열기</a>
+            {canOpenAdmin ? <a className="nav-btn crm-ghost-link" href="/admin">관리자 페이지 열기</a> : null}
             <button type="button" className="nav-btn admin-logout-btn crm-sidebar-logout" onClick={handleLogout}>로그아웃</button>
           </aside>
 

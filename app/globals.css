@@ -2156,3 +2156,24 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
   background: #fff;
   font: inherit;
 }
+
+
+.access-denied-card {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.access-denied-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.access-denied-actions .primary-btn,
+.access-denied-actions .secondary-btn {
+  min-width: 180px;
+  justify-content: center;
+  text-decoration: none;
+}
