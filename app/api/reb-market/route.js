@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { loadPropertyMaster } from "../../../lib-property-master";
 
 const REB_API_BASE = "https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do";
 const APT_TRADE_BASE =
@@ -9,7 +8,7 @@ const OFFI_TRADE_BASE =
   process.env.OFFICETEL_TRADE_BASE ||
   "https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade";
 
-const PROPERTY_STAT_ID_MAP: Record<string, string | undefined> = {
+const PROPERTY_STAT_ID_MAP = {
   아파트: process.env.REB_APT_STATBL_ID,
   오피스텔: process.env.REB_OFFICETEL_STATBL_ID,
   "빌라(연립/다세대)": process.env.REB_VILLA_STATBL_ID,
@@ -28,18 +27,18 @@ function normalizeApartmentName(value = "") {
     .replace(/\s+/g, "");
 }
 
-function parseAreaNumber(value: unknown) {
+function parseAreaNumber(value) {
   const match = String(value ?? "").match(/\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : NaN;
 }
 
-function formatArea(value: unknown) {
+function formatArea(value) {
   const num = parseAreaNumber(value);
   if (!Number.isFinite(num)) return String(value || "선택 면적");
   return `${Number(num.toFixed(2))}㎡`;
 }
 
-function formatEok(value: number) {
+function formatEok(value) {
   const safe = Math.round(Number(value) || 0);
   if (safe <= 0) return "조회값 없음";
 
@@ -52,7 +51,7 @@ function formatEok(value: number) {
   return `${eok}억 ${man.toLocaleString("ko-KR")}만원`;
 }
 
-function buildUrl(base: string, paramsObj: Record<string, unknown>) {
+function buildUrl(base, paramsObj) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(paramsObj)) {
     if (value !== undefined && value !== null && value !== "") {
@@ -62,11 +61,11 @@ function buildUrl(base: string, paramsObj: Record<string, unknown>) {
   return `${base}?${params.toString()}`;
 }
 
-function xmlItemsToObjects(xml: string) {
+function xmlItemsToObjects(xml) {
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => m[1]);
   return items.map((itemXml) => {
     const pairs = [...itemXml.matchAll(/<([^/][^>]*)>([\s\S]*?)<\/\1>/g)];
-    const obj: Record<string, string> = {};
+    const obj = {};
     for (const [, key, value] of pairs) {
       obj[key] = value.replace(/<!\[CDATA\[|\]\]>/g, "").trim();
     }
@@ -74,7 +73,7 @@ function xmlItemsToObjects(xml: string) {
   });
 }
 
-async function fetchApi(url: string) {
+async function fetchApi(url) {
   const response = await fetch(url, {
     method: "GET",
     headers: {
@@ -104,7 +103,7 @@ async function fetchApi(url: string) {
   };
 }
 
-function unwrapItems(payload: any) {
+function unwrapItems(payload) {
   const body = payload?.response?.body ?? payload?.body ?? payload;
   const header = payload?.response?.header ?? payload?.header ?? {};
   const rawItems = body?.items?.item ?? body?.items ?? [];
@@ -114,7 +113,7 @@ function unwrapItems(payload: any) {
 }
 
 function getRecentMonths(count = 6) {
-  const list: string[] = [];
+  const list = [];
   const d = new Date();
   d.setDate(1);
 
@@ -128,44 +127,62 @@ function getRecentMonths(count = 6) {
   return list;
 }
 
-function getTradeApartmentName(item: any) {
+function getTradeApartmentName(item) {
   return normalizeText(
     item.aptNm || item.아파트 || item.offiNm || item.단지 || item.apartmentName || ""
   );
 }
 
-function getTradeArea(item: any) {
+function getTradeArea(item) {
   return Number(item.excluUseAr || item.전용면적 || item.area || 0);
 }
 
-function getTradeAmountWon(item: any) {
+function getTradeAmountWon(item) {
   const raw = item.dealAmount ?? item.거래금액 ?? item.price ?? item.amount ?? "";
   const manwon = Number(String(raw).replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(manwon) || manwon <= 0) return 0;
   return Math.round(manwon * 10000);
 }
 
-function getTradeDateKey(item: any) {
+function getTradeDateKey(item) {
   const year = String(item.dealYear || item.년 || item.year || "").padStart(4, "0");
   const month = String(item.dealMonth || item.월 || item.month || "").padStart(2, "0");
   const day = String(item.dealDay || item.일 || item.day || "01").padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
-function toleranceForArea(areaNumber: number) {
+function toleranceForArea(areaNumber) {
   if (!Number.isFinite(areaNumber)) return 1;
   if (areaNumber < 40) return 0.5;
   if (areaNumber < 100) return 0.99;
   return 1.5;
 }
 
-function pickCatalogEntry(master: any, query: any) {
+async function loadPropertyMasterLocal() {
+  const candidates = [
+    `${process.cwd()}/public/property-master.json`,
+    `${process.cwd()}/property-master.json`,
+  ];
+
+  for (const filePath of candidates) {
+    try {
+      const fs = await import("fs/promises");
+      const json = await fs.readFile(filePath, "utf-8");
+      const master = JSON.parse(json);
+      return { master };
+    } catch (_err) {}
+  }
+
+  throw new Error("property-master.json 파일을 찾지 못했습니다.");
+}
+
+function pickCatalogEntry(master, query) {
   const rows = master?.[query.propertyType]?.[query.city] || [];
   const normalizedTarget = normalizeApartmentName(query.apartment);
   const targetArea = parseAreaNumber(query.area);
 
   const exact = rows.filter(
-    (row: any) =>
+    (row) =>
       row.district === query.district &&
       row.town === query.town &&
       normalizeApartmentName(row.apartment) === normalizedTarget
@@ -173,22 +190,22 @@ function pickCatalogEntry(master: any, query: any) {
 
   if (!exact.length) return null;
 
-  const best = exact.find((row: any) =>
+  const best = exact.find((row) =>
     (row.areas || []).some(
-      (area: string) => Math.abs(parseAreaNumber(area) - targetArea) <= toleranceForArea(targetArea)
+      (area) => Math.abs(parseAreaNumber(area) - targetArea) <= toleranceForArea(targetArea)
     )
   );
 
   return best || exact[0];
 }
 
-async function fetchRealTradeSummary(query: any) {
+async function fetchRealTradeSummary(query) {
   const serviceKey = process.env.DATA_GO_KR_KEY;
   if (!serviceKey) {
     throw new Error("DATA_GO_KR_KEY 환경변수가 설정되지 않았습니다.");
   }
 
-  const { master } = await loadPropertyMaster();
+  const { master } = await loadPropertyMasterLocal();
   const entry = pickCatalogEntry(master, query);
 
   if (!entry?.bjdCode) {
@@ -275,7 +292,7 @@ async function fetchRealTradeSummary(query: any) {
   };
 }
 
-function buildStatFallback(query: any) {
+function buildStatFallback(query) {
   const summary = {
     title: query.apartment || `${query.town} 대표 단지`,
     address: [query.city, query.district, query.town].filter(Boolean).join(" "),
@@ -292,7 +309,7 @@ function buildStatFallback(query: any) {
   return { summary, source: "fallback" };
 }
 
-function normalizeItems(payload: any) {
+function normalizeItems(payload) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.SttsApiTblData)) return payload.SttsApiTblData;
   if (Array.isArray(payload?.response?.body?.items)) return payload.response.body.items;
@@ -300,7 +317,7 @@ function normalizeItems(payload: any) {
   return [];
 }
 
-function pickLatestItem(items: any[] = []) {
+function pickLatestItem(items = []) {
   if (!items.length) return null;
 
   return [...items].sort((a, b) => {
@@ -310,7 +327,7 @@ function pickLatestItem(items: any[] = []) {
   })[0];
 }
 
-function makeSummaryFromStat(item: any, fallback: any, query: any) {
+function makeSummaryFromStat(item, fallback, query) {
   if (!item) return fallback;
 
   const rawValue = Number(item.DT || item.dt || item.VALUE || item.value || item.PRICE || item.price || 0);
@@ -333,7 +350,7 @@ function makeSummaryFromStat(item: any, fallback: any, query: any) {
   };
 }
 
-async function fetchStatSummary(query: any) {
+async function fetchStatSummary(query) {
   const key = process.env.REB_OPENAPI_KEY;
   const statId = PROPERTY_STAT_ID_MAP[query.propertyType];
   const fallback = buildStatFallback(query);
@@ -368,7 +385,7 @@ async function fetchStatSummary(query: any) {
   };
 }
 
-export async function GET(request: Request) {
+export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const query = {
     propertyType: searchParams.get("propertyType") || "아파트",
@@ -389,13 +406,13 @@ export async function GET(request: Request) {
   try {
     const result = await fetchRealTradeSummary(query);
     return NextResponse.json({ ok: true, ...result, query });
-  } catch (error: any) {
+  } catch (error) {
     const stat = await fetchStatSummary(query).catch(() => buildStatFallback(query));
     return NextResponse.json({
       ok: true,
       ...stat,
       query,
-      warning: error?.message || (stat as any).warning || "최근 실거래가를 찾지 못해 참고값으로 대체했습니다.",
+      warning: error?.message || stat?.warning || "최근 실거래가를 찾지 못해 참고값으로 대체했습니다.",
     });
   }
 }
