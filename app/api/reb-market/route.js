@@ -52,13 +52,21 @@ function formatEok(value) {
 }
 
 function buildUrl(base, paramsObj) {
-  const params = new URLSearchParams();
+  const queryParts = [];
+
   for (const [key, value] of Object.entries(paramsObj)) {
-    if (value !== undefined && value !== null && value !== "") {
-      params.set(key, String(value));
+    if (value === undefined || value === null || value === "") continue;
+
+    if (key === "serviceKey") {
+      queryParts.push(`serviceKey=${String(value)}`);
+    } else {
+      queryParts.push(
+        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
+      );
     }
   }
-  return `${base}?${params.toString()}`;
+
+  return `${base}?${queryParts.join("&")}`;
 }
 
 function xmlItemsToObjects(xml) {
@@ -170,7 +178,9 @@ async function loadPropertyMasterLocal() {
       const json = await fs.readFile(filePath, "utf-8");
       const master = JSON.parse(json);
       return { master };
-    } catch (_err) {}
+    } catch (_err) {
+      // ignore
+    }
   }
 
   throw new Error("property-master.json 파일을 찾지 못했습니다.");
@@ -293,20 +303,22 @@ async function fetchRealTradeSummary(query) {
 }
 
 function buildStatFallback(query) {
-  const summary = {
-    title: query.apartment || `${query.town} 대표 단지`,
-    address: [query.city, query.district, query.town].filter(Boolean).join(" "),
-    area: formatArea(query.area),
-    tradeDate: "통계 기준",
-    latestPrice: "조회값 없음",
-    range: "조회값 없음",
-    averagePrice: "조회값 없음",
-    estimateLimit: "상담 후 산정",
-    description: "실거래가 데이터가 없어 통계형 참고값으로 대체 표시합니다.",
-    trendText: "실거래 데이터 없음",
+  return {
+    source: "fallback",
+    count: 0,
+    summary: {
+      title: query.apartment || `${query.town} 대표 단지`,
+      address: [query.city, query.district, query.town].filter(Boolean).join(" "),
+      area: formatArea(query.area),
+      tradeDate: "통계 기준",
+      latestPrice: "조회값 없음",
+      range: "조회값 없음",
+      averagePrice: "조회값 없음",
+      estimateLimit: "상담 후 산정",
+      description: "실거래가 데이터가 없어 통계형 참고값으로 대체 표시합니다.",
+      trendText: "실거래 데이터 없음",
+    },
   };
-
-  return { summary, source: "fallback" };
 }
 
 function normalizeItems(payload) {
@@ -327,11 +339,13 @@ function pickLatestItem(items = []) {
   })[0];
 }
 
-function makeSummaryFromStat(item, fallback, query) {
-  if (!item) return fallback;
+function makeSummaryFromStat(item, fallbackSummary, query) {
+  if (!item) return fallbackSummary;
 
-  const rawValue = Number(item.DT || item.dt || item.VALUE || item.value || item.PRICE || item.price || 0);
-  if (!rawValue) return fallback;
+  const rawValue = Number(
+    item.DT || item.dt || item.VALUE || item.value || item.PRICE || item.price || 0
+  );
+  if (!rawValue) return fallbackSummary;
 
   const numericValue = rawValue < 10000 ? rawValue * 1000000 : rawValue;
   const low = Math.round(numericValue * 0.96);
@@ -340,12 +354,13 @@ function makeSummaryFromStat(item, fallback, query) {
     query.propertyType === "아파트" ? 0.72 : query.propertyType === "오피스텔" ? 0.68 : 0.62;
 
   return {
-    ...fallback,
-    tradeDate: String(item.WRTTIME_IDTFR_ID || item.wrttimeIdtfrId || fallback.tradeDate),
+    ...fallbackSummary,
+    tradeDate: String(item.WRTTIME_IDTFR_ID || item.wrttimeIdtfrId || fallbackSummary.tradeDate),
     latestPrice: formatEok(numericValue),
     range: `${formatEok(low)} ~ ${formatEok(high)}`,
+    averagePrice: formatEok(numericValue),
     estimateLimit: `최대 ${formatEok(Math.round(numericValue * limitRatio))} 가능`,
-    description: `${fallback.address} ${fallback.title} 기준의 한국부동산원 공개 통계 참고값입니다. 단지·면적별 실거래가가 아닐 수 있습니다.`,
+    description: `${fallbackSummary.address} ${fallbackSummary.title} 기준의 한국부동산원 공개 통계 참고값입니다. 단지·면적별 실거래가가 아닐 수 있습니다.`,
     trendText: "통계 참고값",
   };
 }
