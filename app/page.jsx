@@ -93,16 +93,6 @@ function formatNumber(value) {
   return Math.round(value).toLocaleString("ko-KR");
 }
 
-function readViewFromUrl() {
-  if (typeof window === "undefined") return "home";
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("view") === "price-result" ? "price-result" : "home";
-  } catch {
-    return "home";
-  }
-}
-
 export default function LoanLandingPage() {
   useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
@@ -112,7 +102,7 @@ export default function LoanLandingPage() {
 
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
-  const [currentView, setCurrentView] = useState(() => readViewFromUrl());
+  const [currentView, setCurrentView] = useState("home");
   const [activeSlide, setActiveSlide] = useState(0);
   const [approvalSlide, setApprovalSlide] = useState(0);
   const [approvalDirection, setApprovalDirection] = useState("next");
@@ -145,7 +135,6 @@ export default function LoanLandingPage() {
   const [promoReady, setPromoReady] = useState(false);
   const [floatingMenuOpen, setFloatingMenuOpen] = useState(false);
   const [consultPopupOpen, setConsultPopupOpen] = useState(false);
-  const [resultViewVisited, setResultViewVisited] = useState(() => readViewFromUrl() === "price-result");
 
   useEffect(() => {
     let cancelled = false;
@@ -187,48 +176,6 @@ export default function LoanLandingPage() {
     }, 80);
   };
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const applyViewFromHistory = () => {
-      setCurrentView(readViewFromUrl());
-    };
-
-    window.addEventListener("popstate", applyViewFromHistory);
-    applyViewFromHistory();
-    return () => window.removeEventListener("popstate", applyViewFromHistory);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    if (currentView === "price-result") {
-      url.searchParams.set("view", "price-result");
-      if (!resultViewVisited) {
-        window.history.pushState({ view: "price-result" }, "", url);
-        setResultViewVisited(true);
-      } else {
-        window.history.replaceState({ view: "price-result" }, "", url);
-      }
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    url.searchParams.delete("view");
-    window.history.replaceState({ view: "home" }, "", url);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [currentView, resultViewVisited]);
-
-  const goToHomeView = () => {
-    setMarketError("");
-    setMarketLoading(false);
-    setCurrentView("home");
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("view");
-      window.history.pushState({ view: "home" }, "", url);
-    }
-  };
 
   const cities = catalogOptions.cities;
   const displayPhone = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
@@ -506,11 +453,9 @@ export default function LoanLandingPage() {
       }
 
       setMarketResult(data);
-      setResultViewVisited(false);
       setCurrentView("price-result");
     } catch (error) {
       setMarketError(error?.message || "시세 정보를 불러오지 못했습니다.");
-      setResultViewVisited(false);
       setCurrentView("price-result");
     } finally {
       setMarketLoading(false);
@@ -827,20 +772,20 @@ export default function LoanLandingPage() {
                 <div className="home-info-grid home-info-grid-3">
                   <div className="home-info-box contact-home-box contact-home-box-split" data-reveal="up">
                     <div className="contact-split-grid contact-split-grid-soft">
-                      <a href="tel:070-8018-7437" className="contact-display-card phone-display-card">
+                      <a href={`tel:${displayPhone}`} className="contact-display-card phone-display-card">
                         <div className="contact-display-badge">대표번호</div>
                         <div className="contact-display-icon phone-display-icon">☎</div>
                         <div className="contact-display-title">전화 상담</div>
-                        <div className="contact-display-main contact-display-main-phone"><span>070-8018</span><span>7437</span></div>
+                        <div className="contact-display-main contact-display-main-phone"><span>{String(displayPhone).split("-")[0] || displayPhone}</span><span>{String(displayPhone).split("-").slice(1).join("-")}</span></div>
                         <div className="contact-display-sub">빠른 상담 연결</div>
                         <div className="contact-display-mini">대표 상담번호로 바로 연결됩니다.</div>
                       </a>
 
-                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
+                      <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
                         <div className="contact-display-badge contact-display-badge-kakao">카카오톡</div>
                         <div className="kakao-symbol">TALK</div>
                         <div className="contact-display-title">카카오톡 상담</div>
-                        <div className="contact-display-main contact-display-main-kakao"><span>ANDi7437</span></div>
+                        <div className="contact-display-main contact-display-main-kakao"><span>{displayKakaoId}</span></div>
                         <div className="contact-display-sub">오픈채팅 바로 연결</div>
                         <div className="contact-display-mini">클릭하면 상담창으로 이동합니다.</div>
                       </a>
@@ -996,7 +941,7 @@ export default function LoanLandingPage() {
           <section className="result-page-section">
             <div className="container">
               <div className="result-page-topbar">
-                <button type="button" className="back-btn" onClick={goToHomeView}>
+                <button type="button" className="back-btn" onClick={() => setCurrentView("home")}>
                   ← 시세조회로 돌아가기
                 </button>
               </div>
@@ -1249,18 +1194,18 @@ export default function LoanLandingPage() {
                     <div className="section-mini">상담 채널</div>
                     <h3 className="card-title">전화 · 카카오톡 상담</h3>
                     <div className="contact-button-stack contact-button-stack-compact">
-                      <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
+                      <a href={`tel:${displayPhone}`} className="contact-pill contact-pill-call">
                         <span className="contact-pill-icon">☎</span>
                         <span className="contact-pill-copy">
                           <strong>대표번호</strong>
-                          <small>070-8018-7437</small>
+                          <small>{displayPhone}</small>
                         </span>
                       </a>
-                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
+                      <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
                         <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
                         <span className="contact-pill-copy contact-pill-copy-dark">
                           <strong>카카오상담</strong>
-                          <small>카카오톡 ID : ANDi7437</small>
+                          <small>{`카카오톡 ID : ${displayKakaoId}`}</small>
                         </span>
                       </a>
                     </div>

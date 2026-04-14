@@ -16,9 +16,21 @@ function hashString(input = "") {
   return hash;
 }
 
+function normalizePriceToWon(raw) {
+  const numeric = Number(raw || 0);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  // 한국부동산원 통계 응답은 보통 만원 단위로 내려오는 경우가 많습니다.
+  // 이미 원 단위로 큰 값이 오면 그대로 사용하고, 일반적인 통계값 규모면 만원 단위로 환산합니다.
+  if (numeric >= 100000000) return Math.round(numeric);
+  if (numeric >= 1000) return Math.round(numeric * 10000);
+  return Math.round(numeric * 100000000);
+}
+
 function formatEok(value) {
-  const eok = Math.floor(value / 100000000);
-  const rest = value % 100000000;
+  const won = normalizePriceToWon(value);
+  if (!won) return "0만원";
+  const eok = Math.floor(won / 100000000);
+  const rest = won % 100000000;
   const man = Math.round(rest / 10000);
   if (eok <= 0) return `${man.toLocaleString("ko-KR")}만원`;
   if (man <= 0) return `${eok}억`;
@@ -73,7 +85,7 @@ function makeSummaryFromApi(item, fallback, query) {
 
   if (!rawValue) return fallback;
 
-  const numericValue = rawValue < 10000 ? rawValue * 1000000 : rawValue;
+  const numericValue = normalizePriceToWon(rawValue);
   const low = Math.round(numericValue * 0.96);
   const high = Math.round(numericValue * 1.04);
   const limitRatio = query.propertyType === "아파트" ? 0.72 : query.propertyType === "오피스텔" ? 0.68 : 0.62;

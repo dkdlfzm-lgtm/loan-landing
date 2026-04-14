@@ -61,7 +61,7 @@ function chunkArray(items, size) {
 }
 
 export default function MobileLandingPage() {
-  const [siteSettings, setSiteSettings] = useState({ ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
+  const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [selectedCity, setSelectedCity] = useState("");
@@ -69,8 +69,10 @@ export default function MobileLandingPage() {
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
-  const [apartmentQuery, setApartmentQuery] = useState("");
   const [catalogError, setCatalogError] = useState("");
+  const [marketResult, setMarketResult] = useState(null);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState("");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
@@ -79,16 +81,13 @@ export default function MobileLandingPage() {
   const consultRef = useRef(null);
   const priceRef = useRef(null);
 
-  const displayPhone = siteSettings.phone ?? DEFAULT_SITE_SETTINGS.phone;
-  const displayKakaoId = siteSettings.kakao_id ?? DEFAULT_SITE_SETTINGS.kakao_id;
-  const displayKakaoUrl = siteSettings.kakao_url ?? DEFAULT_SITE_SETTINGS.kakao_url;
+  const displayPhone = siteSettings.phone_display || siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
+  const connectPhone = siteSettings.phone || DEFAULT_SITE_SETTINGS.phone;
+  const displayKakaoId = siteSettings.kakao_id || DEFAULT_SITE_SETTINGS.kakao_id;
+  const displayKakaoUrl = siteSettings.kakao_url || DEFAULT_SITE_SETTINGS.kakao_url;
   const displayLogoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
   const heroBadge = siteSettings.hero_badge || DEFAULT_SITE_SETTINGS.hero_badge;
   const heroTitle = siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title;
-  const hasPhoneLink = Boolean(sanitizePhone(displayPhone));
-  const hasPhoneText = Boolean(String(displayPhone || '').trim());
-  const hasKakaoUrl = Boolean(String(displayKakaoUrl || '').trim());
-  const hasKakaoId = Boolean(String(displayKakaoId || '').trim());
 
   const [approvalCases, setApprovalCases] = useState([]);
   const casePages = useMemo(() => chunkArray(approvalCases, 3), [approvalCases]);
@@ -108,7 +107,7 @@ export default function MobileLandingPage() {
           cacheSiteSettings(next, "mobile");
         }
       } catch {
-        if (!cancelled) setSiteSettings(readCachedSiteSettings("mobile") || { ...DEFAULT_SITE_SETTINGS, scope: "mobile" });
+        if (!cancelled) setSiteSettings(readCachedSiteSettings("mobile") || DEFAULT_SITE_SETTINGS);
       }
     }
     loadSettings();
@@ -156,7 +155,6 @@ export default function MobileLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
-          apartmentQuery,
           area: selectedArea,
         });
         const res = await fetch(`/api/property-catalog?${query.toString()}`, { cache: "no-store" });
@@ -179,7 +177,7 @@ export default function MobileLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
+  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
 
   useEffect(() => {
     if (casePages.length <= 1) return undefined;
@@ -191,6 +189,34 @@ export default function MobileLandingPage() {
 
   function moveTo(ref) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function handleMarketSearch() {
+    setMarketError("");
+    if (!selectedCity || !selectedDistrict || !selectedTown || !selectedApartment || !selectedArea) {
+      setMarketError("시/도, 시/군/구, 읍/면/동, 단지, 면적을 모두 선택해주세요.");
+      return;
+    }
+
+    setMarketLoading(true);
+    try {
+      const query = new URLSearchParams({
+        propertyType: "아파트",
+        city: selectedCity,
+        district: selectedDistrict,
+        town: selectedTown,
+        apartment: selectedApartment,
+        area: selectedArea,
+      });
+      const res = await fetch(`/api/reb-market?${query.toString()}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || data?.ok === false) throw new Error(data?.message || "시세 정보를 불러오지 못했습니다.");
+      setMarketResult(data.summary || null);
+    } catch (error) {
+      setMarketError(error?.message || "시세 정보를 불러오지 못했습니다.");
+    } finally {
+      setMarketLoading(false);
+    }
   }
 
   async function handleHomeInquirySubmit(event) {
@@ -243,7 +269,7 @@ export default function MobileLandingPage() {
             <span>{siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle}</span>
           </div>
         </div>
-        <a className={`${styles.headerCallButton} ${!hasPhoneLink ? styles.disabledLink : ""}`} href={hasPhoneLink ? `tel:${sanitizePhone(displayPhone)}` : "#"} aria-disabled={!hasPhoneLink}>전화상담</a>
+        <a className={styles.headerCallButton} href={`tel:${sanitizePhone(connectPhone)}`}>전화상담</a>
       </header>
 
       <main className={styles.main}>
@@ -266,20 +292,20 @@ export default function MobileLandingPage() {
               <span>지역과 단지 선택 후 바로 확인</span>
             </button>
 
-            <a className={`${styles.quickCard} ${styles.contactCard} ${!hasPhoneLink ? styles.disabledLink : ""}`} href={hasPhoneLink ? `tel:${sanitizePhone(displayPhone)}` : "#"} aria-disabled={!hasPhoneLink}>
+            <a className={`${styles.quickCard} ${styles.contactCard}`} href={`tel:${sanitizePhone(connectPhone)}`}>
               <span className={styles.quickLabel}>대표번호</span>
               <div className={styles.iconCircle}>☎</div>
               <strong>전화상담</strong>
-              {hasPhoneText ? <b>{formatPhoneForCard(displayPhone)}</b> : null}
-              {hasPhoneLink ? <small>클릭 시 바로 연결됩니다</small> : null}
+              <b>{formatPhoneForCard(displayPhone)}</b>
+              <small>클릭 시 바로 연결됩니다</small>
             </a>
 
-            <a className={`${styles.quickCard} ${styles.contactCard} ${styles.kakaoCard} ${!hasKakaoUrl ? styles.disabledLink : ""}`} href={hasKakaoUrl ? displayKakaoUrl : "#"} target={hasKakaoUrl ? "_blank" : undefined} rel={hasKakaoUrl ? "noreferrer" : undefined} aria-disabled={!hasKakaoUrl}>
+            <a className={`${styles.quickCard} ${styles.contactCard} ${styles.kakaoCard}`} href={displayKakaoUrl} target="_blank" rel="noreferrer">
               <span className={styles.quickLabel}>카카오톡</span>
               <div className={`${styles.iconCircle} ${styles.kakaoIcon}`}>TALK</div>
               <strong>카카오톡 상담</strong>
-              {hasKakaoId ? <b>{displayKakaoId}</b> : null}
-              {hasKakaoUrl ? <small>클릭 시 바로 연결됩니다</small> : null}
+              <b>{displayKakaoId}</b>
+              <small>클릭 시 바로 연결됩니다</small>
             </a>
           </div>
         </section>
@@ -375,10 +401,6 @@ export default function MobileLandingPage() {
               </select>
             </label>
             <label className={styles.field}>
-              <span>아파트명 검색</span>
-              <input value={apartmentQuery} onChange={(e) => setApartmentQuery(e.target.value)} placeholder="아파트명을 입력해주세요" />
-            </label>
-            <label className={styles.field}>
               <span>단지 선택</span>
               <select value={selectedApartment} onChange={(e) => {
                 setSelectedApartment(e.target.value);
@@ -397,6 +419,32 @@ export default function MobileLandingPage() {
             </label>
             {catalogLoading ? <div className={styles.inlineNote}>단지 정보를 불러오는 중입니다.</div> : null}
             {catalogError ? <div className={`${styles.formStatus} ${styles.error}`}>{catalogError}</div> : null}
+            {marketError ? <div className={`${styles.formStatus} ${styles.error}`}>{marketError}</div> : null}
+            <button type="button" className={styles.submitButton} onClick={handleMarketSearch} disabled={marketLoading || catalogLoading}>
+              {marketLoading ? "조회 중..." : "시세 조회하기"}
+            </button>
+
+            {marketResult ? (
+              <div className={styles.marketResultCard}>
+                <div className={styles.marketResultBadge}>조회 결과</div>
+                <h3>{marketResult.title}</h3>
+                <p>{marketResult.address} · {marketResult.area}</p>
+                <div className={styles.marketResultGrid}>
+                  <div>
+                    <span>최근 실거래가</span>
+                    <strong>{marketResult.latestPrice}</strong>
+                  </div>
+                  <div>
+                    <span>거래 범위</span>
+                    <strong>{marketResult.range}</strong>
+                  </div>
+                  <div>
+                    <span>예상 가능 한도</span>
+                    <strong>{marketResult.estimateLimit}</strong>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -480,8 +528,8 @@ export default function MobileLandingPage() {
       </footer>
 
       <div className={styles.bottomBar}>
-        <a className={`${styles.bottomCall} ${!hasPhoneLink ? styles.disabledLink : ""}`} href={hasPhoneLink ? `tel:${sanitizePhone(displayPhone)}` : "#"} aria-disabled={!hasPhoneLink}>전화상담</a>
-        <a className={`${styles.bottomKakao} ${!hasKakaoUrl ? styles.disabledLink : ""}`} href={hasKakaoUrl ? displayKakaoUrl : "#"} target={hasKakaoUrl ? "_blank" : undefined} rel={hasKakaoUrl ? "noreferrer" : undefined} aria-disabled={!hasKakaoUrl}>카카오톡 상담</a>
+        <a className={styles.bottomCall} href={`tel:${sanitizePhone(connectPhone)}`}>전화상담</a>
+        <a className={styles.bottomKakao} href={displayKakaoUrl} target="_blank" rel="noreferrer">카카오톡 상담</a>
       </div>
     </div>
   );
