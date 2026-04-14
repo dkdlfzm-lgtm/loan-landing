@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 const REB_API_BASE = "https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do";
 const APT_TRADE_BASE =
   process.env.MOLIT_APT_TRADE_BASE ||
-  "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
+  "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
 const OFFI_TRADE_BASE =
   process.env.OFFICETEL_TRADE_BASE ||
-  "https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade";
+  "http://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade";
 
 const PROPERTY_STAT_ID_MAP = {
   아파트: process.env.REB_APT_STATBL_ID,
@@ -60,9 +60,7 @@ function buildUrl(base, paramsObj) {
     if (key === "serviceKey") {
       queryParts.push(`serviceKey=${String(value)}`);
     } else {
-      queryParts.push(
-        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
-      );
+      queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
     }
   }
 
@@ -237,7 +235,6 @@ async function fetchRealTradeSummary(query) {
         DEAL_YMD: dealYmd,
         pageNo: 1,
         numOfRows: 999,
-        _type: "json",
       });
 
       const payload = await fetchApi(url);
