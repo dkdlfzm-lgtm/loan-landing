@@ -273,10 +273,16 @@ export default function MobileLandingPage() {
     }
   }
 
+  function handleGoHome() {
+    if (typeof window !== "undefined") {
+      window.location.href = "/m";
+    }
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.brandWrap}>
+        <button type="button" className={styles.brandWrapButton} onClick={handleGoHome} aria-label="모바일 홈으로 이동"><div className={styles.brandWrap}>
           <div className={styles.logoBox}>
             <img src={displayLogoUrl} alt={siteSettings.company_name || "로고"} className={styles.logoImage} />
           </div>
@@ -284,7 +290,7 @@ export default function MobileLandingPage() {
             <strong>{siteSettings.company_name || DEFAULT_SITE_SETTINGS.company_name}</strong>
             <span>{siteSettings.company_subtitle || DEFAULT_SITE_SETTINGS.company_subtitle}</span>
           </div>
-        </div>
+        </div></button>
         <a className={styles.headerCallButton} href={`tel:${sanitizePhone(displayPhone)}`}>전화상담</a>
       </header>
 

@@ -571,20 +571,30 @@ export default function LoanLandingPage() {
     }
   };
 
+  const handleGoHome = () => {
+    setCurrentView("home");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (window.location.hash) {
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    }
+  };
+
   return (
     <div className="site-wrap">
       <header className="header">
         <div className="container header-inner">
-          <div className="brand brand-logo-wrap">
+          <button type="button" className="brand brand-logo-wrap brand-home-btn" onClick={handleGoHome} aria-label="홈으로 이동">
             <img src={displayLogoUrl} alt={siteSettings.company_name || "엔드아이에셋대부"} className="brand-logo" />
             <div className="brand-copy">
               <div className="brand-title">{siteSettings.company_name || "엔드아이에셋대부"}</div>
               <div className="brand-sub">{siteSettings.company_subtitle || "주택담보대출 · 대환대출 · 전세퇴거자금 상담"}</div>
             </div>
-          </div>
+          </button>
 
           <nav className="nav">
-            <a href="#intro">홈</a>
+            <button type="button" className="nav-link-btn" onClick={handleGoHome}>홈</button>
             <a href="#quick-search">시세조회</a>
             <a href="#calculator">이율계산기</a>
             {Boolean(siteSettings.reviews_enabled) ? <a href="#approval-cases">승인사례</a> : null}
@@ -987,7 +997,7 @@ export default function LoanLandingPage() {
           <section className="result-page-section">
             <div className="container">
               <div className="result-page-topbar">
-                <button type="button" className="back-btn" onClick={() => setCurrentView("home")}>
+                <button type="button" className="back-btn" onClick={handleGoHome}>
                   ← 시세조회로 돌아가기
                 </button>
               </div>

@@ -27,6 +27,14 @@
   flex: 1;
 }
 
+.brandWrapButton {
+  all: unset;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+}
+
 .logoBox {
   width: 52px;
   height: 52px;
@@ -568,89 +576,4 @@
 .caseApproval {
   color: #2f63ce;
   font-weight: 800;
-}
-
-.marketResultCard {
-  margin-top: 14px;
-  background: linear-gradient(180deg, #112654 0%, #16357d 100%);
-  border-radius: 22px;
-  padding: 18px 16px;
-  color: #fff;
-  box-shadow: 0 14px 30px rgba(11, 26, 60, 0.22);
-}
-
-.marketResultTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.marketResultLabel {
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.marketResultPrice {
-  display: block;
-  margin-top: 8px;
-  font-size: 28px;
-  line-height: 1.15;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-}
-
-.marketResultMeta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-.marketResultMeta span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.marketResultGrid {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.marketResultGrid div {
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 12px;
-}
-
-.marketResultGrid span {
-  display: block;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.marketResultGrid strong {
-  display: block;
-  margin-top: 6px;
-  font-size: 14px;
-  line-height: 1.5;
-  font-weight: 800;
-}
-
-.marketResultDesc {
-  margin: 14px 0 0;
-  font-size: 13px;
-  line-height: 1.65;
-  color: rgba(255, 255, 255, 0.85);
 }
