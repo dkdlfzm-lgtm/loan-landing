@@ -30,6 +30,48 @@ const FAQ_ITEMS = [
   },
 ];
 
+
+function ensureVisitIdentity(scope = "mobile") {
+  if (typeof window === "undefined") return null;
+  const visitorKey = "landing_visitor_id_v1";
+  const sessionKey = `landing_session_id_${scope}_v1`;
+  let visitorId = window.localStorage.getItem(visitorKey);
+  if (!visitorId) {
+    visitorId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(visitorKey, visitorId);
+  }
+  let sessionId = window.sessionStorage.getItem(sessionKey);
+  if (!sessionId) {
+    sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.sessionStorage.setItem(sessionKey, sessionId);
+  }
+  return { visitorId, sessionId };
+}
+
+function trackVisit(scope = "mobile", pagePath = "/m") {
+  if (typeof window === "undefined") return;
+  const ids = ensureVisitIdentity(scope);
+  if (!ids) return;
+  const dedupeKey = `visit_logged_${scope}_${pagePath}`;
+  if (window.sessionStorage.getItem(dedupeKey)) return;
+  window.sessionStorage.setItem(dedupeKey, "1");
+
+  const payload = JSON.stringify({
+    visitor_id: ids.visitorId,
+    session_id: ids.sessionId,
+    page_path: pagePath,
+    scope,
+    referrer: document.referrer || "",
+  });
+
+  fetch("/api/visits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    keepalive: true,
+  }).catch(() => null);
+}
+
 function sanitizePhone(value) {
   return String(value || "").replace(/[^0-9]/g, "");
 }
@@ -62,6 +104,10 @@ function chunkArray(items, size) {
 
 export default function MobileLandingPage() {
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+
+  useEffect(() => {
+    trackVisit("mobile", "/m");
+  }, []);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogOptions, setCatalogOptions] = useState({ cities: [], districts: [], towns: [], apartments: [], areas: [] });
   const [selectedCity, setSelectedCity] = useState("");
@@ -71,9 +117,6 @@ export default function MobileLandingPage() {
   const [selectedArea, setSelectedArea] = useState("");
   const [apartmentQuery, setApartmentQuery] = useState("");
   const [catalogError, setCatalogError] = useState("");
-  const [marketResult, setMarketResult] = useState(null);
-  const [marketLoading, setMarketLoading] = useState(false);
-  const [marketError, setMarketError] = useState("");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
@@ -91,8 +134,6 @@ export default function MobileLandingPage() {
 
   const [approvalCases, setApprovalCases] = useState([]);
   const casePages = useMemo(() => chunkArray(approvalCases, 3), [approvalCases]);
-
-  const marketSummary = marketResult?.summary || null;
 
   useEffect(() => {
     let cancelled = false;
@@ -192,36 +233,6 @@ export default function MobileLandingPage() {
 
   function moveTo(ref) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  async function handleMarketSearch() {
-    setMarketError("");
-    setMarketResult(null);
-    if (!selectedCity || !selectedDistrict || !selectedTown || !selectedApartment || !selectedArea) {
-      setMarketError("시/도, 시/군/구, 읍/면/동, 단지, 면적을 모두 선택해주세요.");
-      return;
-    }
-
-    setMarketLoading(true);
-    try {
-      const query = new URLSearchParams({
-        propertyType: "아파트",
-        city: selectedCity,
-        district: selectedDistrict,
-        town: selectedTown,
-        apartment: selectedApartment,
-        area: selectedArea,
-      });
-      const res = await fetch(`/api/reb-market?${query.toString()}`, { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok || data?.ok === false) throw new Error(data?.message || "시세 정보를 불러오지 못했습니다.");
-      setMarketResult(data);
-      if (data?.warning) setMarketError(data.warning);
-    } catch (error) {
-      setMarketError(error?.message || "시세 정보를 불러오지 못했습니다.");
-    } finally {
-      setMarketLoading(false);
-    }
   }
 
   async function handleHomeInquirySubmit(event) {
@@ -406,8 +417,8 @@ export default function MobileLandingPage() {
               </select>
             </label>
             <label className={styles.field}>
-              <span>단지명 검색</span>
-              <input value={apartmentQuery} onChange={(e) => setApartmentQuery(e.target.value)} placeholder="단지명을 검색해주세요" />
+              <span>아파트명 검색</span>
+              <input value={apartmentQuery} onChange={(e) => setApartmentQuery(e.target.value)} placeholder="아파트명을 입력해주세요" />
             </label>
             <label className={styles.field}>
               <span>단지 선택</span>
@@ -428,54 +439,7 @@ export default function MobileLandingPage() {
             </label>
             {catalogLoading ? <div className={styles.inlineNote}>단지 정보를 불러오는 중입니다.</div> : null}
             {catalogError ? <div className={`${styles.formStatus} ${styles.error}`}>{catalogError}</div> : null}
-            <button
-              type="button"
-              className={styles.submitButton}
-              onClick={handleMarketSearch}
-              disabled={marketLoading || !selectedCity || !selectedDistrict || !selectedTown || !selectedApartment || !selectedArea}
-            >
-              {marketLoading ? "시세 확인 중..." : "시세조회"}
-            </button>
-            {marketError ? <div className={`${styles.formStatus} ${styles.error}`}>{marketError}</div> : null}
           </div>
-
-          {marketSummary ? (
-            <div className={styles.marketResultCard}>
-              <div className={styles.marketResultTop}>
-                <div>
-                  <span className={styles.marketResultLabel}>최근 실거래가</span>
-                  <strong className={styles.marketResultPrice}>{marketSummary.latestPrice}</strong>
-                </div>
-                <div className={styles.marketResultMeta}>
-                  <span>{marketSummary.tradeDate}</span>
-                  <span>{marketSummary.area}</span>
-                </div>
-              </div>
-              <div className={styles.marketResultGrid}>
-                <div>
-                  <span>단지</span>
-                  <strong>{marketSummary.title}</strong>
-                </div>
-                <div>
-                  <span>주소</span>
-                  <strong>{marketSummary.address}</strong>
-                </div>
-                <div>
-                  <span>최근 범위</span>
-                  <strong>{marketSummary.range}</strong>
-                </div>
-                <div>
-                  <span>평균 참고값</span>
-                  <strong>{marketSummary.averagePrice || marketSummary.latestPrice}</strong>
-                </div>
-                <div>
-                  <span>예상 한도</span>
-                  <strong>{marketSummary.estimateLimit}</strong>
-                </div>
-              </div>
-              <p className={styles.marketResultDesc}>{marketSummary.description}</p>
-            </div>
-          ) : null}
         </section>
 
         <section id="mobile-approval" className={styles.section}>

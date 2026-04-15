@@ -88,6 +88,48 @@ const loanTypeOptions = [
   "기타",
 ];
 
+
+function ensureVisitIdentity(scope = "pc") {
+  if (typeof window === "undefined") return null;
+  const visitorKey = "landing_visitor_id_v1";
+  const sessionKey = `landing_session_id_${scope}_v1`;
+  let visitorId = window.localStorage.getItem(visitorKey);
+  if (!visitorId) {
+    visitorId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(visitorKey, visitorId);
+  }
+  let sessionId = window.sessionStorage.getItem(sessionKey);
+  if (!sessionId) {
+    sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.sessionStorage.setItem(sessionKey, sessionId);
+  }
+  return { visitorId, sessionId };
+}
+
+function trackVisit(scope = "pc", pagePath = "/") {
+  if (typeof window === "undefined") return;
+  const ids = ensureVisitIdentity(scope);
+  if (!ids) return;
+  const dedupeKey = `visit_logged_${scope}_${pagePath}`;
+  if (window.sessionStorage.getItem(dedupeKey)) return;
+  window.sessionStorage.setItem(dedupeKey, "1");
+
+  const payload = JSON.stringify({
+    visitor_id: ids.visitorId,
+    session_id: ids.sessionId,
+    page_path: pagePath,
+    scope,
+    referrer: document.referrer || "",
+  });
+
+  fetch("/api/visits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    keepalive: true,
+  }).catch(() => null);
+}
+
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
   return Math.round(value).toLocaleString("ko-KR");
@@ -130,6 +172,10 @@ export default function LoanLandingPage() {
   const [resultInquiryStatus, setResultInquiryStatus] = useState("");
   const [resultInquirySaving, setResultInquirySaving] = useState(false);
   const [siteSettings, setSiteSettings] = useState(DEFAULT_SITE_SETTINGS);
+
+  useEffect(() => {
+    trackVisit("pc", "/");
+  }, []);
   const [approvalCases, setApprovalCases] = useState([]);
   const [promoDismissed, setPromoDismissed] = useState(false);
   const [promoReady, setPromoReady] = useState(false);
@@ -772,20 +818,20 @@ export default function LoanLandingPage() {
                 <div className="home-info-grid home-info-grid-3">
                   <div className="home-info-box contact-home-box contact-home-box-split" data-reveal="up">
                     <div className="contact-split-grid contact-split-grid-soft">
-                      <a href={`tel:${displayPhone}`} className="contact-display-card phone-display-card">
+                      <a href="tel:070-8018-7437" className="contact-display-card phone-display-card">
                         <div className="contact-display-badge">대표번호</div>
                         <div className="contact-display-icon phone-display-icon">☎</div>
                         <div className="contact-display-title">전화 상담</div>
-                        <div className="contact-display-main contact-display-main-phone"><span>{String(displayPhone).split("-")[0] || displayPhone}</span><span>{String(displayPhone).split("-").slice(1).join("-")}</span></div>
+                        <div className="contact-display-main contact-display-main-phone"><span>070-8018</span><span>7437</span></div>
                         <div className="contact-display-sub">빠른 상담 연결</div>
                         <div className="contact-display-mini">대표 상담번호로 바로 연결됩니다.</div>
                       </a>
 
-                      <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-display-card kakao-display-card">
                         <div className="contact-display-badge contact-display-badge-kakao">카카오톡</div>
                         <div className="kakao-symbol">TALK</div>
                         <div className="contact-display-title">카카오톡 상담</div>
-                        <div className="contact-display-main contact-display-main-kakao"><span>{displayKakaoId}</span></div>
+                        <div className="contact-display-main contact-display-main-kakao"><span>ANDi7437</span></div>
                         <div className="contact-display-sub">오픈채팅 바로 연결</div>
                         <div className="contact-display-mini">클릭하면 상담창으로 이동합니다.</div>
                       </a>
@@ -1194,18 +1240,18 @@ export default function LoanLandingPage() {
                     <div className="section-mini">상담 채널</div>
                     <h3 className="card-title">전화 · 카카오톡 상담</h3>
                     <div className="contact-button-stack contact-button-stack-compact">
-                      <a href={`tel:${displayPhone}`} className="contact-pill contact-pill-call">
+                      <a href="tel:070-8018-7437" className="contact-pill contact-pill-call">
                         <span className="contact-pill-icon">☎</span>
                         <span className="contact-pill-copy">
                           <strong>대표번호</strong>
-                          <small>{displayPhone}</small>
+                          <small>070-8018-7437</small>
                         </span>
                       </a>
-                      <a href={displayKakaoUrl} target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
+                      <a href="https://open.kakao.com/o/sbaltXmi" target="_blank" rel="noreferrer" className="contact-pill contact-pill-kakao">
                         <span className="contact-pill-icon contact-pill-icon-kakao">TALK</span>
                         <span className="contact-pill-copy contact-pill-copy-dark">
                           <strong>카카오상담</strong>
-                          <small>{`카카오톡 ID : ${displayKakaoId}`}</small>
+                          <small>카카오톡 ID : ANDi7437</small>
                         </span>
                       </a>
                     </div>

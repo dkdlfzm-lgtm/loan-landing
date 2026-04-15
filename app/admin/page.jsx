@@ -20,31 +20,10 @@ const STATUS_OPTIONS = [
 const OWNER_TABS = [
   { key: "customers", label: "고객 배정" },
   { key: "performance", label: "실적 관리" },
+  { key: "analytics", label: "방문자 통계" },
   { key: "staff", label: "담당자·직원 계정" },
-  { key: "db", label: "DB 관리" },
-];
-
-const DB_TABLE_OPTIONS = [
-  { value: "inquiries", label: "상담 접수" },
-  { value: "reviews", label: "승인사례" },
-  { value: "staff_accounts", label: "직원 계정" },
-  { value: "staff_members", label: "담당자 목록" },
-  { value: "site_settings", label: "사이트 설정" },
 ];
 const AUTO_REFRESH_MS = 5000;
-const PAGE_SESSION_KEY = "admin_page_session_active";
-
-const STAFF_ROLE_OPTIONS = [
-  { value: "marketing", label: "마케팅담당" },
-  { value: "cs", label: "CS담당" },
-  { value: "worker", label: "실무자" },
-  { value: "admin", label: "관리자" },
-];
-
-function roleLabel(role) {
-  return STAFF_ROLE_OPTIONS.find((item) => item.value === role)?.label || "실무자";
-}
-
 
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return <div className={`crm-summary-card crm-tone-${tone}`}><span>{title}</span><strong>{value}</strong><small>{subtitle}</small></div>;
@@ -68,10 +47,6 @@ function statusClassName(value) {
     inactive: "crm-status-rejected",
   };
   return map[value] || "crm-status-default";
-}
-
-function assigneeClassName(value) {
-  return value && value !== "미배정" ? "assigned" : "unassigned";
 }
 
 function OwnerLogin({ password, setPassword, error, onSubmit }) {
@@ -121,40 +96,6 @@ function groupCounts(items, getKey) {
   return [...map.entries()].map(([name, count]) => ({ name, count }));
 }
 
-function downloadTextFile(filename, text, mime = "text/plain;charset=utf-8") {
-  if (typeof window === "undefined") return;
-  const blob = new Blob([text], { type: mime });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-}
-
-function toCsv(rows) {
-  if (!rows.length) return "";
-  const columns = Array.from(rows.reduce((set, row) => {
-    Object.keys(row || {}).forEach((key) => set.add(key));
-    return set;
-  }, new Set()));
-  const esc = (value) => {
-    const str = value === null || value === undefined ? "" : String(value);
-    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-  };
-  return [columns.join(","), ...rows.map((row) => columns.map((col) => esc(row?.[col])).join(","))].join("\n");
-}
-
-function toTextDump(tableLabel, rows) {
-  if (!rows.length) return `${tableLabel}\n\n데이터가 없습니다.`;
-  return `${tableLabel}\n\n` + rows.map((row, index) => {
-    const lines = Object.entries(row || {}).map(([key, value]) => `${key}: ${value === null || value === undefined ? "" : value}`);
-    return `[${index + 1}]\n${lines.join("\n")}`;
-  }).join("\n\n");
-}
-
 export default function AdminOwnerPage() {
   const [authenticated, setAuthenticated] = useState(null);
   const [password, setPassword] = useState("");
@@ -165,7 +106,7 @@ export default function AdminOwnerPage() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newStaff, setNewStaff] = useState({ name: "", note: "" });
-  const [newAccount, setNewAccount] = useState({ username: "", password: "", display_name: "", staff_member_id: "", role: "worker" });
+  const [newAccount, setNewAccount] = useState({ username: "", password: "", display_name: "", staff_member_id: "" });
   const [staffMessage, setStaffMessage] = useState(null);
   const [accountMessage, setAccountMessage] = useState(null);
   const [customerMessage, setCustomerMessage] = useState(null);
@@ -182,30 +123,11 @@ export default function AdminOwnerPage() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
-  const [dbTable, setDbTable] = useState("inquiries");
-  const [dbRows, setDbRows] = useState([]);
-  const [dbPrimaryKey, setDbPrimaryKey] = useState("id");
-  const [dbEditableFields, setDbEditableFields] = useState([]);
-  const [dbDeletable, setDbDeletable] = useState(false);
-  const [dbLoading, setDbLoading] = useState(false);
-  const [dbMessage, setDbMessage] = useState(null);
-  const [dbSelectedKey, setDbSelectedKey] = useState("");
-  const [dbEditorText, setDbEditorText] = useState("{}");
-  const [dbSaving, setDbSaving] = useState(false);
+  const [visitStats, setVisitStats] = useState({ summary: null, daily: [], monthly: [], fetched_at: null });
+  const [visitStatsError, setVisitStatsError] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/session", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(async (d) => {
-        const hasPageSession = typeof window !== "undefined" && window.sessionStorage.getItem(PAGE_SESSION_KEY) === "1";
-        if (d.authenticated && !hasPageSession) {
-          await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
-          setAuthenticated(false);
-          return;
-        }
-        setAuthenticated(Boolean(d.authenticated));
-      })
-      .catch(() => setAuthenticated(false));
+    fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
   }, []);
 
   async function loadData({ silent = false } = {}) {
@@ -230,112 +152,35 @@ export default function AdminOwnerPage() {
     }
   }
 
+  async function loadVisitStats({ silent = false } = {}) {
+    try {
+      const res = await fetch("/api/admin/visit-stats", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "방문자 통계를 불러오지 못했습니다.");
+      setVisitStats({
+        summary: data.summary || null,
+        daily: data.daily || [],
+        monthly: data.monthly || [],
+        fetched_at: data.fetched_at || null,
+      });
+      setVisitStatsError("");
+    } catch (error) {
+      if (!silent) setVisitStatsError(error.message || "방문자 통계를 불러오지 못했습니다.");
+    }
+  }
+
   useEffect(() => {
     if (!authenticated) return;
     loadData().catch(() => setLoading(false));
+    loadVisitStats().catch(() => null);
   }, [authenticated]);
-
-
-  async function loadDbTable(table = dbTable) {
-    setDbLoading(true);
-    setDbMessage(null);
-    try {
-      const res = await fetch(`/api/admin/db?table=${table}`, { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "DB 데이터를 불러오지 못했습니다.");
-      const rows = Array.isArray(data.rows) ? data.rows : [];
-      setDbRows(rows);
-      setDbPrimaryKey(data.primaryKey || "id");
-      setDbEditableFields(Array.isArray(data.editableFields) ? data.editableFields : []);
-      setDbDeletable(Boolean(data.deletable));
-      const firstKey = rows[0]?.[data.primaryKey || "id"] ? String(rows[0][data.primaryKey || "id"]) : "";
-      setDbSelectedKey((prev) => prev || firstKey);
-      const selected = rows.find((row) => String(row?.[data.primaryKey || "id"] || "") === (dbSelectedKey || firstKey)) || rows[0] || {};
-      setDbEditorText(JSON.stringify(selected, null, 2));
-    } catch (error) {
-      setDbRows([]);
-      setDbMessage({ type: "error", text: error.message || "DB 데이터를 불러오지 못했습니다." });
-      setDbEditorText("{}");
-    } finally {
-      setDbLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!authenticated || activeTab !== "db") return;
-    loadDbTable(dbTable).catch(() => null);
-  }, [authenticated, activeTab, dbTable]);
-
-  useEffect(() => {
-    if (!dbRows.length) {
-      setDbEditorText("{}");
-      return;
-    }
-    const selected = dbRows.find((row) => String(row?.[dbPrimaryKey] || "") === String(dbSelectedKey || "")) || dbRows[0];
-    if (selected) {
-      const nextKey = String(selected?.[dbPrimaryKey] || "");
-      if (nextKey && nextKey !== dbSelectedKey) setDbSelectedKey(nextKey);
-      setDbEditorText(JSON.stringify(selected, null, 2));
-    }
-  }, [dbRows, dbSelectedKey, dbPrimaryKey]);
-
-  async function handleDbSave() {
-    setDbSaving(true);
-    setDbMessage(null);
-    try {
-      const parsed = JSON.parse(dbEditorText || "{}");
-      const key = String(parsed?.[dbPrimaryKey] || dbSelectedKey || "").trim();
-      if (!key) throw new Error("수정할 행을 먼저 선택해주세요.");
-      const values = Object.fromEntries(dbEditableFields.map((field) => [field, parsed?.[field]]).filter(([, value]) => value !== undefined));
-      const res = await fetch("/api/admin/db", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ table: dbTable, key, values }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "DB 저장에 실패했습니다.");
-      setDbMessage({ type: "success", text: "선택한 DB 행을 저장했습니다." });
-      await loadDbTable(dbTable);
-      setDbSelectedKey(key);
-    } catch (error) {
-      setDbMessage({ type: "error", text: error.message || "DB 저장에 실패했습니다." });
-    } finally {
-      setDbSaving(false);
-    }
-  }
-
-  async function handleDbDelete() {
-    const key = String(dbSelectedKey || "").trim();
-    if (!key) return setDbMessage({ type: "error", text: "삭제할 행을 먼저 선택해주세요." });
-    if (!window.confirm("선택한 DB 행을 삭제할까요?")) return;
-    setDbSaving(true);
-    setDbMessage(null);
-    try {
-      const res = await fetch(`/api/admin/db?table=${dbTable}&key=${encodeURIComponent(key)}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "DB 삭제에 실패했습니다.");
-      setDbMessage({ type: "success", text: "선택한 DB 행을 삭제했습니다." });
-      setDbSelectedKey("");
-      await loadDbTable(dbTable);
-    } catch (error) {
-      setDbMessage({ type: "error", text: error.message || "DB 삭제에 실패했습니다." });
-    } finally {
-      setDbSaving(false);
-    }
-  }
-
-  function handleDbExport(type) {
-    const tableLabel = DB_TABLE_OPTIONS.find((item) => item.value === dbTable)?.label || dbTable;
-    if (type === "json") return downloadTextFile(`${dbTable}.json`, JSON.stringify(dbRows, null, 2), "application/json;charset=utf-8");
-    if (type === "csv") return downloadTextFile(`${dbTable}.csv`, toCsv(dbRows), "text/csv;charset=utf-8");
-    return downloadTextFile(`${dbTable}.txt`, toTextDump(tableLabel, dbRows));
-  }
 
   useEffect(() => {
     if (!authenticated) return;
     const refresh = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       loadData({ silent: true }).catch(() => null);
+      loadVisitStats({ silent: true }).catch(() => null);
     };
     const interval = window.setInterval(refresh, AUTO_REFRESH_MS);
     const onVisible = () => {
@@ -360,12 +205,10 @@ export default function AdminOwnerPage() {
     const res = await fetch("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
     const data = await res.json();
     if (!res.ok || !data.ok) return setError(data.message || "로그인 실패");
-    if (typeof window !== "undefined") window.sessionStorage.setItem(PAGE_SESSION_KEY, "1");
     setAuthenticated(true);
   }
 
   async function handleLogout() {
-    if (typeof window !== "undefined") window.sessionStorage.removeItem(PAGE_SESSION_KEY);
     await fetch("/api/admin/logout", { method: "POST" });
     setAuthenticated(false);
   }
@@ -401,14 +244,13 @@ export default function AdminOwnerPage() {
       password: newAccount.password,
       display_name: newAccount.display_name,
       staff_member_id: newAccount.staff_member_id || null,
-      role: newAccount.role || "worker",
     };
     const res = await fetch("/api/admin/staff-accounts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await res.json();
     if (!res.ok || !data.ok) return setAccountMessage({ type: "error", text: data.message || "직원 계정 생성 실패" });
     setAccounts((prev) => [data.account, ...prev]);
-    setNewAccount({ username: "", password: "", display_name: "", staff_member_id: "", role: "worker" });
-    setAccountMessage({ type: "success", text: "직원 계정이 생성되었습니다. 직책에 따라 접속 가능한 페이지가 자동으로 구분됩니다." });
+    setNewAccount({ username: "", password: "", display_name: "", staff_member_id: "" });
+    setAccountMessage({ type: "success", text: "직원 계정이 생성되었습니다. 이제 해당 계정으로 직원 페이지 로그인 가능합니다." });
   }
 
   async function patchAccount(id, body) {
@@ -498,6 +340,18 @@ export default function AdminOwnerPage() {
 
   const yearlyRows = useMemo(() => groupCounts(inquiries, (item) => String(new Date(item.created_at).getFullYear())).sort((a, b) => b.name.localeCompare(a.name)), [inquiries]);
   const monthlyRows = useMemo(() => groupCounts(inquiries, (item) => `${new Date(item.created_at).getFullYear()}-${String(new Date(item.created_at).getMonth() + 1).padStart(2, "0")}`).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 12), [inquiries]);
+  const visitSummary = visitStats.summary || {
+    live_sessions_5m: 0,
+    today_unique_visitors: 0,
+    today_pageviews: 0,
+    monthly_unique_visitors: 0,
+    monthly_pageviews: 0,
+    pc_unique_visitors: 0,
+    mobile_unique_visitors: 0,
+  };
+  const visitDailyRows = visitStats.daily || [];
+  const visitMonthlyRows = visitStats.monthly || [];
+
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
   const assigneeFilterOptions = useMemo(() => ["all", "unassigned", ...activeAccountOptions.map((item) => item.id)], [activeAccountOptions]);
 
@@ -611,14 +465,14 @@ export default function AdminOwnerPage() {
                       <colgroup><col style={{ width: "14%" }} /><col style={{ width: "14%" }} /><col style={{ width: "18%" }} /><col style={{ width: "16%" }} /><col style={{ width: "12%" }} /><col style={{ width: "26%" }} /></colgroup>
                       <thead><tr><th>고객명</th><th>연락처</th><th>대출상품</th><th>담당자</th><th>상태</th><th>접수일시</th></tr></thead>
                       <tbody>
-                        {loading ? <tr><td colSpan={7} className="crm-empty-cell">불러오는 중...</td></tr> : null}
-                        {!loading && filteredInquiries.length === 0 ? <tr><td colSpan={7} className="crm-empty-cell">검색 결과가 없습니다.</td></tr> : null}
+                        {loading ? <tr><td colSpan={6} className="crm-empty-cell">불러오는 중...</td></tr> : null}
+                        {!loading && filteredInquiries.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">검색 결과가 없습니다.</td></tr> : null}
                         {!loading && filteredInquiries.map((item) => (
                           <tr key={item.id} onClick={() => setSelectedId(item.id)} className={item.id === selectedId ? "crm-row-selected" : ""}>
                             <td><strong>{item.name}</strong></td>
                             <td>{item.phone}</td>
                             <td>{item.loan_type || "미입력"}</td>
-                            <td><span className={`crm-assignee-chip ${assigneeClassName(item.assignee || "미배정")}`}>{item.assignee || "미배정"}</span></td>
+                            <td>{item.assignee || "미배정"}</td>
                             <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{statusLabel(item.status)}</span></td>
                             <td>{formatReviewDateTime(item.created_at)}</td>
                           </tr>
@@ -636,7 +490,7 @@ export default function AdminOwnerPage() {
                         <div className="crm-classic-grid-xl">
                           <div className="crm-classic-row"><span>고객명</span><strong>{selectedInquiry.name}</strong></div>
                           <div className="crm-classic-row"><span>연락처</span><strong>{selectedInquiry.phone}</strong></div>
-                          <div className="crm-classic-row"><span>현재 담당자</span><strong><span className={`crm-assignee-chip ${assigneeClassName(selectedInquiry.assignee || "미배정")}`}>{selectedInquiry.assignee || "미배정"}</span></strong></div>
+                          <div className="crm-classic-row"><span>현재 담당자</span><strong>{selectedInquiry.assignee || "미배정"}</strong></div>
                           <div className="crm-classic-row"><span>대출상품</span><strong>{selectedInquiry.loan_type || "미입력"}</strong></div>
                           <div className="crm-classic-row"><span>주소</span><strong>{selectedInquiry.address || "미입력"}</strong></div>
                           <div className="crm-classic-row crm-classic-row-wide"><span>접수 메모</span><strong>{selectedInquiry.memo || "입력된 메모가 없습니다."}</strong></div>
@@ -703,7 +557,7 @@ export default function AdminOwnerPage() {
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern">
                     <thead><tr><th>직원 계정</th><th>전체</th><th>신규</th><th>재통화예정</th><th>진행중·가승인</th><th>승인</th></tr></thead>
-                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={7} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.recallCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td></tr>)}</tbody>
+                    <tbody>{performanceRows.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">조건에 맞는 실적이 없습니다.</td></tr> : performanceRows.map((row) => <tr key={row.id}><td><strong>{row.name}</strong></td><td>{row.total}</td><td>{row.newCount}</td><td>{row.recallCount}</td><td>{row.progressCount}</td><td>{row.approvedCount}</td></tr>)}</tbody>
                   </table>
                 </div>
               </section>
@@ -716,63 +570,40 @@ export default function AdminOwnerPage() {
 
 
 
-          {activeTab === "db" ? (
-            <div className="owner-db-shell">
+          {activeTab === "analytics" ? (
+            <div className="owner-performance-shell">
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>DB 관리</h3><span>주요 테이블 데이터를 확인하고 TXT/CSV/JSON으로 내보낼 수 있습니다.</span></div>
-                <div className="crm-toolbar crm-toolbar-xl crm-toolbar-db">
-                  <select value={dbTable} onChange={(e) => { setDbTable(e.target.value); setDbSelectedKey(""); }}>
-                    {DB_TABLE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
-                  <button type="button" className="secondary-btn" onClick={() => loadDbTable(dbTable)}>새로고침</button>
-                  <button type="button" className="secondary-btn" onClick={() => handleDbExport("txt")}>TXT 저장</button>
-                  <button type="button" className="secondary-btn" onClick={() => handleDbExport("csv")}>CSV 저장</button>
-                  <button type="button" className="secondary-btn" onClick={() => handleDbExport("json")}>JSON 저장</button>
+                <div className="crm-section-header"><h3>홈페이지 방문자 통계</h3><span>PC 홈과 모바일 홈 방문을 기준으로 실시간·일별·월별 흐름을 확인합니다.</span></div>
+                <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
+                  <SummaryCard title="실시간 방문" value={visitSummary.live_sessions_5m || 0} subtitle="최근 5분 기준 세션" tone="new" />
+                  <SummaryCard title="오늘 방문자" value={visitSummary.today_unique_visitors || 0} subtitle="일일 고유 방문자" tone="contacted" />
+                  <SummaryCard title="오늘 페이지뷰" value={visitSummary.today_pageviews || 0} subtitle="오늘 누적 방문 수" />
+                  <SummaryCard title="이번달 방문자" value={visitSummary.monthly_unique_visitors || 0} subtitle="월간 고유 방문자" tone="closed" />
                 </div>
-                {dbMessage ? <div className={`api-status ${dbMessage.type}`}>{dbMessage.text}</div> : null}
-                <div className="owner-db-grid">
-                  <div className="crm-table-wrap crm-table-modern-wrap owner-db-table-wrap">
-                    <table className="crm-table crm-table-modern">
-                      <thead>
-                        <tr>
-                          <th>{dbPrimaryKey}</th>
-                          <th>요약</th>
-                          <th>생성일/수정일</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dbLoading ? <tr><td colSpan={3} className="crm-empty-cell">불러오는 중...</td></tr> : null}
-                        {!dbLoading && dbRows.length === 0 ? <tr><td colSpan={3} className="crm-empty-cell">불러온 데이터가 없습니다.</td></tr> : null}
-                        {!dbLoading && dbRows.map((row) => {
-                          const key = String(row?.[dbPrimaryKey] || "");
-                          const summary = row?.name || row?.title || row?.display_name || row?.company_name || row?.phone || row?.scope || "-";
-                          const stamp = row?.updated_at || row?.created_at || "-";
-                          return (
-                            <tr key={key} onClick={() => setDbSelectedKey(key)} className={key === String(dbSelectedKey || "") ? "crm-row-selected" : ""}>
-                              <td><strong>{key}</strong></td>
-                              <td>{summary}</td>
-                              <td>{String(stamp || "-")}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
+                  <SummaryCard title="이번달 페이지뷰" value={visitSummary.monthly_pageviews || 0} subtitle="월간 누적 방문 수" />
+                  <SummaryCard title="PC 방문자" value={visitSummary.pc_unique_visitors || 0} subtitle="누적 고유 방문자" />
+                  <SummaryCard title="모바일 방문자" value={visitSummary.mobile_unique_visitors || 0} subtitle="누적 고유 방문자" />
+                  <SummaryCard title="최근 동기화" value={visitStats.fetched_at ? formatReviewDateTime(visitStats.fetched_at) : '-'} subtitle="방문자 집계 기준 시각" />
+                </div>
+                {visitStatsError ? <div className="api-status error">{visitStatsError}</div> : null}
+                <div className="crm-assignment-banner">
+                  <div>
+                    <strong>실시간 수치는 최근 5분 기준입니다.</strong>
+                    <span>하루 방문자와 월간 방문자, PC/모바일 유입 흐름을 관리자 페이지에서 바로 확인할 수 있습니다.</span>
                   </div>
-                  <div className="crm-panel owner-db-editor-panel">
-                    <div className="crm-section-header"><h3>선택 행 확인 / 수정</h3><span>아래 JSON에서 지원 필드만 수정 저장할 수 있습니다.</span></div>
-                    <div className="crm-muted-box db-editable-fields">수정 가능 필드: {dbEditableFields.length ? dbEditableFields.join(", ") : "없음"}</div>
-                    <textarea className="owner-db-editor" value={dbEditorText} onChange={(e) => setDbEditorText(e.target.value)} spellCheck={false} />
-                    <div className="crm-action-row owner-db-actions">
-                      <button type="button" className="primary-btn" disabled={dbSaving} onClick={handleDbSave}>{dbSaving ? "저장 중..." : "선택 행 저장"}</button>
-                      {dbDeletable ? <button type="button" className="secondary-btn danger" disabled={dbSaving} onClick={handleDbDelete}>선택 행 삭제</button> : null}
-                    </div>
+                  <div className="crm-assignment-banner-stats">
+                    <b>{visitDailyRows.length ? visitDailyRows[visitDailyRows.length - 1].visitors : 0}</b>
+                    <small>오늘 고유 방문자</small>
                   </div>
                 </div>
               </section>
+              <div className="owner-performance-grid">
+                <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">일별 방문자 · 페이지뷰</div><div className="crm-table-wrap crm-table-modern-wrap"><table className="crm-table crm-table-modern"><thead><tr><th>일자</th><th>고유 방문자</th><th>페이지뷰</th></tr></thead><tbody>{visitDailyRows.length === 0 ? <tr><td colSpan={3} className="crm-empty-cell">아직 방문자 데이터가 없습니다.</td></tr> : visitDailyRows.slice().reverse().map((row) => <tr key={row.date}><td><strong>{row.date}</strong></td><td>{row.visitors}</td><td>{row.pageviews}</td></tr>)}</tbody></table></div></section>
+                <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">월별 방문자 · 페이지뷰</div><div className="crm-table-wrap crm-table-modern-wrap"><table className="crm-table crm-table-modern"><thead><tr><th>월</th><th>고유 방문자</th><th>페이지뷰</th></tr></thead><tbody>{visitMonthlyRows.length === 0 ? <tr><td colSpan={3} className="crm-empty-cell">아직 월별 데이터가 없습니다.</td></tr> : visitMonthlyRows.slice().reverse().map((row) => <tr key={row.month}><td><strong>{row.month}</strong></td><td>{row.visitors}</td><td>{row.pageviews}</td></tr>)}</tbody></table></div></section>
+              </div>
             </div>
           ) : null}
-
-
 
           {activeTab === "staff" ? (
             <div className="owner-staff-shell">
@@ -793,14 +624,11 @@ export default function AdminOwnerPage() {
               </section>
 
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>직원 로그인 계정 관리</h3><span>직책을 지정하면 접속 가능한 페이지가 자동으로 제한됩니다. 마케팅담당은 홈페이지 관리만, CS담당/실무자는 직원 CRM만 접속 가능합니다.</span></div>
+                <div className="crm-section-header"><h3>직원 로그인 계정 관리</h3><span>관리자 페이지에서 만든 계정으로만 직원 페이지에 로그인할 수 있습니다.</span></div>
                 <form className="crm-account-form" onSubmit={addStaffAccount}>
                   <input value={newAccount.username} onChange={(e) => setNewAccount((p) => ({ ...p, username: e.target.value }))} placeholder="로그인 아이디" />
                   <input type="password" value={newAccount.password} onChange={(e) => setNewAccount((p) => ({ ...p, password: e.target.value }))} placeholder="초기 비밀번호" />
                   <input value={newAccount.display_name} onChange={(e) => setNewAccount((p) => ({ ...p, display_name: e.target.value }))} placeholder="표시 이름" />
-                  <select value={newAccount.role} onChange={(e) => setNewAccount((p) => ({ ...p, role: e.target.value }))}>
-                    {STAFF_ROLE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </select>
                   <select value={newAccount.staff_member_id} onChange={(e) => setNewAccount((p) => ({ ...p, staff_member_id: e.target.value, display_name: p.display_name || activeAssigneeOptions.find((item) => item.id === e.target.value)?.name || "" }))}>
                     <option value="">담당자 연결 안함</option>
                     {activeAssigneeOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -810,19 +638,14 @@ export default function AdminOwnerPage() {
                 {accountMessage ? <div className={`api-status ${accountMessage.type}`}>{accountMessage.text}</div> : null}
                 <div className="crm-table-wrap crm-table-modern-wrap">
                   <table className="crm-table crm-table-modern">
-                    <thead><tr><th>표시 이름</th><th>로그인 아이디</th><th>직책</th><th>연결 담당자</th><th>상태</th><th>비밀번호 재설정</th><th>관리</th></tr></thead>
+                    <thead><tr><th>표시 이름</th><th>로그인 아이디</th><th>연결 담당자</th><th>상태</th><th>비밀번호 재설정</th><th>관리</th></tr></thead>
                     <tbody>
-                      {accounts.length === 0 ? <tr><td colSpan={7} className="crm-empty-cell">등록된 직원 계정이 없습니다.</td></tr> : accounts.map((item) => {
+                      {accounts.length === 0 ? <tr><td colSpan={6} className="crm-empty-cell">등록된 직원 계정이 없습니다.</td></tr> : accounts.map((item) => {
                         const linked = assignees.find((assignee) => assignee.id === item.staff_member_id);
                         return (
                           <tr key={item.id}>
                             <td><strong>{item.display_name || item.username}</strong></td>
                             <td>{item.username}</td>
-                            <td>
-                              <select className="crm-inline-select" value={item.role || "worker"} onChange={(e) => patchAccount(item.id, { role: e.target.value })}>
-                                {STAFF_ROLE_OPTIONS.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
-                              </select>
-                            </td>
                             <td>{linked?.name || "-"}</td>
                             <td><span className={`crm-status-chip ${statusClassName(item.status)}`}>{item.status === "active" ? "사용중" : "중지"}</span></td>
                             <td>

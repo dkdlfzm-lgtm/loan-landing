@@ -194,10 +194,6 @@ async function loadPropertyMasterLocal() {
   throw new Error("property-master.json 파일을 찾지 못했습니다.");
 }
 
-function sameApartmentName(a, b) {
-  return normalizeApartmentName(a) === normalizeApartmentName(b);
-}
-
 function nameSimilarityScore(sourceName, targetName) {
   const a = normalizeApartmentName(sourceName);
   const b = normalizeApartmentName(targetName);
