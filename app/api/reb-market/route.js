@@ -23,8 +23,13 @@ function normalizeApartmentName(value = "") {
     .toLowerCase()
     .replace(/\(.*?\)/g, "")
     .replace(/아파트$/g, "")
-    .replace(/[·.,/\-]/g, "")
+    .replace(/오피스텔$/g, "")
+    .replace(/[·.,/\\\-]/g, "")
     .replace(/\s+/g, "");
+}
+
+function normalizeJibun(value = "") {
+  return String(value || "").replace(/\s+/g, "").trim();
 }
 
 function parseAreaNumber(value) {
@@ -118,7 +123,7 @@ function unwrapItems(payload) {
   return { header, items, totalCount };
 }
 
-function getRecentMonths(count = 6) {
+function getRecentMonths(count = 24) {
   const list = [];
   const d = new Date();
   d.setDate(1);
@@ -157,11 +162,16 @@ function getTradeDateKey(item) {
   return `${year}-${month}-${day}`;
 }
 
+function getTradeJibun(item) {
+  return normalizeJibun(item.jibun || item.지번 || item.lotNo || "");
+}
+
 function toleranceForArea(areaNumber) {
-  if (!Number.isFinite(areaNumber)) return 1;
-  if (areaNumber < 40) return 0.5;
-  if (areaNumber < 100) return 1.2;
-  return 1.5;
+  if (!Number.isFinite(areaNumber)) return 1.5;
+  if (areaNumber < 40) return 0.8;
+  if (areaNumber < 85) return 1.5;
+  if (areaNumber < 150) return 2.5;
+  return 4;
 }
 
 async function loadPropertyMasterLocal() {
@@ -188,30 +198,48 @@ function sameApartmentName(a, b) {
   return normalizeApartmentName(a) === normalizeApartmentName(b);
 }
 
+function nameSimilarityScore(sourceName, targetName) {
+  const a = normalizeApartmentName(sourceName);
+  const b = normalizeApartmentName(targetName);
+  if (!a || !b) return 0;
+  if (a === b) return 100;
+  if (a.includes(b) || b.includes(a)) return 85;
+
+  let common = 0;
+  for (const ch of new Set(a.split(""))) {
+    if (b.includes(ch)) common += 1;
+  }
+
+  return Math.round((common / Math.max(new Set(a.split("")).size, new Set(b.split("")).size, 1)) * 100);
+}
+
 function pickCatalogEntry(master, query) {
   const rows = master?.[query.propertyType]?.[query.city] || [];
   const normalizedTarget = normalizeApartmentName(query.apartment);
   const targetArea = parseAreaNumber(query.area);
 
-  const candidates = rows.filter(
-    (row) =>
-      row.district === query.district &&
-      row.town === query.town &&
-      sameApartmentName(row.apartment, normalizedTarget)
+  const byTown = rows.filter(
+    (row) => row.district === query.district && row.town === query.town
   );
 
-  if (!candidates.length) {
-    const loose = rows.filter(
-      (row) =>
-        row.district === query.district &&
-        row.town === query.town &&
-        normalizeApartmentName(row.apartment) === normalizedTarget
-    );
-    if (!loose.length) return null;
-    return loose[0];
-  }
+  if (!byTown.length) return null;
 
-  if (!Number.isFinite(targetArea)) return candidates[0];
+  const exactNameRows = byTown.filter((row) => normalizeApartmentName(row.apartment) === normalizedTarget);
+  const looseNameRows =
+    exactNameRows.length > 0
+      ? exactNameRows
+      : byTown
+          .map((row) => ({
+            row,
+            score: nameSimilarityScore(row.apartment, query.apartment),
+          }))
+          .filter((x) => x.score >= 70)
+          .sort((a, b) => b.score - a.score)
+          .map((x) => x.row);
+
+  const candidates = looseNameRows.length ? looseNameRows : byTown;
+
+  if (!Number.isFinite(targetArea)) return candidates[0] || null;
 
   const areaMatched = candidates.find((row) => {
     const areas = Array.isArray(row.areas) ? row.areas : [];
@@ -221,7 +249,62 @@ function pickCatalogEntry(master, query) {
     );
   });
 
-  return areaMatched || candidates[0];
+  return areaMatched || candidates[0] || null;
+}
+
+function scoreTradeMatch(row, target) {
+  let score = 0;
+
+  if (target.targetJibun && row.jibun && target.targetJibun === row.jibun) score += 100;
+
+  if (row.tradeName === target.targetName) score += 60;
+  else if (row.tradeName.includes(target.targetName) || target.targetName.includes(row.tradeName)) score += 45;
+  else score += Math.min(nameSimilarityScore(row.apartmentName, target.apartment), 40);
+
+  if (Number.isFinite(target.targetArea) && Number.isFinite(row.area)) {
+    const diff = Math.abs(row.area - target.targetArea);
+    if (diff <= 0.3) score += 50;
+    else if (diff <= 0.8) score += 40;
+    else if (diff <= 1.5) score += 30;
+    else if (diff <= 3) score += 18;
+    else if (diff <= 5) score += 8;
+  }
+
+  return score;
+}
+
+function buildResultSummary(query, matched, matchType) {
+  const latest = matched[0];
+  const amounts = matched.map((row) => row.amountWon);
+  const low = Math.min(...amounts);
+  const high = Math.max(...amounts);
+  const avg = Math.round(amounts.reduce((sum, value) => sum + value, 0) / amounts.length);
+  const limitRatio =
+    query.propertyType === "아파트" ? 0.72 : query.propertyType === "오피스텔" ? 0.68 : 0.62;
+
+  let trendText = `최근 ${matched.length}건 실거래 기준`;
+  if (matchType === "jibun+name+area") trendText = `지번·단지명·면적 매칭 ${matched.length}건`;
+  else if (matchType === "name+area") trendText = `단지명·면적 매칭 ${matched.length}건`;
+  else if (matchType === "name") trendText = `단지명 유사 매칭 ${matched.length}건`;
+
+  return {
+    source: "molit-realtime-trade",
+    count: matched.length,
+    summary: {
+      title: query.apartment,
+      address: [query.city, query.district, query.town].filter(Boolean).join(" "),
+      area: formatArea(query.area),
+      tradeDate: latest.dateKey,
+      latestPrice: formatEok(latest.amountWon),
+      range: `${formatEok(low)} ~ ${formatEok(high)}`,
+      averagePrice: formatEok(avg),
+      estimateLimit: `최대 ${formatEok(Math.round(latest.amountWon * limitRatio))} 가능`,
+      description: `최근 ${matched.length}건의 실거래 신고 자료를 기준으로 계산한 결과입니다. 최근 실거래가 ${formatEok(
+        latest.amountWon
+      )}, 평균 ${formatEok(avg)} 수준입니다.`,
+      trendText,
+    },
+  };
 }
 
 async function fetchRealTradeSummary(query) {
@@ -243,11 +326,15 @@ async function fetchRealTradeSummary(query) {
   }
 
   const lawdCode = String(rawLawdCode).slice(0, 5);
-  const months = getRecentMonths(query.propertyType === "아파트" ? 8 : 6);
+  const months = getRecentMonths(24);
   const base = query.propertyType === "오피스텔" ? OFFI_TRADE_BASE : APT_TRADE_BASE;
-  const targetName = normalizeApartmentName(query.apartment);
-  const targetArea = parseAreaNumber(query.area);
-  const maxAreaDiff = toleranceForArea(targetArea);
+
+  const target = {
+    apartment: query.apartment,
+    targetName: normalizeApartmentName(query.apartment),
+    targetArea: parseAreaNumber(query.area),
+    targetJibun: normalizeJibun(entry?.jibun || ""),
+  };
 
   const responses = await Promise.all(
     months.map(async (dealYmd) => {
@@ -271,62 +358,82 @@ async function fetchRealTradeSummary(query) {
     })
   );
 
-  const matched = responses
+  const allRows = responses
     .flat()
     .map((item) => ({
       item,
       amountWon: getTradeAmountWon(item),
       area: getTradeArea(item),
       apartmentName: getTradeApartmentName(item),
+      tradeName: normalizeApartmentName(getTradeApartmentName(item)),
       dateKey: getTradeDateKey(item),
+      jibun: getTradeJibun(item),
     }))
     .filter((row) => row.amountWon > 0)
+    .map((row) => ({
+      ...row,
+      score: scoreTradeMatch(row, target),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.dateKey.localeCompare(a.dateKey);
+    });
+
+  if (!allRows.length) {
+    throw new Error("최근 실거래가 데이터를 찾지 못했습니다.");
+  }
+
+  const jibunAreaName = allRows
     .filter((row) => {
-      const tradeName = normalizeApartmentName(row.apartmentName);
-      const nameOk =
-        tradeName === targetName ||
-        tradeName.includes(targetName) ||
-        targetName.includes(tradeName);
-
       const areaOk =
-        !Number.isFinite(targetArea) ||
-        !Number.isFinite(Number(row.area || 0)) ||
-        Math.abs(Number(row.area || 0) - targetArea) <= maxAreaDiff;
+        !Number.isFinite(target.targetArea) ||
+        !Number.isFinite(row.area) ||
+        Math.abs(row.area - target.targetArea) <= toleranceForArea(target.targetArea);
+      const nameOk =
+        row.tradeName === target.targetName ||
+        row.tradeName.includes(target.targetName) ||
+        target.targetName.includes(row.tradeName) ||
+        nameSimilarityScore(row.apartmentName, target.apartment) >= 80;
+      const jibunOk = target.targetJibun && row.jibun && row.jibun === target.targetJibun;
+      return jibunOk && nameOk && areaOk;
+    })
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
+  if (jibunAreaName.length) {
+    return buildResultSummary(query, jibunAreaName, "jibun+name+area");
+  }
+
+  const nameArea = allRows
+    .filter((row) => {
+      const areaOk =
+        !Number.isFinite(target.targetArea) ||
+        !Number.isFinite(row.area) ||
+        Math.abs(row.area - target.targetArea) <= toleranceForArea(target.targetArea);
+      const nameOk =
+        row.tradeName === target.targetName ||
+        row.tradeName.includes(target.targetName) ||
+        target.targetName.includes(row.tradeName) ||
+        nameSimilarityScore(row.apartmentName, target.apartment) >= 85;
       return nameOk && areaOk;
     })
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-  if (!matched.length) {
-    throw new Error("최근 실거래가 데이터를 찾지 못했습니다.");
+  if (nameArea.length) {
+    return buildResultSummary(query, nameArea, "name+area");
   }
 
-  const latest = matched[0];
-  const amounts = matched.map((row) => row.amountWon);
-  const low = Math.min(...amounts);
-  const high = Math.max(...amounts);
-  const avg = Math.round(amounts.reduce((sum, value) => sum + value, 0) / amounts.length);
-  const limitRatio =
-    query.propertyType === "아파트" ? 0.72 : query.propertyType === "오피스텔" ? 0.68 : 0.62;
+  const nameOnly = allRows
+    .filter((row) => nameSimilarityScore(row.apartmentName, target.apartment) >= 90)
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-  return {
-    source: "molit-realtime-trade",
-    count: matched.length,
-    summary: {
-      title: query.apartment,
-      address: [query.city, query.district, query.town].filter(Boolean).join(" "),
-      area: formatArea(query.area),
-      tradeDate: latest.dateKey,
-      latestPrice: formatEok(latest.amountWon),
-      range: `${formatEok(low)} ~ ${formatEok(high)}`,
-      averagePrice: formatEok(avg),
-      estimateLimit: `최대 ${formatEok(Math.round(latest.amountWon * limitRatio))} 가능`,
-      description: `최근 ${matched.length}건의 실거래 신고 자료를 기준으로 계산한 결과입니다. 최근 실거래가 ${formatEok(
-        latest.amountWon
-      )}, 평균 ${formatEok(avg)} 수준입니다.`,
-      trendText: `최근 ${matched.length}건 실거래 기준`,
-    },
-  };
+  if (nameOnly.length) {
+    return {
+      ...buildResultSummary(query, nameOnly, "name"),
+      warning: "면적 또는 지번이 정확히 일치하는 실거래가가 없어 단지명 유사 매칭 기준으로 표시했습니다.",
+    };
+  }
+
+  throw new Error("최근 실거래가 데이터를 찾지 못했습니다.");
 }
 
 function buildStatFallback(query) {
