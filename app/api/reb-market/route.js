@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 const REB_API_BASE = "https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do";
 const APT_TRADE_BASE =
   process.env.MOLIT_APT_TRADE_BASE ||
-  "http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
+  "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
 const OFFI_TRADE_BASE =
   process.env.OFFICETEL_TRADE_BASE ||
-  "http://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade";
+  "https://apis.data.go.kr/1613000/RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade";
 
 const PROPERTY_STAT_ID_MAP = {
   아파트: process.env.REB_APT_STATBL_ID,
