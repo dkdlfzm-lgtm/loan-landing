@@ -160,7 +160,7 @@ function getTradeDateKey(item) {
 function toleranceForArea(areaNumber) {
   if (!Number.isFinite(areaNumber)) return 1;
   if (areaNumber < 40) return 0.5;
-  if (areaNumber < 100) return 0.99;
+  if (areaNumber < 100) return 1.2;
   return 1.5;
 }
 
@@ -184,27 +184,44 @@ async function loadPropertyMasterLocal() {
   throw new Error("property-master.json 파일을 찾지 못했습니다.");
 }
 
+function sameApartmentName(a, b) {
+  return normalizeApartmentName(a) === normalizeApartmentName(b);
+}
+
 function pickCatalogEntry(master, query) {
   const rows = master?.[query.propertyType]?.[query.city] || [];
   const normalizedTarget = normalizeApartmentName(query.apartment);
   const targetArea = parseAreaNumber(query.area);
 
-  const exact = rows.filter(
+  const candidates = rows.filter(
     (row) =>
       row.district === query.district &&
       row.town === query.town &&
-      normalizeApartmentName(row.apartment) === normalizedTarget
+      sameApartmentName(row.apartment, normalizedTarget)
   );
 
-  if (!exact.length) return null;
+  if (!candidates.length) {
+    const loose = rows.filter(
+      (row) =>
+        row.district === query.district &&
+        row.town === query.town &&
+        normalizeApartmentName(row.apartment) === normalizedTarget
+    );
+    if (!loose.length) return null;
+    return loose[0];
+  }
 
-  const best = exact.find((row) =>
-    (row.areas || []).some(
+  if (!Number.isFinite(targetArea)) return candidates[0];
+
+  const areaMatched = candidates.find((row) => {
+    const areas = Array.isArray(row.areas) ? row.areas : [];
+    if (!areas.length) return false;
+    return areas.some(
       (area) => Math.abs(parseAreaNumber(area) - targetArea) <= toleranceForArea(targetArea)
-    )
-  );
+    );
+  });
 
-  return best || exact[0];
+  return areaMatched || candidates[0];
 }
 
 async function fetchRealTradeSummary(query) {
@@ -216,11 +233,16 @@ async function fetchRealTradeSummary(query) {
   const { master } = await loadPropertyMasterLocal();
   const entry = pickCatalogEntry(master, query);
 
-  if (!entry?.bjdCode) {
+  if (!entry) {
+    throw new Error("단지 정보를 property-master.json에서 찾지 못했습니다.");
+  }
+
+  const rawLawdCode = entry?.bjdCode || entry?.lawdCode;
+  if (!rawLawdCode) {
     throw new Error("단지 코드 정보를 찾지 못했습니다. property-master.json을 다시 생성해 주세요.");
   }
 
-  const lawdCode = String(entry.bjdCode).slice(0, 5);
+  const lawdCode = String(rawLawdCode).slice(0, 5);
   const months = getRecentMonths(query.propertyType === "아파트" ? 8 : 6);
   const base = query.propertyType === "오피스텔" ? OFFI_TRADE_BASE : APT_TRADE_BASE;
   const targetName = normalizeApartmentName(query.apartment);
@@ -260,9 +282,17 @@ async function fetchRealTradeSummary(query) {
     }))
     .filter((row) => row.amountWon > 0)
     .filter((row) => {
-      const nameOk = normalizeApartmentName(row.apartmentName) === targetName;
+      const tradeName = normalizeApartmentName(row.apartmentName);
+      const nameOk =
+        tradeName === targetName ||
+        tradeName.includes(targetName) ||
+        targetName.includes(tradeName);
+
       const areaOk =
-        !Number.isFinite(targetArea) || Math.abs(Number(row.area || 0) - targetArea) <= maxAreaDiff;
+        !Number.isFinite(targetArea) ||
+        !Number.isFinite(Number(row.area || 0)) ||
+        Math.abs(Number(row.area || 0) - targetArea) <= maxAreaDiff;
+
       return nameOk && areaOk;
     })
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
