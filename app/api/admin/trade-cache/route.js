@@ -129,7 +129,7 @@ async function loadPropertyMasterLocal() {
   throw new Error("property-master.json 파일을 찾지 못했습니다.");
 }
 
-async function supabaseRequest(path, options = {}) {
+async function supabaseFetch(path, options = {}) {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -137,14 +137,14 @@ async function supabaseRequest(path, options = {}) {
     throw new Error("Supabase 관리자 환경변수가 설정되지 않았습니다.");
   }
 
-  const url = `${baseUrl}/rest/v1${path}`;
-  const response = await fetch(url, {
+  const response = await fetch(`${baseUrl}/rest/v1${path}`, {
     method: options.method || "GET",
     headers: {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
       "Content-Type": "application/json",
       Prefer: options.prefer || "return=representation",
+      Range: options.range || "0-999",
       ...(options.headers || {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -152,18 +152,31 @@ async function supabaseRequest(path, options = {}) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text || null;
+  }
 
   if (!response.ok) {
     const message =
-      data?.message ||
-      data?.hint ||
-      data?.details ||
-      `Supabase REST 오류 (${response.status})`;
+      data?.message || data?.hint || data?.details || text || `Supabase REST 오류 (${response.status})`;
     throw new Error(message);
   }
 
-  return data;
+  return { data, headers: response.headers, status: response.status };
+}
+
+async function countRows(path) {
+  const { headers } = await supabaseFetch(path, {
+    method: "GET",
+    range: "0-0",
+    headers: { Prefer: "count=exact,return=minimal" },
+  });
+  const contentRange = headers.get("content-range") || "";
+  const match = contentRange.match(/\/(\d+)$/);
+  return match ? Number(match[1]) : 0;
 }
 
 function collectTargets(master, city = "", district = "", town = "") {
@@ -182,6 +195,7 @@ function dedupeTargets(rows) {
     const lawdCode = String(row.bjdCode || row.lawdCode || "").slice(0, 5);
     const apartmentName = normalizeText(row.apartment);
     const key = [
+      row.city || "서울특별시",
       row.district || "",
       row.town || "",
       apartmentName,
@@ -293,7 +307,7 @@ async function fetchTradesForTarget(serviceKey, target) {
 async function upsertTradeRows(rows) {
   if (!rows.length) return { inserted: 0 };
 
-  const data = await supabaseRequest("/apartment_trade_cache", {
+  const { data } = await supabaseFetch("/apartment_trade_cache?on_conflict=property_type,lawd_code,apartment_name,jibun,area_m2,deal_date,amount_won", {
     method: "POST",
     headers: {
       Prefer: "resolution=merge-duplicates,return=representation",
@@ -304,40 +318,53 @@ async function upsertTradeRows(rows) {
   return { inserted: Array.isArray(data) ? data.length : rows.length };
 }
 
+function buildGroupedCounts(rows, kind = "daily") {
+  const map = new Map();
+
+  for (const row of rows) {
+    const iso = String(row.collected_at || "");
+    const key = kind === "monthly" ? iso.slice(0, 7) : iso.slice(0, 10);
+    if (!key) continue;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+
+  return [...map.entries()]
+    .map(([key, count]) => (kind === "monthly" ? { month: key, count } : { date: key, count }))
+    .sort((a, b) => String(b.month || b.date).localeCompare(String(a.month || a.date)))
+    .slice(0, kind === "monthly" ? 12 : 30);
+}
+
 export async function GET() {
   try {
-    const total = await supabaseRequest("/apartment_trade_cache?select=id", {
-      method: "GET",
-      headers: { Prefer: "count=exact" },
-    });
+    const totalRows = await countRows("/apartment_trade_cache?select=id");
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const monthIso = todayIso.slice(0, 7);
 
-    const recentRuns = await supabaseRequest(
-      "/apartment_trade_cache?select=collected_at&order=collected_at.desc&limit=20"
+    const todayRows = await countRows(`/apartment_trade_cache?select=id&collected_at=gte.${todayIso}T00:00:00.000Z`);
+    const monthRows = await countRows(`/apartment_trade_cache?select=id&collected_at=gte.${monthIso}-01T00:00:00.000Z`);
+
+    const { data: recentCollected } = await supabaseFetch(
+      "/apartment_trade_cache?select=collected_at&order=collected_at.desc&limit=2000",
+      { range: "0-1999" }
     );
 
-    const totalCount = Array.isArray(total) ? total.length : 0;
-    const recent = Array.isArray(recentRuns) ? recentRuns : [];
-
-    const today = new Date().toISOString().slice(0, 10);
-    const thisMonth = today.slice(0, 7);
-
-    const todayCount = recent.filter((r) =>
-      String(r.collected_at || "").startsWith(today)
-    ).length;
-
-    const monthCount = recent.filter((r) =>
-      String(r.collected_at || "").startsWith(thisMonth)
-    ).length;
+    const rows = Array.isArray(recentCollected) ? recentCollected : [];
+    const latestCollectedAt = rows.length ? rows[0].collected_at : null;
+    const daily = buildGroupedCounts(rows, "daily");
+    const monthly = buildGroupedCounts(rows, "monthly");
 
     return NextResponse.json({
       ok: true,
-      stats: {
-        totalCount,
-        todayCount,
-        monthCount,
-        recentCount: recent.length,
+      summary: {
+        total_rows: totalRows,
+        today_rows: todayRows,
+        monthly_rows: monthRows,
+        latest_collected_at: latestCollectedAt,
       },
-      recentRuns: recent,
+      daily,
+      monthly,
+      job: null,
+      fetched_at: new Date().toISOString(),
     });
   } catch (error) {
     return NextResponse.json(
@@ -362,6 +389,8 @@ export async function POST(request) {
     const district = normalizeText(body?.district || "");
     const town = normalizeText(body?.town || "");
     const fullIngest = Boolean(body?.fullIngest);
+    const offset = Number(body?.offset || 0);
+    const limit = Math.max(1, Math.min(Number(body?.limit || 1), 5));
 
     const { master } = await loadPropertyMasterLocal();
 
@@ -382,11 +411,13 @@ export async function POST(request) {
       );
     }
 
+    const chunkTargets = targets.slice(offset, offset + limit);
+
     let savedRows = 0;
     let processedTargets = 0;
     const errors = [];
 
-    for (const target of targets) {
+    for (const target of chunkTargets) {
       try {
         const tradeRows = await fetchTradesForTarget(serviceKey, target);
         const result = await upsertTradeRows(tradeRows);
@@ -402,12 +433,17 @@ export async function POST(request) {
       }
     }
 
+    const nextOffset = offset + chunkTargets.length;
+    const done = nextOffset >= targets.length;
+
     return NextResponse.json({
       ok: true,
-      message: "실거래 캐시 적재가 완료되었습니다.",
+      message: done ? "실거래 캐시 적재가 완료되었습니다." : "다음 적재 청크를 준비했습니다.",
       processedTargets,
       totalTargets: targets.length,
       savedRows,
+      nextOffset,
+      done,
       errorCount: errors.length,
       errors: errors.slice(0, 20),
     });

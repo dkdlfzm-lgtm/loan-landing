@@ -189,24 +189,81 @@ export default function AdminOwnerPage() {
   async function handleStartFullTradeIngest() {
     setTradeStatsError("");
     setTradeJobRunning(true);
-    try {
-      const startRes = await fetch("/api/admin/trade-cache", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start_full" }) });
-      const startData = await startRes.json();
-      if (!startRes.ok || !startData.ok) throw new Error(startData.message || "전체 적재 시작에 실패했습니다.");
+    const CHUNK_SIZE = 1;
+    let offset = 0;
+    let totalTargets = 0;
+    let insertedRows = 0;
 
-      let guard = 0;
-      let done = false;
-      while (!done && guard < 500) {
-        guard += 1;
-        const runRes = await fetch("/api/admin/trade-cache", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "run_next_chunk" }) });
-        const runData = await runRes.json();
-        if (!runRes.ok || !runData.ok) throw new Error(runData.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
-        done = Boolean(runData.done);
+    try {
+      while (true) {
+        setTradeStats((prev) => ({
+          ...prev,
+          job: {
+            status: "running",
+            processed_groups: offset,
+            total_groups: totalTargets,
+            inserted_rows: insertedRows,
+            last_error: "",
+          },
+        }));
+
+        const res = await fetch("/api/admin/trade-cache", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullIngest: true,
+            offset,
+            limit: CHUNK_SIZE,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(
+            data.message ||
+              data.error ||
+              data.details ||
+              "실거래 캐시 적재 중 오류가 발생했습니다."
+          );
+        }
+
+        totalTargets = Number(data.totalTargets || totalTargets || 0);
+        insertedRows += Number(data.savedRows || 0);
+        offset = Number(data.nextOffset || 0);
+
+        setTradeStats((prev) => ({
+          ...prev,
+          job: {
+            status: data.done ? "completed" : "running",
+            processed_groups: data.done ? totalTargets : offset,
+            total_groups: totalTargets,
+            inserted_rows: insertedRows,
+            last_error: data.errorCount ? `${data.errorCount}건 오류` : "",
+          },
+        }));
+
         await loadTradeStats({ silent: true });
+
+        if (data.done) break;
+
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
+
       await loadTradeStats();
     } catch (error) {
-      setTradeStatsError(error.message || "실거래 캐시 전체 적재에 실패했습니다.");
+      const message =
+        error?.message || "실거래 캐시 전체 적재에 실패했습니다.";
+      setTradeStatsError(message);
+      setTradeStats((prev) => ({
+        ...prev,
+        job: {
+          status: "failed",
+          processed_groups: offset,
+          total_groups: totalTargets,
+          inserted_rows: insertedRows,
+          last_error: message,
+        },
+      }));
     } finally {
       setTradeJobRunning(false);
     }
