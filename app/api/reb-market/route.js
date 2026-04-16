@@ -123,7 +123,7 @@ function unwrapItems(payload) {
   return { header, items, totalCount };
 }
 
-function getRecentMonths(count = 24) {
+function getRecentMonths(count = 60) {
   const list = [];
   const d = new Date();
   d.setDate(1);
@@ -142,6 +142,10 @@ function getTradeApartmentName(item) {
   return normalizeText(
     item.aptNm || item.아파트 || item.offiNm || item.단지 || item.apartmentName || ""
   );
+}
+
+function getTradeTown(item) {
+  return normalizeText(item.umdNm || item.법정동 || item.dong || item.town || "");
 }
 
 function getTradeArea(item) {
@@ -167,11 +171,11 @@ function getTradeJibun(item) {
 }
 
 function toleranceForArea(areaNumber) {
-  if (!Number.isFinite(areaNumber)) return 1.5;
-  if (areaNumber < 40) return 0.8;
-  if (areaNumber < 85) return 1.5;
-  if (areaNumber < 150) return 2.5;
-  return 4;
+  if (!Number.isFinite(areaNumber)) return 2;
+  if (areaNumber < 40) return 1;
+  if (areaNumber < 85) return 2;
+  if (areaNumber < 150) return 3.5;
+  return 5;
 }
 
 async function loadPropertyMasterLocal() {
@@ -199,7 +203,7 @@ function nameSimilarityScore(sourceName, targetName) {
   const b = normalizeApartmentName(targetName);
   if (!a || !b) return 0;
   if (a === b) return 100;
-  if (a.includes(b) || b.includes(a)) return 85;
+  if (a.includes(b) || b.includes(a)) return 90;
 
   let common = 0;
   for (const ch of new Set(a.split(""))) {
@@ -220,56 +224,59 @@ function pickCatalogEntry(master, query) {
 
   if (!byTown.length) return null;
 
-  const exactNameRows = byTown.filter((row) => normalizeApartmentName(row.apartment) === normalizedTarget);
-  const looseNameRows =
-    exactNameRows.length > 0
-      ? exactNameRows
-      : byTown
-          .map((row) => ({
-            row,
-            score: nameSimilarityScore(row.apartment, query.apartment),
-          }))
-          .filter((x) => x.score >= 70)
-          .sort((a, b) => b.score - a.score)
-          .map((x) => x.row);
+  const ranked = byTown
+    .map((row) => {
+      const areas = Array.isArray(row.areas) ? row.areas : [];
+      const bestAreaDiff = areas.length
+        ? Math.min(...areas.map((area) => Math.abs(parseAreaNumber(area) - targetArea)).filter(Number.isFinite))
+        : Number.POSITIVE_INFINITY;
+      return {
+        row,
+        score: nameSimilarityScore(row.apartment, query.apartment),
+        bestAreaDiff,
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.bestAreaDiff - b.bestAreaDiff;
+    });
 
-  const candidates = looseNameRows.length ? looseNameRows : byTown;
+  const top = ranked[0];
+  if (!top || top.score < 55) return null;
 
-  if (!Number.isFinite(targetArea)) return candidates[0] || null;
+  const nearArea = ranked.find(
+    (x) => x.score >= 80 && Number.isFinite(targetArea) && x.bestAreaDiff <= toleranceForArea(targetArea)
+  );
 
-  const areaMatched = candidates.find((row) => {
-    const areas = Array.isArray(row.areas) ? row.areas : [];
-    if (!areas.length) return false;
-    return areas.some(
-      (area) => Math.abs(parseAreaNumber(area) - targetArea) <= toleranceForArea(targetArea)
-    );
-  });
-
-  return areaMatched || candidates[0] || null;
+  return (nearArea || top).row;
 }
 
 function scoreTradeMatch(row, target) {
   let score = 0;
 
-  if (target.targetJibun && row.jibun && target.targetJibun === row.jibun) score += 100;
+  if (target.targetTown && row.town && target.targetTown === row.town) score += 20;
+  if (target.targetJibun && row.jibun && target.targetJibun === row.jibun) score += 120;
 
-  if (row.tradeName === target.targetName) score += 60;
-  else if (row.tradeName.includes(target.targetName) || target.targetName.includes(row.tradeName)) score += 45;
-  else score += Math.min(nameSimilarityScore(row.apartmentName, target.apartment), 40);
+  const nameScore = nameSimilarityScore(row.apartmentName, target.apartment);
+  if (nameScore >= 95) score += 80;
+  else if (nameScore >= 85) score += 60;
+  else if (nameScore >= 70) score += 35;
+  else score += Math.min(nameScore, 20);
 
   if (Number.isFinite(target.targetArea) && Number.isFinite(row.area)) {
     const diff = Math.abs(row.area - target.targetArea);
-    if (diff <= 0.3) score += 50;
-    else if (diff <= 0.8) score += 40;
-    else if (diff <= 1.5) score += 30;
-    else if (diff <= 3) score += 18;
-    else if (diff <= 5) score += 8;
+    if (diff <= 0.3) score += 60;
+    else if (diff <= 0.8) score += 50;
+    else if (diff <= 1.5) score += 40;
+    else if (diff <= 3) score += 24;
+    else if (diff <= 5) score += 12;
+    else if (diff <= 10) score += 5;
   }
 
   return score;
 }
 
-function buildResultSummary(query, matched, matchType) {
+function buildResultSummary(query, matched, matchType, warning = undefined) {
   const latest = matched[0];
   const amounts = matched.map((row) => row.amountWon);
   const low = Math.min(...amounts);
@@ -279,9 +286,11 @@ function buildResultSummary(query, matched, matchType) {
     query.propertyType === "아파트" ? 0.72 : query.propertyType === "오피스텔" ? 0.68 : 0.62;
 
   let trendText = `최근 ${matched.length}건 실거래 기준`;
-  if (matchType === "jibun+name+area") trendText = `지번·단지명·면적 매칭 ${matched.length}건`;
+  if (matchType === "jibun+name+area") trendText = `지번·단지명·면적 일치 ${matched.length}건`;
   else if (matchType === "name+area") trendText = `단지명·면적 매칭 ${matched.length}건`;
-  else if (matchType === "name") trendText = `단지명 유사 매칭 ${matched.length}건`;
+  else if (matchType === "jibun-derived") trendText = `동일 지번 유사면적 추정 ${matched.length}건`;
+  else if (matchType === "name-derived") trendText = `동일 단지 유사면적 추정 ${matched.length}건`;
+  else if (matchType === "town-derived") trendText = `동일 동네 유사면적 참고 ${matched.length}건`;
 
   return {
     source: "molit-realtime-trade",
@@ -300,7 +309,23 @@ function buildResultSummary(query, matched, matchType) {
       )}, 평균 ${formatEok(avg)} 수준입니다.`,
       trendText,
     },
+    warning,
   };
+}
+
+function buildDerivedRows(baseRows, targetArea) {
+  if (!baseRows.length || !Number.isFinite(targetArea)) return [];
+
+  return baseRows
+    .filter((row) => Number.isFinite(row.area) && row.area > 0 && row.amountWon > 0)
+    .map((row) => {
+      const pricePerM2 = row.amountWon / row.area;
+      return {
+        ...row,
+        amountWon: Math.round(pricePerM2 * targetArea),
+      };
+    })
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 }
 
 async function fetchRealTradeSummary(query) {
@@ -322,7 +347,7 @@ async function fetchRealTradeSummary(query) {
   }
 
   const lawdCode = String(rawLawdCode).slice(0, 5);
-  const months = getRecentMonths(24);
+  const months = getRecentMonths(60);
   const base = query.propertyType === "오피스텔" ? OFFI_TRADE_BASE : APT_TRADE_BASE;
 
   const target = {
@@ -330,6 +355,7 @@ async function fetchRealTradeSummary(query) {
     targetName: normalizeApartmentName(query.apartment),
     targetArea: parseAreaNumber(query.area),
     targetJibun: normalizeJibun(entry?.jibun || ""),
+    targetTown: normalizeText(query.town),
   };
 
   const responses = await Promise.all(
@@ -362,6 +388,7 @@ async function fetchRealTradeSummary(query) {
       area: getTradeArea(item),
       apartmentName: getTradeApartmentName(item),
       tradeName: normalizeApartmentName(getTradeApartmentName(item)),
+      town: getTradeTown(item),
       dateKey: getTradeDateKey(item),
       jibun: getTradeJibun(item),
     }))
@@ -379,54 +406,86 @@ async function fetchRealTradeSummary(query) {
     throw new Error("최근 실거래가 데이터를 찾지 못했습니다.");
   }
 
-  const jibunAreaName = allRows
+  const areaTol = toleranceForArea(target.targetArea);
+
+  const exactRows = allRows
     .filter((row) => {
       const areaOk =
         !Number.isFinite(target.targetArea) ||
         !Number.isFinite(row.area) ||
-        Math.abs(row.area - target.targetArea) <= toleranceForArea(target.targetArea);
-      const nameOk =
-        row.tradeName === target.targetName ||
-        row.tradeName.includes(target.targetName) ||
-        target.targetName.includes(row.tradeName) ||
-        nameSimilarityScore(row.apartmentName, target.apartment) >= 80;
+        Math.abs(row.area - target.targetArea) <= areaTol;
+      const nameOk = nameSimilarityScore(row.apartmentName, target.apartment) >= 85;
       const jibunOk = target.targetJibun && row.jibun && row.jibun === target.targetJibun;
       return jibunOk && nameOk && areaOk;
     })
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-  if (jibunAreaName.length) {
-    return buildResultSummary(query, jibunAreaName, "jibun+name+area");
+  if (exactRows.length) {
+    return buildResultSummary(query, exactRows, "jibun+name+area");
   }
 
-  const nameArea = allRows
+  const nameAreaRows = allRows
     .filter((row) => {
       const areaOk =
         !Number.isFinite(target.targetArea) ||
         !Number.isFinite(row.area) ||
-        Math.abs(row.area - target.targetArea) <= toleranceForArea(target.targetArea);
-      const nameOk =
-        row.tradeName === target.targetName ||
-        row.tradeName.includes(target.targetName) ||
-        target.targetName.includes(row.tradeName) ||
-        nameSimilarityScore(row.apartmentName, target.apartment) >= 85;
-      return nameOk && areaOk;
+        Math.abs(row.area - target.targetArea) <= areaTol;
+      return nameSimilarityScore(row.apartmentName, target.apartment) >= 88 && areaOk;
     })
     .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-  if (nameArea.length) {
-    return buildResultSummary(query, nameArea, "name+area");
+  if (nameAreaRows.length) {
+    return buildResultSummary(query, nameAreaRows, "name+area");
   }
 
-  const nameOnly = allRows
-    .filter((row) => nameSimilarityScore(row.apartmentName, target.apartment) >= 90)
-    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+  const sameJibunRows = allRows.filter(
+    (row) => target.targetJibun && row.jibun && row.jibun === target.targetJibun
+  );
+  if (sameJibunRows.length) {
+    const derived = buildDerivedRows(sameJibunRows, target.targetArea);
+    if (derived.length) {
+      return buildResultSummary(
+        query,
+        derived,
+        "jibun-derived",
+        "선택한 면적의 최근 실거래가가 없어 동일 지번의 유사 면적 거래를 ㎡당 가격으로 환산해 표시했습니다."
+      );
+    }
+  }
 
-  if (nameOnly.length) {
-    return {
-      ...buildResultSummary(query, nameOnly, "name"),
-      warning: "면적 또는 지번이 정확히 일치하는 실거래가가 없어 단지명 유사 매칭 기준으로 표시했습니다.",
-    };
+  const sameNameRows = allRows.filter((row) => nameSimilarityScore(row.apartmentName, target.apartment) >= 88);
+  if (sameNameRows.length) {
+    const derived = buildDerivedRows(sameNameRows, target.targetArea);
+    if (derived.length) {
+      return buildResultSummary(
+        query,
+        derived,
+        "name-derived",
+        "선택한 면적의 최근 실거래가가 없어 동일 단지의 유사 면적 거래를 ㎡당 가격으로 환산해 표시했습니다."
+      );
+    }
+  }
+
+  const sameTownSimilarAreaRows = allRows.filter((row) => {
+    const townOk = !target.targetTown || !row.town || row.town === target.targetTown;
+    const areaOk =
+      !Number.isFinite(target.targetArea) ||
+      !Number.isFinite(row.area) ||
+      Math.abs(row.area - target.targetArea) <= Math.max(areaTol * 2, 8);
+    return townOk && areaOk;
+  });
+
+  if (sameTownSimilarAreaRows.length) {
+    const top = sameTownSimilarAreaRows.slice(0, 15).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    const derived = buildDerivedRows(top, target.targetArea);
+    if (derived.length) {
+      return buildResultSummary(
+        query,
+        derived,
+        "town-derived",
+        "동일 동네의 유사 면적 최근 거래를 기준으로 참고값을 계산했습니다."
+      );
+    }
   }
 
   throw new Error("최근 실거래가 데이터를 찾지 못했습니다.");
