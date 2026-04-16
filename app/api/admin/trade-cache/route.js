@@ -129,18 +129,41 @@ async function loadPropertyMasterLocal() {
   throw new Error("property-master.json 파일을 찾지 못했습니다.");
 }
 
-async function loadSupabaseAdmin() {
-  const { createClient } = await import("@supabase/supabase-js");
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+async function supabaseRequest(path, options = {}) {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !key) {
+  if (!baseUrl || !serviceKey) {
     throw new Error("Supabase 관리자 환경변수가 설정되지 않았습니다.");
   }
 
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  const url = `${baseUrl}/rest/v1${path}`;
+  const response = await fetch(url, {
+    method: options.method || "GET",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+      Prefer: options.prefer || "return=representation",
+      ...(options.headers || {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    cache: "no-store",
   });
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const message =
+      data?.message ||
+      data?.hint ||
+      data?.details ||
+      `Supabase REST 오류 (${response.status})`;
+    throw new Error(message);
+  }
+
+  return data;
 }
 
 function collectTargets(master, city = "", district = "", town = "") {
@@ -176,7 +199,6 @@ function dedupeTargets(rows) {
         apartment_name: apartmentName,
         apartment_name_norm: normalizeApartmentName(apartmentName),
         jibun: normalizeJibun(row.jibun || ""),
-        areas: Array.isArray(row.areas) ? row.areas : [],
       });
     }
   }
@@ -268,59 +290,54 @@ async function fetchTradesForTarget(serviceKey, target) {
   return rows;
 }
 
-async function upsertTradeRows(supabase, rows) {
+async function upsertTradeRows(rows) {
   if (!rows.length) return { inserted: 0 };
 
-  const { error } = await supabase
-    .from("apartment_trade_cache")
-    .upsert(rows, {
-      onConflict:
-        "property_type,lawd_code,apartment_name,jibun,area_m2,deal_date,amount_won",
-    });
+  const data = await supabaseRequest("/apartment_trade_cache", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: rows,
+  });
 
-  if (error) throw new Error(error.message);
-  return { inserted: rows.length };
+  return { inserted: Array.isArray(data) ? data.length : rows.length };
 }
 
 export async function GET() {
   try {
-    const supabase = await loadSupabaseAdmin();
+    const total = await supabaseRequest("/apartment_trade_cache?select=id", {
+      method: "GET",
+      headers: { Prefer: "count=exact" },
+    });
 
-    const [{ count: totalCount, error: totalErr }, { data: recentRuns, error: runsErr }] =
-      await Promise.all([
-        supabase
-          .from("apartment_trade_cache")
-          .select("*", { count: "exact", head: true }),
-        supabase
-          .from("apartment_trade_cache")
-          .select("collected_at")
-          .order("collected_at", { ascending: false })
-          .limit(20),
-      ]);
+    const recentRuns = await supabaseRequest(
+      "/apartment_trade_cache?select=collected_at&order=collected_at.desc&limit=20"
+    );
 
-    if (totalErr) throw new Error(totalErr.message);
-    if (runsErr) throw new Error(runsErr.message);
+    const totalCount = Array.isArray(total) ? total.length : 0;
+    const recent = Array.isArray(recentRuns) ? recentRuns : [];
 
     const today = new Date().toISOString().slice(0, 10);
     const thisMonth = today.slice(0, 7);
 
-    const todayCount = (recentRuns || []).filter((r) =>
+    const todayCount = recent.filter((r) =>
       String(r.collected_at || "").startsWith(today)
     ).length;
 
-    const monthCount = (recentRuns || []).filter((r) =>
+    const monthCount = recent.filter((r) =>
       String(r.collected_at || "").startsWith(thisMonth)
     ).length;
 
     return NextResponse.json({
       ok: true,
       stats: {
-        totalCount: totalCount || 0,
+        totalCount,
         todayCount,
         monthCount,
-        recentCount: (recentRuns || []).length,
+        recentCount: recent.length,
       },
-      recentRuns: recentRuns || [],
+      recentRuns: recent,
     });
   } catch (error) {
     return NextResponse.json(
@@ -347,10 +364,8 @@ export async function POST(request) {
     const fullIngest = Boolean(body?.fullIngest);
 
     const { master } = await loadPropertyMasterLocal();
-    const supabase = await loadSupabaseAdmin();
 
     let targets = [];
-
     if (fullIngest) {
       const rows = master?.["아파트"]?.[city] || [];
       targets = dedupeTargets(rows.map((row) => ({ ...row, city })));
@@ -374,7 +389,7 @@ export async function POST(request) {
     for (const target of targets) {
       try {
         const tradeRows = await fetchTradesForTarget(serviceKey, target);
-        const result = await upsertTradeRows(supabase, tradeRows);
+        const result = await upsertTradeRows(tradeRows);
         savedRows += result.inserted;
         processedTargets += 1;
       } catch (err) {
