@@ -21,7 +21,7 @@ const OWNER_TABS = [
   { key: "customers", label: "고객 배정" },
   { key: "performance", label: "실적 관리" },
   { key: "analytics", label: "방문자 통계" },
-  { key: "market", label: "실거래가 관리" },
+  { key: "trade", label: "실거래가 관리" },
   { key: "staff", label: "담당자·직원 계정" },
 ];
 const AUTO_REFRESH_MS = 5000;
@@ -126,11 +126,9 @@ export default function AdminOwnerPage() {
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [visitStats, setVisitStats] = useState({ summary: null, daily: [], monthly: [], fetched_at: null });
   const [visitStatsError, setVisitStatsError] = useState("");
-  const [tradeCacheStats, setTradeCacheStats] = useState({ summary: null, daily: [], monthly: [], runs: [], fetched_at: null });
-  const [tradeCacheError, setTradeCacheError] = useState("");
-  const [tradeCacheMessage, setTradeCacheMessage] = useState("");
-  const [tradeCacheSyncing, setTradeCacheSyncing] = useState(false);
-  const [tradeFilters, setTradeFilters] = useState({ propertyType: "아파트", city: "서울특별시", district: "강남구", town: "" });
+  const [tradeStats, setTradeStats] = useState({ summary: null, daily: [], monthly: [], job: null, fetched_at: null });
+  const [tradeStatsError, setTradeStatsError] = useState("");
+  const [tradeJobRunning, setTradeJobRunning] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
@@ -158,51 +156,6 @@ export default function AdminOwnerPage() {
     }
   }
 
-  async function loadTradeCacheStats({ silent = false } = {}) {
-    try {
-      const res = await fetch("/api/admin/trade-cache", { cache: "no-store" });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "실거래가 캐시 통계를 불러오지 못했습니다.");
-      setTradeCacheStats({
-        summary: data.summary || null,
-        daily: data.daily || [],
-        monthly: data.monthly || [],
-        runs: data.runs || [],
-        fetched_at: data.fetched_at || null,
-      });
-      setTradeCacheError("");
-    } catch (error) {
-      if (!silent) setTradeCacheError(error.message || "실거래가 캐시 통계를 불러오지 못했습니다.");
-    }
-  }
-
-  async function syncTradeCache() {
-    setTradeCacheSyncing(true);
-    setTradeCacheMessage("");
-    setTradeCacheError("");
-    try {
-      const res = await fetch("/api/admin/trade-cache", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(tradeFilters),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "실거래가 캐시 적재에 실패했습니다.");
-      setTradeCacheStats({
-        summary: data.summary || null,
-        daily: data.daily || [],
-        monthly: data.monthly || [],
-        runs: data.runs || [],
-        fetched_at: data.fetched_at || null,
-      });
-      setTradeCacheMessage(data.message || "실거래가 캐시 적재가 완료되었습니다.");
-    } catch (error) {
-      setTradeCacheError(error.message || "실거래가 캐시 적재에 실패했습니다.");
-    } finally {
-      setTradeCacheSyncing(false);
-    }
-  }
-
   async function loadVisitStats({ silent = false } = {}) {
     try {
       const res = await fetch("/api/admin/visit-stats", { cache: "no-store" });
@@ -220,11 +173,49 @@ export default function AdminOwnerPage() {
     }
   }
 
+
+  async function loadTradeStats({ silent = false } = {}) {
+    try {
+      const res = await fetch("/api/admin/trade-cache", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "실거래 캐시 통계를 불러오지 못했습니다.");
+      setTradeStats({ summary: data.summary || null, daily: data.daily || [], monthly: data.monthly || [], job: data.job || null, fetched_at: data.fetched_at || null });
+      setTradeStatsError("");
+    } catch (error) {
+      if (!silent) setTradeStatsError(error.message || "실거래 캐시 통계를 불러오지 못했습니다.");
+    }
+  }
+
+  async function handleStartFullTradeIngest() {
+    setTradeStatsError("");
+    setTradeJobRunning(true);
+    try {
+      const startRes = await fetch("/api/admin/trade-cache", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start_full" }) });
+      const startData = await startRes.json();
+      if (!startRes.ok || !startData.ok) throw new Error(startData.message || "전체 적재 시작에 실패했습니다.");
+
+      let guard = 0;
+      let done = false;
+      while (!done && guard < 500) {
+        guard += 1;
+        const runRes = await fetch("/api/admin/trade-cache", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "run_next_chunk" }) });
+        const runData = await runRes.json();
+        if (!runRes.ok || !runData.ok) throw new Error(runData.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
+        done = Boolean(runData.done);
+        await loadTradeStats({ silent: true });
+      }
+      await loadTradeStats();
+    } catch (error) {
+      setTradeStatsError(error.message || "실거래 캐시 전체 적재에 실패했습니다.");
+    } finally {
+      setTradeJobRunning(false);
+    }
+  }
   useEffect(() => {
     if (!authenticated) return;
     loadData().catch(() => setLoading(false));
     loadVisitStats().catch(() => null);
-    loadTradeCacheStats().catch(() => null);
+    loadTradeStats().catch(() => null);
   }, [authenticated]);
 
   useEffect(() => {
@@ -233,7 +224,7 @@ export default function AdminOwnerPage() {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       loadData({ silent: true }).catch(() => null);
       loadVisitStats({ silent: true }).catch(() => null);
-      loadTradeCacheStats({ silent: true }).catch(() => null);
+      loadTradeStats({ silent: true }).catch(() => null);
     };
     const interval = window.setInterval(refresh, AUTO_REFRESH_MS);
     const onVisible = () => {
@@ -393,19 +384,6 @@ export default function AdminOwnerPage() {
 
   const yearlyRows = useMemo(() => groupCounts(inquiries, (item) => String(new Date(item.created_at).getFullYear())).sort((a, b) => b.name.localeCompare(a.name)), [inquiries]);
   const monthlyRows = useMemo(() => groupCounts(inquiries, (item) => `${new Date(item.created_at).getFullYear()}-${String(new Date(item.created_at).getMonth() + 1).padStart(2, "0")}`).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 12), [inquiries]);
-  const tradeSummary = tradeCacheStats.summary || {
-    total_rows: 0,
-    today_rows: 0,
-    month_rows: 0,
-    live_runs_5m: 0,
-    districts: 0,
-    latest_trade_date: null,
-    latest_collected_at: null,
-  };
-  const tradeDailyRows = tradeCacheStats.daily || [];
-  const tradeMonthlyRows = tradeCacheStats.monthly || [];
-  const tradeRunRows = tradeCacheStats.runs || [];
-
   const visitSummary = visitStats.summary || {
     live_sessions_5m: 0,
     today_unique_visitors: 0,
@@ -417,6 +395,10 @@ export default function AdminOwnerPage() {
   };
   const visitDailyRows = visitStats.daily || [];
   const visitMonthlyRows = visitStats.monthly || [];
+  const tradeSummary = tradeStats.summary || { total_rows: 0, today_rows: 0, monthly_rows: 0, latest_collected_at: null };
+  const tradeDailyRows = tradeStats.daily || [];
+  const tradeMonthlyRows = tradeStats.monthly || [];
+  const tradeJob = tradeStats.job || null;
 
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
   const assigneeFilterOptions = useMemo(() => ["all", "unassigned", ...activeAccountOptions.map((item) => item.id)], [activeAccountOptions]);
@@ -671,53 +653,36 @@ export default function AdminOwnerPage() {
             </div>
           ) : null}
 
-          {activeTab === "market" ? (
+
+          {activeTab === "trade" ? (
             <div className="owner-performance-shell">
               <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header"><h3>실거래가 캐시 관리</h3><span>실거래가를 미리 저장해두고 홈페이지는 캐시 DB를 우선 조회합니다.</span></div>
+                <div className="crm-section-header"><h3>실거래가 캐시 관리</h3><span>전체 적재 버튼을 누르면 내부적으로 지역별로 나눠서 순차 적재합니다.</span></div>
                 <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
-                  <SummaryCard title="누적 저장건" value={tradeSummary.total_rows || 0} subtitle="실거래 캐시 총 건수" tone="contacted" />
-                  <SummaryCard title="오늘 적재건" value={tradeSummary.today_rows || 0} subtitle="오늘 수집한 실거래 수" tone="new" />
-                  <SummaryCard title="이번달 적재건" value={tradeSummary.month_rows || 0} subtitle="월간 적재 건수" />
-                  <SummaryCard title="최근 5분 실행" value={tradeSummary.live_runs_5m || 0} subtitle="실행 중/직전 동기화" tone="closed" />
+                  <SummaryCard title="누적 저장건" value={tradeSummary.total_rows || 0} subtitle="실거래 캐시 누적 건수" tone="new" />
+                  <SummaryCard title="오늘 적재건" value={tradeSummary.today_rows || 0} subtitle="오늘 저장된 실거래 건수" tone="contacted" />
+                  <SummaryCard title="이번달 적재건" value={tradeSummary.monthly_rows || 0} subtitle="이번달 저장된 건수" tone="closed" />
+                  <SummaryCard title="최근 적재 시각" value={tradeSummary.latest_collected_at ? formatReviewDateTime(tradeSummary.latest_collected_at) : '-'} subtitle="마지막 저장 기준" />
                 </div>
-                <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
-                  <SummaryCard title="저장 지역수" value={tradeSummary.districts || 0} subtitle="도/구 기준 지역 수" />
-                  <SummaryCard title="최신 거래일" value={tradeSummary.latest_trade_date || '-'} subtitle="캐시에 저장된 최신 거래일" />
-                  <SummaryCard title="최근 적재시각" value={tradeSummary.latest_collected_at ? formatReviewDateTime(tradeSummary.latest_collected_at) : '-'} subtitle="가장 최근 캐시 저장 시각" />
-                  <SummaryCard title="통계 동기화" value={tradeCacheStats.fetched_at ? formatReviewDateTime(tradeCacheStats.fetched_at) : '-'} subtitle="관리자 화면 갱신 시각" />
-                </div>
-                <div className="crm-inline-form" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) auto', alignItems: 'end' }}>
-                  <select value={tradeFilters.propertyType} onChange={(e) => setTradeFilters((p) => ({ ...p, propertyType: e.target.value }))}>
-                    <option value="아파트">아파트</option>
-                    <option value="오피스텔">오피스텔</option>
-                  </select>
-                  <input value={tradeFilters.city} onChange={(e) => setTradeFilters((p) => ({ ...p, city: e.target.value }))} placeholder="도/시 (예: 서울특별시)" />
-                  <input value={tradeFilters.district} onChange={(e) => setTradeFilters((p) => ({ ...p, district: e.target.value }))} placeholder="구/군 (예: 강남구)" />
-                  <input value={tradeFilters.town} onChange={(e) => setTradeFilters((p) => ({ ...p, town: e.target.value }))} placeholder="동/읍/면 (선택)" />
-                  <button type="button" className="primary-btn" onClick={syncTradeCache} disabled={tradeCacheSyncing}>{tradeCacheSyncing ? '적재 중...' : '실거래 캐시 적재'}</button>
-                </div>
-                {tradeCacheMessage ? <div className="api-status success">{tradeCacheMessage}</div> : null}
-                {tradeCacheError ? <div className="api-status error">{tradeCacheError}</div> : null}
                 <div className="crm-assignment-banner">
                   <div>
-                    <strong>시세조회 정확도를 높이려면 먼저 캐시를 채워야 합니다.</strong>
-                    <span>특정 지역을 먼저 적재한 뒤 홈페이지 시세조회를 하면 즉석 API보다 안정적으로 값을 불러옵니다.</span>
+                    <strong>전국 전체 적재</strong>
+                    <span>버튼 한 번으로 전체를 시작하지만, 실제 내부에서는 여러 지역으로 나눠서 순차 적재합니다.</span>
                   </div>
-                  <div className="crm-assignment-banner-stats">
-                    <b>{tradeSummary.total_rows || 0}</b>
-                    <small>저장된 실거래</small>
+                  <div className="crm-action-row">
+                    <button type="button" className="primary-btn" onClick={handleStartFullTradeIngest} disabled={tradeJobRunning}>{tradeJobRunning ? '전체 적재 진행 중...' : '전체 적재 시작'}</button>
                   </div>
+                </div>
+                {tradeStatsError ? <div className="api-status error">{tradeStatsError}</div> : null}
+                <div className="crm-muted-box" style={{ marginTop: 16 }}>
+                  현재 상태: <strong>{tradeJob?.status || 'idle'}</strong> · 진행률: <strong>{tradeJob?.processed_groups || 0}</strong> / <strong>{tradeJob?.total_groups || 0}</strong> · 저장건수: <strong>{tradeJob?.inserted_rows || 0}</strong>
+                  {tradeJob?.last_error ? <><br />최근 오류: {tradeJob.last_error}</> : null}
                 </div>
               </section>
               <div className="owner-performance-grid">
-                <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">일별 캐시 적재량</div><div className="crm-table-wrap crm-table-modern-wrap"><table className="crm-table crm-table-modern"><thead><tr><th>일자</th><th>적재 건수</th></tr></thead><tbody>{tradeDailyRows.length === 0 ? <tr><td colSpan={2} className="crm-empty-cell">아직 캐시 적재 데이터가 없습니다.</td></tr> : tradeDailyRows.slice().reverse().map((row) => <tr key={row.date}><td><strong>{row.date}</strong></td><td>{row.count}</td></tr>)}</tbody></table></div></section>
-                <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">월별 캐시 적재량</div><div className="crm-table-wrap crm-table-modern-wrap"><table className="crm-table crm-table-modern"><thead><tr><th>월</th><th>적재 건수</th></tr></thead><tbody>{tradeMonthlyRows.length === 0 ? <tr><td colSpan={2} className="crm-empty-cell">아직 월별 적재 데이터가 없습니다.</td></tr> : tradeMonthlyRows.slice().reverse().map((row) => <tr key={row.month}><td><strong>{row.month}</strong></td><td>{row.count}</td></tr>)}</tbody></table></div></section>
+                <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">일별 적재 건수</div><div className="crm-table-wrap crm-table-modern-wrap"><table className="crm-table crm-table-modern"><thead><tr><th>일자</th><th>저장건수</th></tr></thead><tbody>{tradeDailyRows.length === 0 ? <tr><td colSpan={2} className="crm-empty-cell">아직 적재 데이터가 없습니다.</td></tr> : tradeDailyRows.slice().reverse().map((row) => <tr key={row.date}><td><strong>{row.date}</strong></td><td>{row.count}</td></tr>)}</tbody></table></div></section>
+                <section className="crm-panel crm-panel-xl"><div className="crm-panel-banner">월별 적재 건수</div><div className="crm-table-wrap crm-table-modern-wrap"><table className="crm-table crm-table-modern"><thead><tr><th>월</th><th>저장건수</th></tr></thead><tbody>{tradeMonthlyRows.length === 0 ? <tr><td colSpan={2} className="crm-empty-cell">아직 월별 데이터가 없습니다.</td></tr> : tradeMonthlyRows.slice().reverse().map((row) => <tr key={row.month}><td><strong>{row.month}</strong></td><td>{row.count}</td></tr>)}</tbody></table></div></section>
               </div>
-              <section className="crm-panel crm-panel-xl">
-                <div className="crm-panel-banner">최근 실거래 적재 실행 내역</div>
-                <div className="crm-table-wrap crm-table-modern-wrap"><table className="crm-table crm-table-modern"><thead><tr><th>시작 시각</th><th>대상</th><th>상태</th><th>적재건수</th><th>메시지</th></tr></thead><tbody>{tradeRunRows.length === 0 ? <tr><td colSpan={5} className="crm-empty-cell">아직 실행 내역이 없습니다.</td></tr> : tradeRunRows.map((row) => <tr key={row.id}><td><strong>{formatReviewDateTime(row.started_at)}</strong></td><td>{[row.city, row.district, row.town].filter(Boolean).join(' ') || '-'}</td><td><span className={`crm-status-chip ${statusClassName(row.status === 'success' ? '승인' : row.status === 'failed' ? '부결' : '진행중')}`}>{row.status === 'success' ? '성공' : row.status === 'failed' ? '실패' : '진행중'}</span></td><td>{row.row_count || 0}</td><td>{row.message || '-'}</td></tr>)}</tbody></table></div>
-              </section>
             </div>
           ) : null}
 
