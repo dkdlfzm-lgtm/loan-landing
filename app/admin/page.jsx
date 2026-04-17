@@ -129,6 +129,15 @@ export default function AdminOwnerPage() {
   const [tradeStats, setTradeStats] = useState({ summary: null, daily: [], monthly: [], job: null, fetched_at: null });
   const [tradeStatsError, setTradeStatsError] = useState("");
   const [tradeJobRunning, setTradeJobRunning] = useState(false);
+  const [tradeProgress, setTradeProgress] = useState({
+    processed: 0,
+    total: 0,
+    savedRows: 0,
+    errorCount: 0,
+    percent: 0,
+    currentLabel: "",
+    lastMessage: "",
+  });
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" }).then((r) => r.json()).then((d) => setAuthenticated(Boolean(d.authenticated))).catch(() => setAuthenticated(false));
@@ -189,80 +198,70 @@ export default function AdminOwnerPage() {
   async function handleStartFullTradeIngest() {
     setTradeStatsError("");
     setTradeJobRunning(true);
-    const CHUNK_SIZE = 1;
-    let offset = 0;
-    let totalTargets = 0;
-    let insertedRows = 0;
+    setTradeProgress({
+      processed: 0,
+      total: 0,
+      savedRows: 0,
+      errorCount: 0,
+      percent: 0,
+      currentLabel: "적재 준비 중...",
+      lastMessage: "전체 적재를 시작했습니다.",
+    });
 
     try {
-      while (true) {
-        setTradeStats((prev) => ({
-          ...prev,
-          job: {
-            status: "running",
-            processed_groups: offset,
-            total_groups: totalTargets,
-            inserted_rows: insertedRows,
-            last_error: "",
-          },
-        }));
+      let offset = 0;
+      let total = 0;
+      let guard = 0;
+      let done = false;
+      let savedRows = 0;
+      let errorCount = 0;
 
-        const res = await fetch("/api/admin/trade-cache", {
+      while (!done && guard < 10000) {
+        guard += 1;
+        const runRes = await fetch("/api/admin/trade-cache", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fullIngest: true,
-            offset,
-            limit: CHUNK_SIZE,
-          }),
+          body: JSON.stringify({ fullIngest: true, offset, limit: 1 }),
         });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) {
-          throw new Error(
-            data.message ||
-              data.error ||
-              data.details ||
-              "실거래 캐시 적재 중 오류가 발생했습니다."
-          );
+        const runData = await runRes.json();
+        if (!runRes.ok || !runData.ok) {
+          throw new Error(runData.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
         }
 
-        totalTargets = Number(data.totalTargets || totalTargets || 0);
-        insertedRows += Number(data.savedRows || 0);
-        offset = Number(data.nextOffset || 0);
+        total = runData.totalTargets || total;
+        offset = Number(runData.nextOffset || 0);
+        done = Boolean(runData.done);
+        savedRows += Number(runData.savedRows || 0);
+        errorCount += Number(runData.errorCount || 0);
 
-        setTradeStats((prev) => ({
-          ...prev,
-          job: {
-            status: data.done ? "completed" : "running",
-            processed_groups: data.done ? totalTargets : offset,
-            total_groups: totalTargets,
-            inserted_rows: insertedRows,
-            last_error: data.errorCount ? `${data.errorCount}건 오류` : "",
-          },
-        }));
+        const processed = Math.min(offset, total || offset);
+        const percent = total ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+        setTradeProgress({
+          processed,
+          total,
+          savedRows,
+          errorCount,
+          percent,
+          currentLabel: runData.currentLabel || runData.lastLabel || "작업 중",
+          lastMessage: runData.message || (done ? "전체 적재가 완료되었습니다." : "다음 지역을 적재 중입니다."),
+        });
 
         await loadTradeStats({ silent: true });
-
-        if (data.done) break;
-
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        if (!done) await new Promise((resolve) => setTimeout(resolve, 250));
       }
 
       await loadTradeStats();
-    } catch (error) {
-      const message =
-        error?.message || "실거래 캐시 전체 적재에 실패했습니다.";
-      setTradeStatsError(message);
-      setTradeStats((prev) => ({
+      setTradeProgress((prev) => ({
         ...prev,
-        job: {
-          status: "failed",
-          processed_groups: offset,
-          total_groups: totalTargets,
-          inserted_rows: insertedRows,
-          last_error: message,
-        },
+        percent: 100,
+        currentLabel: prev.currentLabel || "전체 적재 완료",
+        lastMessage: prev.errorCount > 0 ? "일부 오류와 함께 적재가 완료되었습니다." : "전체 적재가 완료되었습니다.",
+      }));
+    } catch (error) {
+      setTradeStatsError(error.message || "실거래 캐시 전체 적재에 실패했습니다.");
+      setTradeProgress((prev) => ({
+        ...prev,
+        lastMessage: error.message || "실거래 캐시 전체 적재에 실패했습니다.",
       }));
     } finally {
       setTradeJobRunning(false);
@@ -456,6 +455,12 @@ export default function AdminOwnerPage() {
   const tradeDailyRows = tradeStats.daily || [];
   const tradeMonthlyRows = tradeStats.monthly || [];
   const tradeJob = tradeStats.job || null;
+  const tradeProcessed = tradeJobRunning ? tradeProgress.processed : (tradeJob?.processed_groups || 0);
+  const tradeTotal = tradeJobRunning ? tradeProgress.total : (tradeJob?.total_groups || 0);
+  const tradeSavedRows = tradeJobRunning ? tradeProgress.savedRows : (tradeJob?.inserted_rows || 0);
+  const tradeErrorCount = tradeJobRunning ? tradeProgress.errorCount : (tradeJob?.error_count || 0);
+  const tradePercent = tradeJobRunning ? tradeProgress.percent : (tradeTotal ? Math.min(100, Math.round((tradeProcessed / tradeTotal) * 100)) : 0);
+  const tradeCurrentLabel = tradeJobRunning ? tradeProgress.currentLabel : (tradeJob?.current_label || "대기 중");
 
   const loanOptions = useMemo(() => ["all", ...Array.from(new Set(inquiries.map((item) => item.loan_type).filter(Boolean)))], [inquiries]);
   const assigneeFilterOptions = useMemo(() => ["all", "unassigned", ...activeAccountOptions.map((item) => item.id)], [activeAccountOptions]);
@@ -732,8 +737,19 @@ export default function AdminOwnerPage() {
                 </div>
                 {tradeStatsError ? <div className="api-status error">{tradeStatsError}</div> : null}
                 <div className="crm-muted-box" style={{ marginTop: 16 }}>
-                  현재 상태: <strong>{tradeJob?.status || 'idle'}</strong> · 진행률: <strong>{tradeJob?.processed_groups || 0}</strong> / <strong>{tradeJob?.total_groups || 0}</strong> · 저장건수: <strong>{tradeJob?.inserted_rows || 0}</strong>
+                  현재 상태: <strong>{tradeJobRunning ? 'running' : (tradeJob?.status || 'idle')}</strong> · 진행률: <strong>{tradeProcessed}</strong> / <strong>{tradeTotal}</strong> · 저장건수: <strong>{tradeSavedRows}</strong> · 오류건수: <strong>{tradeErrorCount}</strong>
+                  <br />현재 작업: <strong>{tradeCurrentLabel || '대기 중'}</strong>
+                  {tradeProgress.lastMessage ? <><br />안내: {tradeProgress.lastMessage}</> : null}
                   {tradeJob?.last_error ? <><br />최근 오류: {tradeJob.last_error}</> : null}
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, color: '#5b6474' }}>
+                    <span>전체 진행률</span>
+                    <strong>{tradePercent}%</strong>
+                  </div>
+                  <div style={{ width: '100%', height: 12, background: '#e9eef8', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ width: `${tradePercent}%`, height: '100%', background: 'linear-gradient(90deg, #2f6bff 0%, #5aa0ff 100%)', transition: 'width 0.25s ease' }} />
+                  </div>
                 </div>
               </section>
               <div className="owner-performance-grid">
