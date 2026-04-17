@@ -285,18 +285,140 @@ async function fetchTradesForTarget(serviceKey, target) {
   return rows;
 }
 
+function buildTradeRowKey(row) {
+  return [
+    String(row.lawd_code || "").trim(),
+    String(row.apartment_name_norm || "").trim(),
+    String(row.jibun || "").trim(),
+    String(row.deal_date || "").trim(),
+    Number(row.area_m2 || 0).toFixed(2),
+    String(row.amount_won || 0),
+  ].join("|");
+}
+
+function dedupeTradeRows(rows) {
+  const map = new Map();
+
+  for (const row of rows) {
+    const key = buildTradeRowKey(row);
+    if (!map.has(key)) {
+      map.set(key, row);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+async function loadExistingTradeKeys(rows) {
+  if (!rows.length) return new Set();
+
+  const combos = new Map();
+
+  for (const row of rows) {
+    const lawdCode = String(row.lawd_code || "").trim();
+    const apartmentNameNorm = String(row.apartment_name_norm || "").trim();
+    if (!lawdCode || !apartmentNameNorm) continue;
+    combos.set(`${lawdCode}|${apartmentNameNorm}`, { lawdCode, apartmentNameNorm });
+  }
+
+  const keys = new Set();
+
+  for (const combo of combos.values()) {
+    const query =
+      "/apartment_trade_cache?select=lawd_code,apartment_name_norm,jibun,deal_date,area_m2,amount_won" +
+      `&lawd_code=eq.${encodeURIComponent(combo.lawdCode)}` +
+      `&apartment_name_norm=eq.${encodeURIComponent(combo.apartmentNameNorm)}` +
+      "&limit=5000";
+
+    const existingRows = await supabaseRequest(query);
+
+    for (const row of Array.isArray(existingRows) ? existingRows : []) {
+      keys.add(buildTradeRowKey(row));
+    }
+  }
+
+  return keys;
+}
+
+function isDuplicateConstraintError(error) {
+  const message = String(error?.message || error?.details || error || "").toLowerCase();
+  return message.includes("duplicate key value") || message.includes("unique constraint") || message.includes("23505");
+}
+
 async function upsertTradeRows(rows) {
-  if (!rows.length) return { inserted: 0 };
+  if (!rows.length) {
+    return {
+      inserted: 0,
+      skipped: 0,
+      batchDuplicateRows: 0,
+      existingDuplicateRows: 0,
+    };
+  }
 
-  const data = await supabaseRequest("/apartment_trade_cache", {
-    method: "POST",
-    headers: {
-      Prefer: "resolution=merge-duplicates,return=representation",
-    },
-    body: rows,
-  });
+  const dedupedRows = dedupeTradeRows(rows);
+  const batchDuplicateRows = Math.max(rows.length - dedupedRows.length, 0);
+  const existingKeys = await loadExistingTradeKeys(dedupedRows);
+  const newRows = dedupedRows.filter((row) => !existingKeys.has(buildTradeRowKey(row)));
+  const existingDuplicateRows = dedupedRows.length - newRows.length;
 
-  return { inserted: Array.isArray(data) ? data.length : rows.length };
+  if (!newRows.length) {
+    return {
+      inserted: 0,
+      skipped: batchDuplicateRows + existingDuplicateRows,
+      batchDuplicateRows,
+      existingDuplicateRows,
+    };
+  }
+
+  try {
+    const data = await supabaseRequest("/apartment_trade_cache", {
+      method: "POST",
+      headers: {
+        Prefer: "return=representation",
+      },
+      body: newRows,
+    });
+
+    return {
+      inserted: Array.isArray(data) ? data.length : newRows.length,
+      skipped: batchDuplicateRows + existingDuplicateRows,
+      batchDuplicateRows,
+      existingDuplicateRows,
+    };
+  } catch (error) {
+    if (!isDuplicateConstraintError(error)) {
+      throw error;
+    }
+
+    let inserted = 0;
+    let retrySkipped = 0;
+
+    for (const row of newRows) {
+      try {
+        await supabaseRequest("/apartment_trade_cache", {
+          method: "POST",
+          headers: {
+            Prefer: "return=representation",
+          },
+          body: row,
+        });
+        inserted += 1;
+      } catch (rowError) {
+        if (isDuplicateConstraintError(rowError)) {
+          retrySkipped += 1;
+          continue;
+        }
+        throw rowError;
+      }
+    }
+
+    return {
+      inserted,
+      skipped: batchDuplicateRows + existingDuplicateRows + retrySkipped,
+      batchDuplicateRows,
+      existingDuplicateRows: existingDuplicateRows + retrySkipped,
+    };
+  }
 }
 
 export async function GET() {
@@ -396,6 +518,9 @@ export async function POST(request) {
     const chunkTargets = targets.slice(offset, offset + limit);
 
     let savedRows = 0;
+    let skippedRows = 0;
+    let batchDuplicateRows = 0;
+    let existingDuplicateRows = 0;
     let processedTargets = 0;
     const errors = [];
 
@@ -403,7 +528,10 @@ export async function POST(request) {
       try {
         const tradeRows = await fetchTradesForTarget(serviceKey, target);
         const result = await upsertTradeRows(tradeRows);
-        savedRows += result.inserted;
+        savedRows += result.inserted || 0;
+        skippedRows += result.skipped || 0;
+        batchDuplicateRows += result.batchDuplicateRows || 0;
+        existingDuplicateRows += result.existingDuplicateRows || 0;
         processedTargets += 1;
       } catch (err) {
         const errorMessage =
@@ -443,6 +571,9 @@ export async function POST(request) {
       processedTargets,
       totalTargets: targets.length,
       savedRows,
+      skippedRows,
+      batchDuplicateRows,
+      existingDuplicateRows,
       errorCount: errors.length,
       lastError: errors.length ? errors[errors.length - 1] : null,
       errors: errors.slice(0, 20),
