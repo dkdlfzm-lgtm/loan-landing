@@ -192,7 +192,6 @@ export default function AdminOwnerPage() {
   });
   const [tradeStatsError, setTradeStatsError] = useState("");
   const [tradeJobRunning, setTradeJobRunning] = useState(false);
-  const [tradeErrorLogs, setTradeErrorLogs] = useState([]);
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" })
@@ -267,32 +266,23 @@ export default function AdminOwnerPage() {
   }
 
   async function handleStartFullTradeIngest() {
-    const stamp = () => {
-      const now = new Date();
-      return `[${now.toLocaleTimeString("ko-KR", { hour12: false })}]`;
-    };
-    const appendTradeLog = (message) => {
-      setTradeErrorLogs((prev) => [...prev.slice(-199), `${stamp()} ${message}`]);
-    };
-
     setTradeStatsError("");
-    setTradeErrorLogs([]);
     setTradeJobRunning(true);
-    appendTradeLog("전체 적재 시작 버튼 클릭");
 
     try {
       let offset = 0;
-      const limit = 25;
+      let monthIndex = 0;
+      const limit = 2;
+      const monthsCount = 3;
       let done = false;
       let totalTargets = 0;
+      let totalUnits = 0;
       let totalSavedRows = 0;
       let totalErrorCount = 0;
       let lastError = null;
       let currentLabel = "";
 
       while (!done) {
-        appendTradeLog(`요청 전송: offset=${offset}, limit=${limit} (group batch)`);
-
         const res = await fetch("/api/admin/trade-cache", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -301,45 +291,39 @@ export default function AdminOwnerPage() {
             city: "서울특별시",
             offset,
             limit,
+            monthIndex,
+            monthsCount,
           }),
         });
 
-        const rawText = await res.text();
+        const responseText = await res.text();
         let data = {};
         try {
-          data = rawText ? JSON.parse(rawText) : {};
-        } catch (_error) {
-          throw new Error(`JSON 파싱 실패: ${String(rawText || "").slice(0, 500)}`);
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          throw new Error(responseText || "JSON 파싱 실패");
         }
 
         if (!res.ok || !data.ok) {
-          throw new Error(data.message || `실거래 캐시 적재 중 오류가 발생했습니다. 응답: ${rawText.slice(0, 500)}`);
+          throw new Error(data.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
         }
 
         totalTargets = data.totalTargets || totalTargets;
+        totalUnits = data.totalUnits || totalUnits;
         totalSavedRows += data.savedRows || 0;
         totalErrorCount += data.errorCount || 0;
         lastError = data.lastError || lastError;
         currentLabel = data.currentLabel || currentLabel;
         done = Boolean(data.done);
         offset = Number(data.nextOffset || 0);
-
-        appendTradeLog(
-          `요청 성공: processed=${data.processedTargets || 0}, saved=${data.savedRows || 0}, errors=${data.errorCount || 0}, mode=${data.mode || "unknown"}, months=${data.recentMonths || "?"}`
-        );
-
-        if (lastError?.message) {
-          appendTradeLog(
-            `최근 오류: ${lastError.district || ""} ${lastError.town || ""} ${lastError.apartment || ""} - ${lastError.message}`
-          );
-        }
+        monthIndex = Number(data.nextMonthIndex || monthIndex);
 
         setTradeStats((prev) => ({
           ...prev,
           job: {
             status: done ? "completed" : "running",
-            processed_groups: offset,
-            total_groups: totalTargets,
+            processed_groups: Math.min(monthIndex * totalTargets + offset, totalUnits || totalTargets),
+            total_groups: totalUnits || totalTargets,
             inserted_rows: totalSavedRows,
             error_count: totalErrorCount,
             current_label: currentLabel,
@@ -351,17 +335,13 @@ export default function AdminOwnerPage() {
         await loadTradeStats({ silent: true });
 
         if (!done) {
-          appendTradeLog("다음 요청 전 대기 2500ms");
-          await new Promise((resolve) => setTimeout(resolve, 2500));
+          await new Promise((resolve) => setTimeout(resolve, 1200));
         }
       }
 
-      appendTradeLog("전체 적재 루프 종료");
       await loadTradeStats();
     } catch (error) {
-      const message = error?.message || "실거래 캐시 전체 적재에 실패했습니다.";
-      setTradeStatsError(message);
-      appendTradeLog(`치명적 오류: ${message}`);
+      setTradeStatsError(error.message || "실거래 캐시 전체 적재에 실패했습니다.");
     } finally {
       setTradeJobRunning(false);
     }
@@ -1286,26 +1266,6 @@ export default function AdminOwnerPage() {
                       최근 오류: {tradeJob.last_error}
                     </>
                   ) : null}
-                </div>
-                <div className="crm-panel" style={{ marginTop: 16 }}>
-                  <div className="crm-section-header" style={{ marginBottom: 10 }}>
-                    <h3>실거래 적재 로그</h3>
-                    <div className="crm-action-row">
-                      <button
-                        type="button"
-                        className="nav-btn"
-                        onClick={() => navigator.clipboard?.writeText(tradeErrorLogs.join("\n"))}
-                      >
-                        로그 복사
-                      </button>
-                    </div>
-                  </div>
-                  <div
-                    className="crm-muted-box"
-                    style={{ maxHeight: 280, overflow: "auto", whiteSpace: "pre-wrap", fontSize: 13 }}
-                  >
-                    {tradeErrorLogs.length ? tradeErrorLogs.join("\n") : "아직 로그가 없습니다."}
-                  </div>
                 </div>
               </section>
               <div className="owner-performance-grid">
