@@ -26,6 +26,13 @@ const OWNER_TABS = [
 ];
 const AUTO_REFRESH_MS = 5000;
 
+const SEOUL_DISTRICTS = [
+  "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구",
+  "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구",
+  "용산구", "은평구", "종로구", "중구", "중랑구",
+];
+
+
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return (
     <div className={`crm-summary-card crm-tone-${tone}`}>
@@ -192,6 +199,7 @@ export default function AdminOwnerPage() {
   });
   const [tradeStatsError, setTradeStatsError] = useState("");
   const [tradeJobRunning, setTradeJobRunning] = useState(false);
+  const [selectedTradeDistrict, setSelectedTradeDistrict] = useState("강남구");
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" })
@@ -265,74 +273,46 @@ export default function AdminOwnerPage() {
     }
   }
 
-  async function handleStartFullTradeIngest() {
+  async function handleStartDistrictTradeIngest() {
     setTradeStatsError("");
     setTradeJobRunning(true);
 
     try {
-      let offset = 0;
-      const limit = 1;
-      const monthsCount = 1;
-      let done = false;
-      let totalTargets = 0;
-      let totalSavedRows = 0;
-      let totalErrorCount = 0;
-      let lastError = null;
-      let currentLabel = "";
+      const res = await fetch("/api/admin/trade-cache", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city: "서울특별시",
+          district: selectedTradeDistrict,
+          monthsCount: 1,
+        }),
+      });
 
-      while (!done) {
-        const res = await fetch("/api/admin/trade-cache", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fullIngest: true,
-            city: "서울특별시",
-            offset,
-            limit,
-            monthsCount,
-          }),
-        });
+      const data = await res.json();
 
-        const data = await res.json();
-
-        if (!res.ok || !data.ok) {
-          throw new Error(data.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
-        }
-
-        totalTargets = data.totalTargets || totalTargets;
-        totalSavedRows += data.savedRows || 0;
-        totalErrorCount += data.errorCount || 0;
-        lastError = data.lastError || lastError;
-        currentLabel = data.currentLabel || currentLabel;
-        done = Boolean(data.done);
-        offset = Number(data.nextOffset || 0);
-
-        setTradeStats((prev) => ({
-          ...prev,
-          job: {
-            status: done ? "completed" : "running",
-            processed_groups: offset,
-            total_groups: totalTargets,
-            inserted_rows: totalSavedRows,
-            error_count: totalErrorCount,
-            current_label: currentLabel,
-            lastError,
-            last_error: lastError?.message || "",
-            mode: data.mode || "single_target_last_completed_month",
-            months_to_fetch: data.monthsToFetch || [],
-          },
-        }));
-
-        await loadTradeStats({ silent: true });
-
-        if (!done) {
-          await new Promise((resolve) => setTimeout(resolve, 700));
-        }
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
       }
+
+      setTradeStats((prev) => ({
+        ...prev,
+        job: {
+          status: data.errorCount ? "completed_with_errors" : "completed",
+          processed_groups: data.processedGroups || 0,
+          total_groups: data.processedGroups || 0,
+          inserted_rows: data.savedRows || 0,
+          error_count: data.errorCount || 0,
+          current_label: data.currentLabel || `${selectedTradeDistrict}`,
+          lastError: data.lastError || null,
+          last_error: data.lastError?.message || "",
+          months_to_fetch: data.monthsToFetch || [],
+          mode: data.mode || "district_manual",
+        },
+      }));
 
       await loadTradeStats();
     } catch (error) {
-      setTradeStatsError(error.message || "실거래 캐시 전체 적재에 실패했습니다.");
+      setTradeStatsError(error.message || "실거래 캐시 적재에 실패했습니다.");
     } finally {
       setTradeJobRunning(false);
     }
@@ -1210,7 +1190,7 @@ export default function AdminOwnerPage() {
               <section className="crm-panel crm-panel-xl">
                 <div className="crm-section-header">
                   <h3>실거래가 캐시 관리</h3>
-                  <span>전체 적재 버튼을 누르면 내부적으로 지역별로 나눠서 순차 적재합니다.</span>
+                  <span>429 방지를 위해 서울의 구를 하나씩 선택해서 직전 완료월 1개월만 수동 적재합니다.</span>
                 </div>
                 <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
                   <SummaryCard title="누적 저장건" value={tradeSummary.total_rows || 0} subtitle="실거래 캐시 누적 건수" tone="new" />
@@ -1220,12 +1200,24 @@ export default function AdminOwnerPage() {
                 </div>
                 <div className="crm-assignment-banner">
                   <div>
-                    <strong>전국 전체 적재</strong>
-                    <span>버튼 한 번으로 전체를 시작하지만, 실제 내부에서는 여러 지역으로 나눠서 순차 적재합니다.</span>
+                    <strong>구별 수동 적재</strong>
+                    <span>강남구, 서초구, 송파구처럼 한 구씩 적재하는 방식입니다. 현재월은 제외하고 직전 완료월 1개월만 조회합니다.</span>
                   </div>
-                  <div className="crm-action-row">
-                    <button type="button" className="primary-btn" onClick={handleStartFullTradeIngest} disabled={tradeJobRunning}>
-                      {tradeJobRunning ? "전체 적재 진행 중..." : "전체 적재 시작"}
+                  <div className="crm-action-row" style={{ gap: 12, flexWrap: "wrap" }}>
+                    <select
+                      value={selectedTradeDistrict}
+                      onChange={(e) => setSelectedTradeDistrict(e.target.value)}
+                      disabled={tradeJobRunning}
+                      style={{ minWidth: 180 }}
+                    >
+                      {SEOUL_DISTRICTS.map((district) => (
+                        <option key={district} value={district}>
+                          {district}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" className="primary-btn" onClick={handleStartDistrictTradeIngest} disabled={tradeJobRunning}>
+                      {tradeJobRunning ? `${selectedTradeDistrict} 적재 중...` : `${selectedTradeDistrict} 적재 시작`}
                     </button>
                   </div>
                 </div>
@@ -1238,6 +1230,18 @@ export default function AdminOwnerPage() {
                   저장건수: <strong>{tradeJob?.inserted_rows || 0}</strong>
                   {" · "}
                   오류건수: <strong>{tradeJob?.error_count || 0}</strong>
+                  {tradeJob?.mode ? (
+                    <>
+                      {" · "}
+                      모드: <strong>{tradeJob.mode}</strong>
+                    </>
+                  ) : null}
+                  {tradeJob?.months_to_fetch?.length ? (
+                    <>
+                      {" · "}
+                      조회월: <strong>{tradeJob.months_to_fetch.join(", ")}</strong>
+                    </>
+                  ) : null}
 
                   {tradeJob?.current_label ? (
                     <>
