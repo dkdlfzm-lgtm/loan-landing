@@ -271,12 +271,10 @@ export default function AdminOwnerPage() {
 
     try {
       let offset = 0;
-      let monthIndex = 0;
-      const limit = 2;
-      const monthsCount = 3;
+      const limit = 1;
+      const monthsCount = 1;
       let done = false;
       let totalTargets = 0;
-      let totalUnits = 0;
       let totalSavedRows = 0;
       let totalErrorCount = 0;
       let lastError = null;
@@ -291,51 +289,44 @@ export default function AdminOwnerPage() {
             city: "서울특별시",
             offset,
             limit,
-            monthIndex,
             monthsCount,
           }),
         });
 
-        const responseText = await res.text();
-        let data = {};
-        try {
-          data = responseText ? JSON.parse(responseText) : {};
-        } catch {
-          throw new Error(responseText || "JSON 파싱 실패");
-        }
+        const data = await res.json();
 
         if (!res.ok || !data.ok) {
           throw new Error(data.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
         }
 
         totalTargets = data.totalTargets || totalTargets;
-        totalUnits = data.totalUnits || totalUnits;
         totalSavedRows += data.savedRows || 0;
         totalErrorCount += data.errorCount || 0;
         lastError = data.lastError || lastError;
         currentLabel = data.currentLabel || currentLabel;
         done = Boolean(data.done);
         offset = Number(data.nextOffset || 0);
-        monthIndex = Number(data.nextMonthIndex || monthIndex);
 
         setTradeStats((prev) => ({
           ...prev,
           job: {
             status: done ? "completed" : "running",
-            processed_groups: Math.min(monthIndex * totalTargets + offset, totalUnits || totalTargets),
-            total_groups: totalUnits || totalTargets,
+            processed_groups: offset,
+            total_groups: totalTargets,
             inserted_rows: totalSavedRows,
             error_count: totalErrorCount,
             current_label: currentLabel,
             lastError,
             last_error: lastError?.message || "",
+            mode: data.mode || "single_target_last_completed_month",
+            months_to_fetch: data.monthsToFetch || [],
           },
         }));
 
         await loadTradeStats({ silent: true });
 
         if (!done) {
-          await new Promise((resolve) => setTimeout(resolve, 1200));
+          await new Promise((resolve) => setTimeout(resolve, 700));
         }
       }
 

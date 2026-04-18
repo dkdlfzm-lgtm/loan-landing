@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const maxDuration = 60;
+
 const APT_TRADE_BASE =
   process.env.MOLIT_APT_TRADE_BASE ||
   "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
@@ -29,17 +31,14 @@ function parseAreaNumber(value) {
 
 function buildUrl(base, paramsObj) {
   const queryParts = [];
-
   for (const [key, value] of Object.entries(paramsObj)) {
     if (value === undefined || value === null || value === "") continue;
-
     if (key === "serviceKey") {
       queryParts.push(`serviceKey=${String(value)}`);
     } else {
       queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
     }
   }
-
   return `${base}?${queryParts.join("&")}`;
 }
 
@@ -55,7 +54,11 @@ function xmlItemsToObjects(xml) {
   });
 }
 
-async function fetchApi(url) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchApi(url, attempt = 1) {
   const response = await fetch(url, {
     method: "GET",
     headers: {
@@ -65,6 +68,12 @@ async function fetchApi(url) {
   });
 
   if (!response.ok) {
+    if ((response.status === 429 || response.status >= 500) && attempt < 3) {
+      const retryAfter = Number(response.headers.get("retry-after") || 0);
+      const waitMs = retryAfter > 0 ? retryAfter * 1000 : attempt * 4000;
+      await sleep(waitMs);
+      return fetchApi(url, attempt + 1);
+    }
     throw new Error(`HTTP ${response.status}: ${url}`);
   }
 
@@ -94,40 +103,30 @@ function unwrapItems(payload) {
   return { header, items, totalCount };
 }
 
-function getRecentMonths(count = 24) {
-  const list = [];
-  const d = new Date();
-  d.setDate(1);
+function getLastCompletedMonths(count = 1, now = new Date()) {
+  const months = [];
+  let year = now.getFullYear();
+  let month = now.getMonth();
 
   for (let i = 0; i < count; i += 1) {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    list.push(`${year}${month}`);
-    d.setMonth(d.getMonth() - 1);
+    if (month === 0) {
+      year -= 1;
+      month = 12;
+    }
+    months.push(`${year}${String(month).padStart(2, "0")}`);
+    month -= 1;
   }
 
-  return list;
+  return months;
 }
 
-async function loadPropertyMasterLocal(request) {
-  const errors = [];
-
-  try {
-    const publicUrl = new URL("/property-master.json", request?.nextUrl?.origin || request?.url || "http://localhost:3000").toString();
-    const response = await fetch(publicUrl, { cache: "no-store" });
-    if (response.ok) {
-      const master = await response.json();
-      return { master, source: publicUrl };
-    }
-    errors.push(`fetch ${publicUrl} -> ${response.status}`);
-  } catch (error) {
-    errors.push(`fetch public json failed: ${error?.message || String(error)}`);
-  }
-
+async function loadPropertyMasterLocal() {
   const candidates = [
     `${process.cwd()}/public/property-master.json`,
     `${process.cwd()}/property-master.json`,
   ];
+
+  const errors = [];
 
   for (const filePath of candidates) {
     try {
@@ -135,8 +134,8 @@ async function loadPropertyMasterLocal(request) {
       const json = await fs.readFile(filePath, "utf-8");
       const master = JSON.parse(json);
       return { master, source: filePath };
-    } catch (error) {
-      errors.push(`${filePath} -> ${error?.message || String(error)}`);
+    } catch (err) {
+      errors.push(`${filePath}: ${err?.message || String(err)}`);
     }
   }
 
@@ -243,76 +242,105 @@ function getTradeDate(item) {
   return `${year}-${month}-${day}`;
 }
 
-async function fetchTradesForTarget(serviceKey, target) {
-  const months = getRecentMonths(24);
+async function fetchTradesForTarget(serviceKey, target, monthsToFetch) {
   const rows = [];
+  const monthErrors = [];
 
-  for (const dealYmd of months) {
-    const url = buildUrl(APT_TRADE_BASE, {
-      serviceKey,
-      LAWD_CD: target.lawd_code,
-      DEAL_YMD: dealYmd,
-      pageNo: 1,
-      numOfRows: 999,
-    });
+  for (const dealYmd of monthsToFetch) {
+    try {
+      const url = buildUrl(APT_TRADE_BASE, {
+        serviceKey,
+        LAWD_CD: target.lawd_code,
+        DEAL_YMD: dealYmd,
+        pageNo: 1,
+        numOfRows: 999,
+      });
 
-    const payload = await fetchApi(url);
-    const { header, items } = unwrapItems(payload);
-    const resultCode = String(header?.resultCode ?? "00");
-    if (!["00", "000", "XML"].includes(resultCode)) {
-      throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
-    }
-
-    for (const item of items) {
-      const amountWon = getTradeAmountWon(item);
-      if (!amountWon) continue;
-
-      const apartmentName = getTradeApartmentName(item);
-      const apartmentNameNorm = normalizeApartmentName(apartmentName);
-
-      if (
-        apartmentNameNorm !== target.apartment_name_norm &&
-        !apartmentNameNorm.includes(target.apartment_name_norm) &&
-        !target.apartment_name_norm.includes(apartmentNameNorm)
-      ) {
-        continue;
+      const payload = await fetchApi(url);
+      const { header, items } = unwrapItems(payload);
+      const resultCode = String(header?.resultCode ?? "00");
+      if (!["00", "000", "XML", "EMPTY"].includes(resultCode)) {
+        throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
       }
 
-      rows.push({
-        property_type: target.property_type,
-        city: target.city,
-        district: target.district,
-        town: target.town,
-        lawd_code: target.lawd_code,
-        apartment_name: apartmentName,
-        apartment_name_norm: apartmentNameNorm,
-        jibun: getTradeJibun(item) || target.jibun || "",
-        area_m2: parseAreaNumber(getTradeArea(item)),
-        deal_date: getTradeDate(item),
-        amount_won: amountWon,
-        price_per_m2: Math.round(amountWon / Math.max(parseAreaNumber(getTradeArea(item)) || 1, 1)),
-        source: "molit",
-        collected_at: new Date().toISOString(),
-        raw_payload: item,
-      });
+      for (const item of items) {
+        const amountWon = getTradeAmountWon(item);
+        if (!amountWon) continue;
+
+        const apartmentName = getTradeApartmentName(item);
+        const apartmentNameNorm = normalizeApartmentName(apartmentName);
+
+        if (
+          apartmentNameNorm !== target.apartment_name_norm &&
+          !apartmentNameNorm.includes(target.apartment_name_norm) &&
+          !target.apartment_name_norm.includes(apartmentNameNorm)
+        ) {
+          continue;
+        }
+
+        rows.push({
+          property_type: target.property_type,
+          city: target.city,
+          district: target.district,
+          town: target.town,
+          lawd_code: target.lawd_code,
+          apartment_name: apartmentName,
+          apartment_name_norm: apartmentNameNorm,
+          jibun: getTradeJibun(item) || target.jibun || "",
+          area_m2: parseAreaNumber(getTradeArea(item)),
+          deal_date: getTradeDate(item),
+          amount_won: amountWon,
+          price_per_m2: Math.round(amountWon / Math.max(parseAreaNumber(getTradeArea(item)) || 1, 1)),
+          source: "molit",
+          collected_at: new Date().toISOString(),
+          raw_payload: item,
+        });
+      }
+
+      await sleep(1200);
+    } catch (err) {
+      const message = err?.message || String(err);
+      monthErrors.push({ dealYmd, message });
+      if (!message.includes("HTTP 429")) {
+        throw err;
+      }
+      await sleep(3500);
+      continue;
     }
   }
 
-  return rows;
+  return { rows, monthErrors };
+}
+
+function dedupeTradeRows(rows) {
+  const unique = new Map();
+  for (const row of rows) {
+    const key = [
+      row.lawd_code,
+      row.apartment_name_norm,
+      row.jibun || "",
+      row.deal_date,
+      Number.isFinite(row.area_m2) ? row.area_m2 : "",
+      row.amount_won,
+    ].join("|");
+    if (!unique.has(key)) unique.set(key, row);
+  }
+  return Array.from(unique.values());
 }
 
 async function upsertTradeRows(rows) {
   if (!rows.length) return { inserted: 0 };
 
+  const cleanRows = dedupeTradeRows(rows);
   const data = await supabaseRequest("/apartment_trade_cache", {
     method: "POST",
     headers: {
       Prefer: "resolution=merge-duplicates,return=representation",
     },
-    body: rows,
+    body: cleanRows,
   });
 
-  return { inserted: Array.isArray(data) ? data.length : rows.length };
+  return { inserted: Array.isArray(data) ? data.length : cleanRows.length };
 }
 
 export async function GET() {
@@ -331,26 +359,6 @@ export async function GET() {
     const todayRows = rows.filter((r) => String(r.collected_at || "").startsWith(today)).length;
     const monthlyRows = rows.filter((r) => String(r.collected_at || "").startsWith(thisMonth)).length;
 
-    const dailyMap = new Map();
-    const monthlyMap = new Map();
-
-    rows.forEach((row) => {
-      const dateKey = String(row.deal_date || "").slice(0, 10);
-      const monthKey = dateKey.slice(0, 7);
-      if (dateKey) dailyMap.set(dateKey, (dailyMap.get(dateKey) || 0) + 1);
-      if (monthKey) monthlyMap.set(monthKey, (monthlyMap.get(monthKey) || 0) + 1);
-    });
-
-    const daily = [...dailyMap.entries()]
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-30);
-
-    const monthly = [...monthlyMap.entries()]
-      .map(([month, count]) => ({ month, count }))
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-12);
-
     return NextResponse.json({
       ok: true,
       summary: {
@@ -359,8 +367,8 @@ export async function GET() {
         monthly_rows: monthlyRows,
         latest_collected_at: latestCollectedAt,
       },
-      daily,
-      monthly,
+      daily: [],
+      monthly: [],
       job: null,
       fetched_at: new Date().toISOString(),
     });
@@ -389,8 +397,10 @@ export async function POST(request) {
     const fullIngest = Boolean(body?.fullIngest);
     const offset = Math.max(Number(body?.offset || 0), 0);
     const limit = Math.max(Number(body?.limit || 1), 1);
+    const monthsCount = Math.min(Math.max(Number(body?.monthsCount || 1), 1), 3);
+    const monthsToFetch = getLastCompletedMonths(monthsCount);
 
-    const { master } = await loadPropertyMasterLocal();
+    const { master, source } = await loadPropertyMasterLocal();
 
     let targets = [];
     if (fullIngest) {
@@ -410,17 +420,31 @@ export async function POST(request) {
     }
 
     const chunkTargets = targets.slice(offset, offset + limit);
-
     let savedRows = 0;
     let processedTargets = 0;
     const errors = [];
 
     for (const target of chunkTargets) {
       try {
-        const tradeRows = await fetchTradesForTarget(serviceKey, target);
+        const { rows: tradeRows, monthErrors } = await fetchTradesForTarget(
+          serviceKey,
+          target,
+          monthsToFetch
+        );
+
         const result = await upsertTradeRows(tradeRows);
         savedRows += result.inserted;
         processedTargets += 1;
+
+        for (const monthError of monthErrors) {
+          errors.push({
+            apartment: target.apartment_name,
+            district: target.district,
+            town: target.town,
+            lawd_code: target.lawd_code,
+            message: `${monthError.dealYmd} - ${monthError.message}`,
+          });
+        }
       } catch (err) {
         const errorMessage =
           typeof err === "string"
@@ -431,17 +455,16 @@ export async function POST(request) {
             ? err.details
             : JSON.stringify(err);
 
-        const errorItem = {
+        errors.push({
           apartment: target.apartment_name,
           district: target.district,
           town: target.town,
           lawd_code: target.lawd_code,
           message: errorMessage || "unknown error",
-        };
-
-        errors.push(errorItem);
-        console.error("[trade-cache ingest error]", errorItem);
+        });
       }
+
+      await sleep(2000);
     }
 
     const nextOffset = offset + chunkTargets.length;
@@ -467,12 +490,17 @@ export async function POST(request) {
       limit,
       done,
       currentLabel,
+      mode: "single_target_last_completed_month",
+      monthsCount,
+      monthsToFetch,
+      propertyMasterSource: source,
     });
   } catch (error) {
     return NextResponse.json(
       {
         ok: false,
         message: error?.message || "실거래 캐시 적재에 실패했습니다.",
+        stack: error?.stack || "",
       },
       { status: 500 }
     );
