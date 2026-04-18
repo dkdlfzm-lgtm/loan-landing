@@ -3,23 +3,6 @@ import { NextResponse } from "next/server";
 const APT_TRADE_BASE =
   process.env.MOLIT_APT_TRADE_BASE ||
   "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
-const TRADE_CACHE_MONTHS = Math.max(Number(process.env.TRADE_CACHE_MONTHS || 12), 1);
-const API_RETRY_MAX = Math.max(Number(process.env.TRADE_CACHE_API_RETRY_MAX || 8), 1);
-const API_MONTH_DELAY_MS = Math.max(Number(process.env.TRADE_CACHE_API_MONTH_DELAY_MS || 1500), 0);
-const API_TARGET_DELAY_MS = Math.max(Number(process.env.TRADE_CACHE_API_TARGET_DELAY_MS || 2500), 0);
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function safeParseJson(text) {
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
 
 function normalizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
@@ -73,49 +56,33 @@ function xmlItemsToObjects(xml) {
 }
 
 async function fetchApi(url) {
-  let lastError = null;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
+    },
+    cache: "no-store",
+  });
 
-  for (let attempt = 0; attempt < API_RETRY_MAX; attempt += 1) {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
-      },
-      cache: "no-store",
-    });
-
-    if (response.ok) {
-      const text = (await response.text()).trim();
-      if (!text) {
-        return { response: { header: { resultCode: "EMPTY" }, body: { items: [] } } };
-      }
-
-      if (text.startsWith("{") || text.startsWith("[")) {
-        const parsed = safeParseJson(text);
-        if (parsed !== null) return parsed;
-        return { response: { header: { resultCode: "PARSE_ERROR", resultMsg: "JSON parse error" }, body: { raw: text, items: [] } } };
-      }
-
-      return {
-        response: {
-          header: { resultCode: "XML" },
-          body: { items: { item: xmlItemsToObjects(text) } },
-        },
-      };
-    }
-
-    const retryAfter = Number(response.headers.get("retry-after") || 0);
-    if (response.status === 429 || response.status >= 500) {
-      const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.min(5000 * (2 ** attempt), 60000);
-      lastError = new Error(`HTTP ${response.status}: ${url}`);
-      await sleep(waitMs);
-      continue;
-    }
-
+  if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${url}`);
   }
 
-  throw lastError || new Error(`HTTP 429: ${url}`);
+  const text = (await response.text()).trim();
+  if (!text) {
+    return { response: { header: { resultCode: "EMPTY" }, body: { items: [] } } };
+  }
+
+  if (text.startsWith("{") || text.startsWith("[")) {
+    return JSON.parse(text);
+  }
+
+  return {
+    response: {
+      header: { resultCode: "XML" },
+      body: { items: { item: xmlItemsToObjects(text) } },
+    },
+  };
 }
 
 function unwrapItems(payload) {
@@ -127,7 +94,7 @@ function unwrapItems(payload) {
   return { header, items, totalCount };
 }
 
-function getRecentMonths(count = TRADE_CACHE_MONTHS) {
+function getRecentMonths(count = 24) {
   const list = [];
   const d = new Date();
   d.setDate(1);
@@ -183,7 +150,14 @@ async function supabaseRequest(path, options = {}) {
   });
 
   const text = await response.text();
-  const data = safeParseJson(text);
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (_error) {
+      data = { raw: text.slice(0, 1000) };
+    }
+  }
 
   if (!response.ok) {
     const message =
@@ -260,205 +234,76 @@ function getTradeDate(item) {
   return `${year}-${month}-${day}`;
 }
 
-function isTradeMatchForTarget(item, target) {
-  const apartmentName = getTradeApartmentName(item);
-  const apartmentNameNorm = normalizeApartmentName(apartmentName);
-  const targetNameNorm = target.apartment_name_norm || normalizeApartmentName(target.apartment_name);
-  const itemJibun = getTradeJibun(item);
-  const targetJibun = normalizeJibun(target.jibun || "");
-
-  const nameMatched =
-    apartmentNameNorm === targetNameNorm ||
-    apartmentNameNorm.includes(targetNameNorm) ||
-    targetNameNorm.includes(apartmentNameNorm);
-
-  const jibunMatched = !targetJibun || !itemJibun || itemJibun === targetJibun;
-  return nameMatched && jibunMatched;
-}
-
-function buildTradeRowFromItem(target, item) {
-  const amountWon = getTradeAmountWon(item);
-  if (!amountWon) return null;
-
-  const apartmentName = getTradeApartmentName(item);
-  const apartmentNameNorm = normalizeApartmentName(apartmentName);
-  const areaM2 = parseAreaNumber(getTradeArea(item));
-
-  return {
-    property_type: target.property_type,
-    city: target.city,
-    district: target.district,
-    town: target.town,
-    lawd_code: target.lawd_code,
-    apartment_name: apartmentName,
-    apartment_name_norm: apartmentNameNorm,
-    jibun: getTradeJibun(item) || target.jibun || "",
-    area_m2: areaM2,
-    deal_date: getTradeDate(item),
-    amount_won: amountWon,
-    price_per_m2: Math.round(amountWon / Math.max(areaM2 || 1, 1)),
-    source: "molit",
-    collected_at: new Date().toISOString(),
-    raw_payload: item,
-  };
-}
-
-function getTradeRowKey(row) {
-  return [
-    row.lawd_code || "",
-    row.apartment_name_norm || normalizeApartmentName(row.apartment_name || ""),
-    normalizeJibun(row.jibun || ""),
-    Number.isFinite(Number(row.area_m2)) ? Number(Number(row.area_m2).toFixed(2)) : "",
-    row.deal_date || "",
-    Number(row.amount_won || 0),
-  ].join("|");
-}
-
-function dedupeTradeRows(rows) {
-  const seen = new Set();
-  const deduped = [];
-  let duplicateCount = 0;
-
-  for (const row of rows) {
-    const key = getTradeRowKey(row);
-    if (seen.has(key)) {
-      duplicateCount += 1;
-      continue;
-    }
-    seen.add(key);
-    deduped.push(row);
-  }
-
-  return { rows: deduped, duplicateCount };
-}
-
-async function fetchLawdMonthItems(serviceKey, lawdCode, dealYmd) {
-  const url = buildUrl(APT_TRADE_BASE, {
-    serviceKey,
-    LAWD_CD: lawdCode,
-    DEAL_YMD: dealYmd,
-    pageNo: 1,
-    numOfRows: 999,
-  });
-
-  const payload = await fetchApi(url);
-  const { header, items } = unwrapItems(payload);
-  const resultCode = String(header?.resultCode ?? "00");
-  if (!["00", "000", "XML", "EMPTY"].includes(resultCode)) {
-    throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
-  }
-
-  return items;
-}
-
-async function fetchTradesForTargetsByLawdCode(serviceKey, targets) {
-  const months = getRecentMonths();
+async function fetchTradesForTarget(serviceKey, target) {
+  const months = getRecentMonths(24);
   const rows = [];
 
   for (const dealYmd of months) {
-    const items = await fetchLawdMonthItems(serviceKey, targets[0].lawd_code, dealYmd);
-
-    for (const item of items) {
-      for (const target of targets) {
-        if (!isTradeMatchForTarget(item, target)) continue;
-        const row = buildTradeRowFromItem(target, item);
-        if (row) rows.push(row);
-        break;
-      }
-    }
-
-    await sleep(API_MONTH_DELAY_MS);
-  }
-
-  return dedupeTradeRows(rows);
-}
-
-async function fetchExistingTradeKeys(rows) {
-  if (!rows.length) return new Set();
-
-  const lawdCode = rows[0].lawd_code;
-  const dealDates = rows.map((row) => row.deal_date).filter(Boolean).sort();
-  const minDate = dealDates[0];
-  const maxDate = dealDates[dealDates.length - 1];
-
-  const data = await supabaseRequest(
-    `/apartment_trade_cache?select=lawd_code,apartment_name,apartment_name_norm,jibun,area_m2,deal_date,amount_won&lawd_code=eq.${encodeURIComponent(lawdCode)}&deal_date=gte.${encodeURIComponent(minDate)}&deal_date=lte.${encodeURIComponent(maxDate)}&limit=5000`
-  );
-
-  const existingRows = Array.isArray(data) ? data : [];
-  return new Set(existingRows.map((row) => getTradeRowKey(row)));
-}
-
-async function insertTradeRows(rows) {
-  if (!rows.length) {
-    return { inserted: 0, existingDuplicateRows: 0, batchDuplicateRows: 0 };
-  }
-
-  const { rows: dedupedRows, duplicateCount } = dedupeTradeRows(rows);
-  const existingKeys = await fetchExistingTradeKeys(dedupedRows);
-  const insertableRows = [];
-  let existingDuplicateRows = 0;
-
-  for (const row of dedupedRows) {
-    const key = getTradeRowKey(row);
-    if (existingKeys.has(key)) {
-      existingDuplicateRows += 1;
-      continue;
-    }
-    insertableRows.push(row);
-  }
-
-  if (!insertableRows.length) {
-    return {
-      inserted: 0,
-      existingDuplicateRows,
-      batchDuplicateRows: duplicateCount,
-    };
-  }
-
-  try {
-    const data = await supabaseRequest("/apartment_trade_cache", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: insertableRows,
+    const url = buildUrl(APT_TRADE_BASE, {
+      serviceKey,
+      LAWD_CD: target.lawd_code,
+      DEAL_YMD: dealYmd,
+      pageNo: 1,
+      numOfRows: 999,
     });
 
-    return {
-      inserted: Array.isArray(data) ? data.length : insertableRows.length,
-      existingDuplicateRows,
-      batchDuplicateRows: duplicateCount,
-    };
-  } catch (error) {
-    if (!String(error?.message || "").includes("duplicate key value violates unique constraint")) {
-      throw error;
+    const payload = await fetchApi(url);
+    const { header, items } = unwrapItems(payload);
+    const resultCode = String(header?.resultCode ?? "00");
+    if (!["00", "000", "XML"].includes(resultCode)) {
+      throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
     }
 
-    let inserted = 0;
-    let extraExistingDuplicates = 0;
+    for (const item of items) {
+      const amountWon = getTradeAmountWon(item);
+      if (!amountWon) continue;
 
-    for (const row of insertableRows) {
-      try {
-        await supabaseRequest("/apartment_trade_cache", {
-          method: "POST",
-          headers: { Prefer: "return=representation" },
-          body: row,
-        });
-        inserted += 1;
-      } catch (rowError) {
-        if (String(rowError?.message || "").includes("duplicate key value violates unique constraint")) {
-          extraExistingDuplicates += 1;
-          continue;
-        }
-        throw rowError;
+      const apartmentName = getTradeApartmentName(item);
+      const apartmentNameNorm = normalizeApartmentName(apartmentName);
+
+      if (
+        apartmentNameNorm !== target.apartment_name_norm &&
+        !apartmentNameNorm.includes(target.apartment_name_norm) &&
+        !target.apartment_name_norm.includes(apartmentNameNorm)
+      ) {
+        continue;
       }
-    }
 
-    return {
-      inserted,
-      existingDuplicateRows: existingDuplicateRows + extraExistingDuplicates,
-      batchDuplicateRows: duplicateCount,
-    };
+      rows.push({
+        property_type: target.property_type,
+        city: target.city,
+        district: target.district,
+        town: target.town,
+        lawd_code: target.lawd_code,
+        apartment_name: apartmentName,
+        apartment_name_norm: apartmentNameNorm,
+        jibun: getTradeJibun(item) || target.jibun || "",
+        area_m2: parseAreaNumber(getTradeArea(item)),
+        deal_date: getTradeDate(item),
+        amount_won: amountWon,
+        price_per_m2: Math.round(amountWon / Math.max(parseAreaNumber(getTradeArea(item)) || 1, 1)),
+        source: "molit",
+        collected_at: new Date().toISOString(),
+        raw_payload: item,
+      });
+    }
   }
+
+  return rows;
+}
+
+async function upsertTradeRows(rows) {
+  if (!rows.length) return { inserted: 0 };
+
+  const data = await supabaseRequest("/apartment_trade_cache", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: rows,
+  });
+
+  return { inserted: Array.isArray(data) ? data.length : rows.length };
 }
 
 export async function GET() {
@@ -528,7 +373,7 @@ export async function POST(request) {
       );
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = await request.json().catch(async () => ({ rawBody: await request.text().catch(() => "") }));
     const city = normalizeText(body?.city || "서울특별시");
     const district = normalizeText(body?.district || "");
     const town = normalizeText(body?.town || "");
@@ -555,30 +400,18 @@ export async function POST(request) {
       );
     }
 
-    const firstTarget = targets[offset];
-    const chunkTargets = [];
-    if (firstTarget) {
-      for (let i = offset; i < targets.length; i += 1) {
-        const target = targets[i];
-        if (target.lawd_code !== firstTarget.lawd_code) break;
-        chunkTargets.push(target);
-      }
-    }
+    const chunkTargets = targets.slice(offset, offset + limit);
 
     let savedRows = 0;
     let processedTargets = 0;
-    let batchDuplicateRows = 0;
-    let existingDuplicateRows = 0;
     const errors = [];
 
-    if (chunkTargets.length) {
+    for (const target of chunkTargets) {
       try {
-        const fetched = await fetchTradesForTargetsByLawdCode(serviceKey, chunkTargets);
-        const result = await insertTradeRows(fetched.rows);
+        const tradeRows = await fetchTradesForTarget(serviceKey, target);
+        const result = await upsertTradeRows(tradeRows);
         savedRows += result.inserted;
-        processedTargets += chunkTargets.length;
-        batchDuplicateRows += fetched.duplicateCount + (result.batchDuplicateRows || 0);
-        existingDuplicateRows += result.existingDuplicateRows || 0;
+        processedTargets += 1;
       } catch (err) {
         const errorMessage =
           typeof err === "string"
@@ -589,12 +422,11 @@ export async function POST(request) {
             ? err.details
             : JSON.stringify(err);
 
-        const currentTarget = chunkTargets[0] || firstTarget;
         const errorItem = {
-          apartment: currentTarget?.apartment_name || "",
-          district: currentTarget?.district || "",
-          town: currentTarget?.town || "",
-          lawd_code: currentTarget?.lawd_code || "",
+          apartment: target.apartment_name,
+          district: target.district,
+          town: target.town,
+          lawd_code: target.lawd_code,
           message: errorMessage || "unknown error",
         };
 
@@ -607,12 +439,10 @@ export async function POST(request) {
     const done = nextOffset >= targets.length;
     const currentTarget = chunkTargets[chunkTargets.length - 1] || null;
     const currentLabel = currentTarget
-      ? [currentTarget.city, currentTarget.district, currentTarget.town, `${currentTarget.apartment_name} 외 ${Math.max(chunkTargets.length - 1, 0)}개`]
+      ? [currentTarget.city, currentTarget.district, currentTarget.town, currentTarget.apartment_name]
           .filter(Boolean)
           .join(" ")
       : "";
-
-    await sleep(API_TARGET_DELAY_MS);
 
     return NextResponse.json({
       ok: true,
@@ -620,9 +450,6 @@ export async function POST(request) {
       processedTargets,
       totalTargets: targets.length,
       savedRows,
-      skippedRows: batchDuplicateRows + existingDuplicateRows,
-      batchDuplicateRows,
-      existingDuplicateRows,
       errorCount: errors.length,
       lastError: errors.length ? errors[errors.length - 1] : null,
       errors: errors.slice(0, 20),
@@ -633,12 +460,14 @@ export async function POST(request) {
       currentLabel,
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: error?.message || "실거래 캐시 적재에 실패했습니다.",
-      },
-      { status: 500 }
-    );
+    const payload = {
+      ok: false,
+      message: error?.message || "실거래 캐시 적재에 실패했습니다.",
+      name: error?.name || "Error",
+      stack: error?.stack ? String(error.stack).split("\n").slice(0, 8).join("\n") : "",
+      timestamp: new Date().toISOString(),
+    };
+    console.error("[trade-cache POST fatal]", payload);
+    return NextResponse.json(payload, { status: 500 });
   }
 }

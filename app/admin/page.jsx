@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
 import { subscribeSupabaseTable } from "../../lib/realtime-browser";
 
@@ -25,24 +25,6 @@ const OWNER_TABS = [
   { key: "staff", label: "담당자·직원 계정" },
 ];
 const AUTO_REFRESH_MS = 5000;
-
-async function readJsonResponse(res) {
-  const text = await res.text();
-  let data = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch (_error) {
-    const preview = String(text || "").slice(0, 300);
-    throw new Error(
-      preview
-        ? `JSON 응답 파싱 실패: ${preview}`
-        : `JSON 응답 파싱 실패 (HTTP ${res.status})`
-    );
-  }
-
-  return data;
-}
 
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return (
@@ -209,6 +191,8 @@ export default function AdminOwnerPage() {
     fetched_at: null,
   });
   const [tradeStatsError, setTradeStatsError] = useState("");
+  const [tradeErrorLog, setTradeErrorLog] = useState([]);
+  const tradeErrorSeqRef = useRef(0);
   const [tradeJobRunning, setTradeJobRunning] = useState(false);
 
   useEffect(() => {
@@ -245,7 +229,7 @@ export default function AdminOwnerPage() {
   async function loadVisitStats({ silent = false } = {}) {
     try {
       const res = await fetch("/api/admin/visit-stats", { cache: "no-store" });
-      const data = await readJsonResponse(res);
+      const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.message || "방문자 통계를 불러오지 못했습니다.");
       setVisitStats({
         summary: data.summary || null,
@@ -262,7 +246,7 @@ export default function AdminOwnerPage() {
   async function loadTradeStats({ silent = false } = {}) {
     try {
       const res = await fetch("/api/admin/trade-cache", { cache: "no-store" });
-      const data = await readJsonResponse(res);
+      const data = await res.json();
       if (!res.ok || !data.ok) {
         throw new Error(data.message || "실거래 캐시 통계를 불러오지 못했습니다.");
       }
@@ -278,13 +262,13 @@ export default function AdminOwnerPage() {
       setTradeStatsError("");
     } catch (error) {
       if (!silent) {
-        setTradeStatsError(error.message || "실거래 캐시 통계를 불러오지 못했습니다.");
+        pushTradeErrorLog(error.message || "실거래 캐시 통계를 불러오지 못했습니다.", { scope: "loadTradeStats" });
       }
     }
   }
 
   async function handleStartFullTradeIngest() {
-    setTradeStatsError("");
+    clearTradeErrorLog();
     setTradeJobRunning(true);
 
     try {
@@ -293,9 +277,6 @@ export default function AdminOwnerPage() {
       let done = false;
       let totalTargets = 0;
       let totalSavedRows = 0;
-      let totalSkippedRows = 0;
-      let totalBatchDuplicateRows = 0;
-      let totalExistingDuplicateRows = 0;
       let totalErrorCount = 0;
       let lastError = null;
       let currentLabel = "";
@@ -312,20 +293,29 @@ export default function AdminOwnerPage() {
           }),
         });
 
-        const data = await readJsonResponse(res);
+        const parsed = await parseResponseSafely(res);
+        const data = parsed.data;
 
-        if (!res.ok || !data.ok) {
-          throw new Error(data.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
+        if (!parsed.ok || !data?.ok) {
+          throw new Error(buildVisibleError("실거래 캐시 적재 중 오류가 발생했습니다.", parsed));
         }
 
         totalTargets = data.totalTargets || totalTargets;
         totalSavedRows += data.savedRows || 0;
-        totalSkippedRows += data.skippedRows || 0;
-        totalBatchDuplicateRows += data.batchDuplicateRows || 0;
-        totalExistingDuplicateRows += data.existingDuplicateRows || 0;
         totalErrorCount += data.errorCount || 0;
         lastError = data.lastError || lastError;
         currentLabel = data.currentLabel || currentLabel;
+
+        if (data.lastError?.message) {
+          pushTradeErrorLog(data.lastError.message, {
+            scope: "ingest",
+            label: data.currentLabel || currentLabel,
+            apartment: data.lastError.apartment || "",
+            district: data.lastError.district || "",
+            town: data.lastError.town || "",
+            lawdCode: data.lastError.lawd_code || "",
+          });
+        }
         done = Boolean(data.done);
         offset = Number(data.nextOffset || 0);
 
@@ -336,9 +326,6 @@ export default function AdminOwnerPage() {
             processed_groups: offset,
             total_groups: totalTargets,
             inserted_rows: totalSavedRows,
-            skipped_rows: totalSkippedRows,
-            batch_duplicate_rows: totalBatchDuplicateRows,
-            existing_duplicate_rows: totalExistingDuplicateRows,
             error_count: totalErrorCount,
             current_label: currentLabel,
             lastError,
@@ -349,13 +336,13 @@ export default function AdminOwnerPage() {
         await loadTradeStats({ silent: true });
 
         if (!done) {
-          await new Promise((resolve) => setTimeout(resolve, 2500));
+          await new Promise((resolve) => setTimeout(resolve, 700));
         }
       }
 
       await loadTradeStats();
     } catch (error) {
-      setTradeStatsError(error.message || "실거래 캐시 전체 적재에 실패했습니다.");
+      pushTradeErrorLog(error.message || "실거래 캐시 전체 적재에 실패했습니다.", { scope: "handleStartFullTradeIngest" });
     } finally {
       setTradeJobRunning(false);
     }
@@ -401,7 +388,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
     });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (!res.ok || !data.ok) return setError(data.message || "로그인 실패");
     setAuthenticated(true);
   }
@@ -419,7 +406,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newStaff),
     });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (!res.ok || !data.ok) {
       return setStaffMessage({ type: "error", text: data.message || "담당자 등록 실패" });
     }
@@ -434,7 +421,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (res.ok && data.ok) {
       setAssignees((prev) =>
         prev.map((item) => (item.id === id ? { ...item, ...data.assignee } : item))
@@ -444,7 +431,7 @@ export default function AdminOwnerPage() {
 
   async function deleteAssignee(id) {
     const res = await fetch(`/api/admin/assignees/${id}`, { method: "DELETE" });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (res.ok && data.ok) {
       setAssignees((prev) => prev.filter((item) => item.id !== id));
     }
@@ -464,7 +451,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (!res.ok || !data.ok) {
       return setAccountMessage({ type: "error", text: data.message || "직원 계정 생성 실패" });
     }
@@ -482,7 +469,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (res.ok && data.ok) {
       setAccounts((prev) =>
         prev.map((item) => (item.id === id ? { ...item, ...data.account } : item))
@@ -495,7 +482,7 @@ export default function AdminOwnerPage() {
 
   async function deleteAccount(id) {
     const res = await fetch(`/api/admin/staff-accounts/${id}`, { method: "DELETE" });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (res.ok && data.ok) {
       setAccounts((prev) => prev.filter((item) => item.id !== id));
     }
@@ -674,7 +661,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (!res.ok || !data.ok) {
       setCustomerMessage({ type: "error", text: data.message || "저장 실패" });
       setSaving(false);
@@ -695,7 +682,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ author: noteAuthor, content: noteContent }),
     });
-    const data = await readJsonResponse(res);
+    const data = await res.json();
     if (res.ok && data.ok) {
       setNotes((prev) => [data.note, ...prev]);
       setNoteContent("");
@@ -1259,12 +1246,6 @@ export default function AdminOwnerPage() {
                   진행률: <strong>{tradeJob?.processed_groups || 0}</strong> / <strong>{tradeJob?.total_groups || 0}</strong>
                   {" · "}
                   저장건수: <strong>{tradeJob?.inserted_rows || 0}</strong>
-                  {" · "}
-                  건너뜀: <strong>{tradeJob?.skipped_rows || 0}</strong>
-                  {" · "}
-                  배치중복: <strong>{tradeJob?.batch_duplicate_rows || 0}</strong>
-                  {" · "}
-                  기존중복: <strong>{tradeJob?.existing_duplicate_rows || 0}</strong>
                   {" · "}
                   오류건수: <strong>{tradeJob?.error_count || 0}</strong>
 
