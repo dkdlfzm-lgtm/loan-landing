@@ -73,7 +73,7 @@ function normalizePayload(payload) {
 let memoryCache = null;
 let cacheExpiry = 0;
 
-async function loadLocalMaster() {
+async function loadLocalMasterFile() {
   const localPath = path.join(process.cwd(), "public", "property-master.json");
   const raw = await fs.readFile(localPath, "utf-8");
   const payload = JSON.parse(raw);
@@ -83,14 +83,44 @@ async function loadLocalMaster() {
   return normalizePayload(payload);
 }
 
-export async function loadPropertyMaster() {
+async function loadLocalMasterViaHttp(requestUrl = "") {
+  const candidates = [];
+  if (requestUrl) {
+    try {
+      const origin = new URL(requestUrl).origin;
+      candidates.push(`${origin}/property-master.json`);
+    } catch {}
+  }
+
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    candidates.push(`${String(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "")}/property-master.json`);
+  }
+
+  if (process.env.VERCEL_URL) {
+    candidates.push(`https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, "")}/property-master.json`);
+  }
+
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) continue;
+      const payload = await res.json();
+      if (!payload || typeof payload !== "object") continue;
+      return normalizePayload(payload);
+    } catch {}
+  }
+
+  throw new Error("property-master.json 공개 URL을 불러오지 못했습니다.");
+}
+
+export async function loadPropertyMaster(requestUrl = "") {
   const now = Date.now();
   if (memoryCache && cacheExpiry > now) {
     return { master: memoryCache, source: "local-cache" };
   }
 
   try {
-    const local = await loadLocalMaster();
+    const local = await loadLocalMasterFile().catch(() => loadLocalMasterViaHttp(requestUrl));
     memoryCache = local;
     cacheExpiry = now + 1000 * 60 * 30;
     return { master: local, source: "local" };

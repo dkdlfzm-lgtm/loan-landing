@@ -76,16 +76,47 @@ function nameSimilarityScore(sourceName, targetName) {
   );
 }
 
-async function loadPropertyMasterLocal() {
+async function loadPropertyMasterLocal(requestUrl = "") {
+  const fileErrors = [];
   for (const filePath of [
     `${process.cwd()}/public/property-master.json`,
     `${process.cwd()}/property-master.json`,
   ]) {
     try {
       return JSON.parse(await fs.readFile(filePath, "utf-8"));
+    } catch (err) {
+      fileErrors.push(`${filePath}: ${err?.code || err?.message || err}`);
+    }
+  }
+
+  const urls = [];
+  if (requestUrl) {
+    try {
+      urls.push(`${new URL(requestUrl).origin}/property-master.json`);
     } catch {}
   }
-  throw new Error("property-master.json 파일을 찾지 못했습니다.");
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    urls.push(`${String(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "")}/property-master.json`);
+  }
+  if (process.env.VERCEL_URL) {
+    urls.push(`https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, "")}/property-master.json`);
+  }
+
+  const urlErrors = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        urlErrors.push(`${url}: HTTP ${res.status}`);
+        continue;
+      }
+      return await res.json();
+    } catch (err) {
+      urlErrors.push(`${url}: ${err?.message || err}`);
+    }
+  }
+
+  throw new Error(`property-master.json 파일을 찾지 못했습니다. ${fileErrors.concat(urlErrors).join(" | ")}`);
 }
 
 function pickCatalogEntry(master, query) {
@@ -180,7 +211,7 @@ async function fetchCacheSummary(query) {
     throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
   }
 
-  const master = await loadPropertyMasterLocal();
+  const master = await loadPropertyMasterLocal(request.url);
   const entry = pickCatalogEntry(master, query);
 
   if (!entry) throw new Error("단지 정보를 property-master.json에서 찾지 못했습니다.");

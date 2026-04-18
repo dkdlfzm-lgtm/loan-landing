@@ -14,7 +14,7 @@ export async function GET(request) {
   };
 
   try {
-    const { master, source } = await loadPropertyMaster();
+    const { master, source } = await loadPropertyMaster(request.url);
     const result = resolvePropertyOptions(master, query);
     const isEmptySource = source === "missing";
 
