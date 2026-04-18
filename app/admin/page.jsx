@@ -282,7 +282,7 @@ export default function AdminOwnerPage() {
 
     try {
       let offset = 0;
-      const limit = 1;
+      const limit = 25;
       let done = false;
       let totalTargets = 0;
       let totalSavedRows = 0;
@@ -291,7 +291,7 @@ export default function AdminOwnerPage() {
       let currentLabel = "";
 
       while (!done) {
-        appendTradeLog(`요청 전송: offset=${offset}, limit=${limit}`);
+        appendTradeLog(`요청 전송: offset=${offset}, limit=${limit} (group batch)`);
 
         const res = await fetch("/api/admin/trade-cache", {
           method: "POST",

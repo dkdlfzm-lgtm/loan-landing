@@ -8,7 +8,7 @@ const REQUEST_TIMEOUT_MS = Number(process.env.TRADE_CACHE_REQUEST_TIMEOUT_MS || 
 const REQUEST_RETRY_MAX = Number(process.env.TRADE_CACHE_RETRY_MAX || 8);
 const REQUEST_BETWEEN_MONTHS_MS = Number(process.env.TRADE_CACHE_BETWEEN_MONTHS_MS || 2200);
 const REQUEST_BETWEEN_GROUPS_MS = Number(process.env.TRADE_CACHE_BETWEEN_GROUPS_MS || 3500);
-const RECENT_MONTH_COUNT = Number(process.env.TRADE_CACHE_MONTHS || 6);
+const RECENT_MONTH_COUNT = Number(process.env.TRADE_CACHE_MONTHS || 3);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,6 +155,7 @@ function getRecentMonths(count = RECENT_MONTH_COUNT) {
   const list = [];
   const d = new Date();
   d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
 
   for (let i = 0; i < count; i += 1) {
     const year = d.getFullYear();
@@ -346,6 +347,7 @@ function dedupeTradeRows(rows) {
 async function fetchTradesForGroup(serviceKey, group) {
   const months = getRecentMonths();
   const rows = [];
+  const monthErrors = [];
 
   for (let i = 0; i < months.length; i += 1) {
     const dealYmd = months[i];
@@ -357,42 +359,46 @@ async function fetchTradesForGroup(serviceKey, group) {
       numOfRows: 999,
     });
 
-    const payload = await fetchApiWithRetry(url);
-    const { header, items } = unwrapItems(payload);
-    const resultCode = String(header?.resultCode ?? "00");
-    if (!["00", "000", "XML", "EMPTY"].includes(resultCode)) {
-      throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
-    }
+    try {
+      const payload = await fetchApiWithRetry(url);
+      const { header, items } = unwrapItems(payload);
+      const resultCode = String(header?.resultCode ?? "00");
+      if (!["00", "000", "XML", "EMPTY"].includes(resultCode)) {
+        throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
+      }
 
-    for (const item of items) {
-      const amountWon = getTradeAmountWon(item);
-      if (!amountWon) continue;
+      for (const item of items) {
+        const amountWon = getTradeAmountWon(item);
+        if (!amountWon) continue;
 
-      const apartmentName = getTradeApartmentName(item);
-      const apartmentNameNorm = normalizeApartmentName(apartmentName);
-      const jibun = getTradeJibun(item);
-      const matchedTarget = matchTarget(group.targets, apartmentNameNorm, jibun);
-      if (!matchedTarget) continue;
+        const apartmentName = getTradeApartmentName(item);
+        const apartmentNameNorm = normalizeApartmentName(apartmentName);
+        const jibun = getTradeJibun(item);
+        const matchedTarget = matchTarget(group.targets, apartmentNameNorm, jibun);
+        if (!matchedTarget) continue;
 
-      const area = parseAreaNumber(getTradeArea(item));
+        const area = parseAreaNumber(getTradeArea(item));
 
-      rows.push({
-        property_type: matchedTarget.property_type,
-        city: matchedTarget.city,
-        district: matchedTarget.district,
-        town: matchedTarget.town,
-        lawd_code: matchedTarget.lawd_code,
-        apartment_name: apartmentName || matchedTarget.apartment_name,
-        apartment_name_norm: apartmentNameNorm || matchedTarget.apartment_name_norm,
-        jibun: jibun || matchedTarget.jibun || "",
-        area_m2: area,
-        deal_date: getTradeDate(item),
-        amount_won: amountWon,
-        price_per_m2: Math.round(amountWon / Math.max(area || 1, 1)),
-        source: "molit",
-        collected_at: new Date().toISOString(),
-        raw_payload: item,
-      });
+        rows.push({
+          property_type: matchedTarget.property_type,
+          city: matchedTarget.city,
+          district: matchedTarget.district,
+          town: matchedTarget.town,
+          lawd_code: matchedTarget.lawd_code,
+          apartment_name: apartmentName || matchedTarget.apartment_name,
+          apartment_name_norm: apartmentNameNorm || matchedTarget.apartment_name_norm,
+          jibun: jibun || matchedTarget.jibun || "",
+          area_m2: area,
+          deal_date: getTradeDate(item),
+          amount_won: amountWon,
+          price_per_m2: Math.round(amountWon / Math.max(area || 1, 1)),
+          source: "molit",
+          collected_at: new Date().toISOString(),
+          raw_payload: item,
+        });
+      }
+    } catch (error) {
+      monthErrors.push({ dealYmd, message: error?.message || String(error) });
     }
 
     if (i < months.length - 1) {
@@ -400,7 +406,7 @@ async function fetchTradesForGroup(serviceKey, group) {
     }
   }
 
-  return dedupeTradeRows(rows);
+  return { rows: dedupeTradeRows(rows), monthErrors };
 }
 
 async function upsertTradeRows(rows) {
