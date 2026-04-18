@@ -322,7 +322,7 @@ export default function AdminOwnerPage() {
         await loadTradeStats({ silent: true });
 
         if (!done) {
-          await new Promise((resolve) => setTimeout(resolve, 1800));
+          await new Promise((resolve) => setTimeout(resolve, 2500));
         }
       }
 

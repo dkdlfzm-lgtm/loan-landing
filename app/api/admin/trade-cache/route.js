@@ -4,6 +4,11 @@ const APT_TRADE_BASE =
   process.env.MOLIT_APT_TRADE_BASE ||
   "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
 
+const REQUEST_DELAY_MS = Number(process.env.TRADE_CACHE_REQUEST_DELAY_MS || 1200);
+const TARGET_DELAY_MS = Number(process.env.TRADE_CACHE_TARGET_DELAY_MS || 3500);
+const MAX_RETRIES = Number(process.env.TRADE_CACHE_MAX_RETRIES || 8);
+const BASE_BACKOFF_MS = Number(process.env.TRADE_CACHE_BASE_BACKOFF_MS || 2500);
+
 function normalizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
 }
@@ -43,6 +48,22 @@ function buildUrl(base, paramsObj) {
   return `${base}?${queryParts.join("&")}`;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getRetryDelayMs(response, attempt) {
+  const retryAfterHeader = response?.headers?.get?.("retry-after");
+  const retryAfterSeconds = Number(retryAfterHeader);
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+
+  const jitter = Math.floor(Math.random() * 800);
+  return Math.min(BASE_BACKOFF_MS * Math.pow(2, attempt), 60000) + jitter;
+}
+
 function xmlItemsToObjects(xml) {
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => m[1]);
   return items.map((itemXml) => {
@@ -56,52 +77,56 @@ function xmlItemsToObjects(xml) {
 }
 
 async function fetchApi(url) {
-  const maxRetries = getEnvNumber("TRADE_API_MAX_RETRIES", 6);
-  const baseDelayMs = getEnvNumber("TRADE_API_RETRY_BASE_MS", 1500);
+  let lastError = null;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
-      },
-      cache: "no-store",
-    });
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    let response;
 
-    if (!response.ok) {
-      const retryAfterHeader = response.headers.get("retry-after");
-      const retryAfterSeconds = Number(retryAfterHeader);
-      const shouldRetry = response.status === 429 || response.status >= 500;
+    try {
+      response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
+        },
+        cache: "no-store",
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt >= MAX_RETRIES) break;
+      await sleep(getRetryDelayMs(null, attempt));
+      continue;
+    }
 
-      if (shouldRetry && attempt < maxRetries) {
-        const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-          ? retryAfterSeconds * 1000
-          : baseDelayMs * Math.pow(2, attempt);
-        await sleep(delayMs);
-        continue;
+    if (response.ok) {
+      const text = (await response.text()).trim();
+      if (!text) {
+        return { response: { header: { resultCode: "EMPTY" }, body: { items: [] } } };
       }
 
-      throw new Error(`HTTP ${response.status}: ${url}`);
+      if (text.startsWith("{") || text.startsWith("[")) {
+        return JSON.parse(text);
+      }
+
+      return {
+        response: {
+          header: { resultCode: "XML" },
+          body: { items: { item: xmlItemsToObjects(text) } },
+        },
+      };
     }
 
-    const text = (await response.text()).trim();
-    if (!text) {
-      return { response: { header: { resultCode: "EMPTY" }, body: { items: [] } } };
+    const retriable = response.status === 429 || response.status >= 500;
+    const error = new Error(`HTTP ${response.status}: ${url}`);
+    lastError = error;
+
+    if (!retriable || attempt >= MAX_RETRIES) {
+      throw error;
     }
 
-    if (text.startsWith("{") || text.startsWith("[")) {
-      return JSON.parse(text);
-    }
-
-    return {
-      response: {
-        header: { resultCode: "XML" },
-        body: { items: { item: xmlItemsToObjects(text) } },
-      },
-    };
+    await sleep(getRetryDelayMs(response, attempt));
   }
 
-  throw new Error(`실거래가 API 재시도 한도를 초과했습니다: ${url}`);
+  throw lastError || new Error(`API 요청 실패: ${url}`);
 }
 
 function unwrapItems(payload) {
@@ -126,15 +151,6 @@ function getRecentMonths(count = 24) {
   }
 
   return list;
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getEnvNumber(name, fallback) {
-  const value = Number(process.env[name]);
-  return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 async function loadPropertyMasterLocal() {
@@ -256,12 +272,10 @@ function getTradeDate(item) {
 }
 
 async function fetchTradesForTarget(serviceKey, target) {
-  const monthCount = Math.max(getEnvNumber("TRADE_CACHE_MONTHS", 24), 1);
-  const perMonthDelayMs = getEnvNumber("TRADE_API_REQUEST_DELAY_MS", 350);
-  const months = getRecentMonths(monthCount);
+  const months = getRecentMonths(Number(process.env.TRADE_CACHE_MONTHS || 24));
   const rows = [];
 
-  for (const [monthIndex, dealYmd] of months.entries()) {
+  for (const dealYmd of months) {
     const url = buildUrl(APT_TRADE_BASE, {
       serviceKey,
       LAWD_CD: target.lawd_code,
@@ -273,7 +287,7 @@ async function fetchTradesForTarget(serviceKey, target) {
     const payload = await fetchApi(url);
     const { header, items } = unwrapItems(payload);
     const resultCode = String(header?.resultCode ?? "00");
-    if (!["00", "000", "XML", "EMPTY"].includes(resultCode)) {
+    if (!["00", "000", "XML"].includes(resultCode)) {
       throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
     }
 
@@ -292,8 +306,6 @@ async function fetchTradesForTarget(serviceKey, target) {
         continue;
       }
 
-      const areaNumber = parseAreaNumber(getTradeArea(item));
-
       rows.push({
         property_type: target.property_type,
         city: target.city,
@@ -303,19 +315,17 @@ async function fetchTradesForTarget(serviceKey, target) {
         apartment_name: apartmentName,
         apartment_name_norm: apartmentNameNorm,
         jibun: getTradeJibun(item) || target.jibun || "",
-        area_m2: areaNumber,
+        area_m2: parseAreaNumber(getTradeArea(item)),
         deal_date: getTradeDate(item),
         amount_won: amountWon,
-        price_per_m2: Math.round(amountWon / Math.max(areaNumber || 1, 1)),
+        price_per_m2: Math.round(amountWon / Math.max(parseAreaNumber(getTradeArea(item)) || 1, 1)),
         source: "molit",
         collected_at: new Date().toISOString(),
         raw_payload: item,
       });
     }
 
-    if (monthIndex < months.length - 1 && perMonthDelayMs > 0) {
-      await sleep(perMonthDelayMs);
-    }
+    await sleep(REQUEST_DELAY_MS);
   }
 
   return rows;
@@ -462,6 +472,8 @@ export async function POST(request) {
         errors.push(errorItem);
         console.error("[trade-cache ingest error]", errorItem);
       }
+
+      await sleep(TARGET_DELAY_MS);
     }
 
     const nextOffset = offset + chunkTargets.length;
