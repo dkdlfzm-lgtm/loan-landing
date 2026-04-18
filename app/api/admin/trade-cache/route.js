@@ -12,6 +12,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function safeParseJson(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function normalizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
 }
@@ -82,7 +91,9 @@ async function fetchApi(url) {
       }
 
       if (text.startsWith("{") || text.startsWith("[")) {
-        return JSON.parse(text);
+        const parsed = safeParseJson(text);
+        if (parsed !== null) return parsed;
+        return { response: { header: { resultCode: "PARSE_ERROR", resultMsg: "JSON parse error" }, body: { raw: text, items: [] } } };
       }
 
       return {
@@ -172,7 +183,7 @@ async function supabaseRequest(path, options = {}) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = safeParseJson(text);
 
   if (!response.ok) {
     const message =

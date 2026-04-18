@@ -26,6 +26,24 @@ const OWNER_TABS = [
 ];
 const AUTO_REFRESH_MS = 5000;
 
+async function readJsonResponse(res) {
+  const text = await res.text();
+  let data = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (_error) {
+    const preview = String(text || "").slice(0, 300);
+    throw new Error(
+      preview
+        ? `JSON 응답 파싱 실패: ${preview}`
+        : `JSON 응답 파싱 실패 (HTTP ${res.status})`
+    );
+  }
+
+  return data;
+}
+
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return (
     <div className={`crm-summary-card crm-tone-${tone}`}>
@@ -227,7 +245,7 @@ export default function AdminOwnerPage() {
   async function loadVisitStats({ silent = false } = {}) {
     try {
       const res = await fetch("/api/admin/visit-stats", { cache: "no-store" });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok || !data.ok) throw new Error(data.message || "방문자 통계를 불러오지 못했습니다.");
       setVisitStats({
         summary: data.summary || null,
@@ -244,7 +262,7 @@ export default function AdminOwnerPage() {
   async function loadTradeStats({ silent = false } = {}) {
     try {
       const res = await fetch("/api/admin/trade-cache", { cache: "no-store" });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok || !data.ok) {
         throw new Error(data.message || "실거래 캐시 통계를 불러오지 못했습니다.");
       }
@@ -294,7 +312,7 @@ export default function AdminOwnerPage() {
           }),
         });
 
-        const data = await res.json();
+        const data = await readJsonResponse(res);
 
         if (!res.ok || !data.ok) {
           throw new Error(data.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
@@ -383,7 +401,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok || !data.ok) return setError(data.message || "로그인 실패");
     setAuthenticated(true);
   }
@@ -401,7 +419,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newStaff),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok || !data.ok) {
       return setStaffMessage({ type: "error", text: data.message || "담당자 등록 실패" });
     }
@@ -416,7 +434,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (res.ok && data.ok) {
       setAssignees((prev) =>
         prev.map((item) => (item.id === id ? { ...item, ...data.assignee } : item))
@@ -426,7 +444,7 @@ export default function AdminOwnerPage() {
 
   async function deleteAssignee(id) {
     const res = await fetch(`/api/admin/assignees/${id}`, { method: "DELETE" });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (res.ok && data.ok) {
       setAssignees((prev) => prev.filter((item) => item.id !== id));
     }
@@ -446,7 +464,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok || !data.ok) {
       return setAccountMessage({ type: "error", text: data.message || "직원 계정 생성 실패" });
     }
@@ -464,7 +482,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (res.ok && data.ok) {
       setAccounts((prev) =>
         prev.map((item) => (item.id === id ? { ...item, ...data.account } : item))
@@ -477,7 +495,7 @@ export default function AdminOwnerPage() {
 
   async function deleteAccount(id) {
     const res = await fetch(`/api/admin/staff-accounts/${id}`, { method: "DELETE" });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (res.ok && data.ok) {
       setAccounts((prev) => prev.filter((item) => item.id !== id));
     }
@@ -656,7 +674,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (!res.ok || !data.ok) {
       setCustomerMessage({ type: "error", text: data.message || "저장 실패" });
       setSaving(false);
@@ -677,7 +695,7 @@ export default function AdminOwnerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ author: noteAuthor, content: noteContent }),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res);
     if (res.ok && data.ok) {
       setNotes((prev) => [data.note, ...prev]);
       setNoteContent("");
