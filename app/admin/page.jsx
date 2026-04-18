@@ -1295,15 +1295,13 @@ export default function AdminOwnerPage() {
                     <button
                       type="button"
                       className="nav-btn"
-                      onClick={() => navigator.clipboard?.writeText(tradeErrorLogs.join("
-"))}
+                      onClick={() => navigator.clipboard?.writeText(tradeErrorLogs.join("\n"))}
                     >
                       로그 복사
                     </button>
                   </div>
                   <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, maxHeight: 220, overflow: "auto", color: "#7a271a" }}>
-                    {tradeErrorLogs.length ? tradeErrorLogs.join("
-") : "아직 로그가 없습니다. 버튼을 누르면 여기부터 기록됩니다."}
+                    {tradeErrorLogs.length ? tradeErrorLogs.join("\n") : "아직 로그가 없습니다. 버튼을 누르면 여기부터 기록됩니다."}
                   </div>
                 </div>
                 <div className="crm-muted-box" style={{ marginTop: 16 }}>
