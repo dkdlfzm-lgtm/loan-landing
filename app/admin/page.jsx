@@ -275,6 +275,9 @@ export default function AdminOwnerPage() {
       let done = false;
       let totalTargets = 0;
       let totalSavedRows = 0;
+      let totalSkippedRows = 0;
+      let totalBatchDuplicateRows = 0;
+      let totalExistingDuplicateRows = 0;
       let totalErrorCount = 0;
       let lastError = null;
       let currentLabel = "";
@@ -299,6 +302,9 @@ export default function AdminOwnerPage() {
 
         totalTargets = data.totalTargets || totalTargets;
         totalSavedRows += data.savedRows || 0;
+        totalSkippedRows += data.skippedRows || 0;
+        totalBatchDuplicateRows += data.batchDuplicateRows || 0;
+        totalExistingDuplicateRows += data.existingDuplicateRows || 0;
         totalErrorCount += data.errorCount || 0;
         lastError = data.lastError || lastError;
         currentLabel = data.currentLabel || currentLabel;
@@ -312,6 +318,9 @@ export default function AdminOwnerPage() {
             processed_groups: offset,
             total_groups: totalTargets,
             inserted_rows: totalSavedRows,
+            skipped_rows: totalSkippedRows,
+            batch_duplicate_rows: totalBatchDuplicateRows,
+            existing_duplicate_rows: totalExistingDuplicateRows,
             error_count: totalErrorCount,
             current_label: currentLabel,
             lastError,
@@ -1232,6 +1241,12 @@ export default function AdminOwnerPage() {
                   진행률: <strong>{tradeJob?.processed_groups || 0}</strong> / <strong>{tradeJob?.total_groups || 0}</strong>
                   {" · "}
                   저장건수: <strong>{tradeJob?.inserted_rows || 0}</strong>
+                  {" · "}
+                  건너뜀: <strong>{tradeJob?.skipped_rows || 0}</strong>
+                  {" · "}
+                  배치중복: <strong>{tradeJob?.batch_duplicate_rows || 0}</strong>
+                  {" · "}
+                  기존중복: <strong>{tradeJob?.existing_duplicate_rows || 0}</strong>
                   {" · "}
                   오류건수: <strong>{tradeJob?.error_count || 0}</strong>
 

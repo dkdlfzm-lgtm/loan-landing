@@ -3,11 +3,14 @@ import { NextResponse } from "next/server";
 const APT_TRADE_BASE =
   process.env.MOLIT_APT_TRADE_BASE ||
   "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
+const TRADE_CACHE_MONTHS = Math.max(Number(process.env.TRADE_CACHE_MONTHS || 12), 1);
+const API_RETRY_MAX = Math.max(Number(process.env.TRADE_CACHE_API_RETRY_MAX || 8), 1);
+const API_MONTH_DELAY_MS = Math.max(Number(process.env.TRADE_CACHE_API_MONTH_DELAY_MS || 1500), 0);
+const API_TARGET_DELAY_MS = Math.max(Number(process.env.TRADE_CACHE_API_TARGET_DELAY_MS || 2500), 0);
 
-const REQUEST_DELAY_MS = Number(process.env.TRADE_CACHE_REQUEST_DELAY_MS || 1200);
-const TARGET_DELAY_MS = Number(process.env.TRADE_CACHE_TARGET_DELAY_MS || 3500);
-const MAX_RETRIES = Number(process.env.TRADE_CACHE_MAX_RETRIES || 8);
-const BASE_BACKOFF_MS = Number(process.env.TRADE_CACHE_BASE_BACKOFF_MS || 2500);
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function normalizeText(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
@@ -48,22 +51,6 @@ function buildUrl(base, paramsObj) {
   return `${base}?${queryParts.join("&")}`;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getRetryDelayMs(response, attempt) {
-  const retryAfterHeader = response?.headers?.get?.("retry-after");
-  const retryAfterSeconds = Number(retryAfterHeader);
-
-  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-    return retryAfterSeconds * 1000;
-  }
-
-  const jitter = Math.floor(Math.random() * 800);
-  return Math.min(BASE_BACKOFF_MS * Math.pow(2, attempt), 60000) + jitter;
-}
-
 function xmlItemsToObjects(xml) {
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => m[1]);
   return items.map((itemXml) => {
@@ -79,23 +66,14 @@ function xmlItemsToObjects(xml) {
 async function fetchApi(url) {
   let lastError = null;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-    let response;
-
-    try {
-      response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
-        },
-        cache: "no-store",
-      });
-    } catch (error) {
-      lastError = error;
-      if (attempt >= MAX_RETRIES) break;
-      await sleep(getRetryDelayMs(null, attempt));
-      continue;
-    }
+  for (let attempt = 0; attempt < API_RETRY_MAX; attempt += 1) {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
+      },
+      cache: "no-store",
+    });
 
     if (response.ok) {
       const text = (await response.text()).trim();
@@ -115,18 +93,18 @@ async function fetchApi(url) {
       };
     }
 
-    const retriable = response.status === 429 || response.status >= 500;
-    const error = new Error(`HTTP ${response.status}: ${url}`);
-    lastError = error;
-
-    if (!retriable || attempt >= MAX_RETRIES) {
-      throw error;
+    const retryAfter = Number(response.headers.get("retry-after") || 0);
+    if (response.status === 429 || response.status >= 500) {
+      const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.min(5000 * (2 ** attempt), 60000);
+      lastError = new Error(`HTTP ${response.status}: ${url}`);
+      await sleep(waitMs);
+      continue;
     }
 
-    await sleep(getRetryDelayMs(response, attempt));
+    throw new Error(`HTTP ${response.status}: ${url}`);
   }
 
-  throw lastError || new Error(`API 요청 실패: ${url}`);
+  throw lastError || new Error(`HTTP 429: ${url}`);
 }
 
 function unwrapItems(payload) {
@@ -138,7 +116,7 @@ function unwrapItems(payload) {
   return { header, items, totalCount };
 }
 
-function getRecentMonths(count = 24) {
+function getRecentMonths(count = TRADE_CACHE_MONTHS) {
   const list = [];
   const d = new Date();
   d.setDate(1);
@@ -271,78 +249,205 @@ function getTradeDate(item) {
   return `${year}-${month}-${day}`;
 }
 
-async function fetchTradesForTarget(serviceKey, target) {
-  const months = getRecentMonths(Number(process.env.TRADE_CACHE_MONTHS || 24));
+function isTradeMatchForTarget(item, target) {
+  const apartmentName = getTradeApartmentName(item);
+  const apartmentNameNorm = normalizeApartmentName(apartmentName);
+  const targetNameNorm = target.apartment_name_norm || normalizeApartmentName(target.apartment_name);
+  const itemJibun = getTradeJibun(item);
+  const targetJibun = normalizeJibun(target.jibun || "");
+
+  const nameMatched =
+    apartmentNameNorm === targetNameNorm ||
+    apartmentNameNorm.includes(targetNameNorm) ||
+    targetNameNorm.includes(apartmentNameNorm);
+
+  const jibunMatched = !targetJibun || !itemJibun || itemJibun === targetJibun;
+  return nameMatched && jibunMatched;
+}
+
+function buildTradeRowFromItem(target, item) {
+  const amountWon = getTradeAmountWon(item);
+  if (!amountWon) return null;
+
+  const apartmentName = getTradeApartmentName(item);
+  const apartmentNameNorm = normalizeApartmentName(apartmentName);
+  const areaM2 = parseAreaNumber(getTradeArea(item));
+
+  return {
+    property_type: target.property_type,
+    city: target.city,
+    district: target.district,
+    town: target.town,
+    lawd_code: target.lawd_code,
+    apartment_name: apartmentName,
+    apartment_name_norm: apartmentNameNorm,
+    jibun: getTradeJibun(item) || target.jibun || "",
+    area_m2: areaM2,
+    deal_date: getTradeDate(item),
+    amount_won: amountWon,
+    price_per_m2: Math.round(amountWon / Math.max(areaM2 || 1, 1)),
+    source: "molit",
+    collected_at: new Date().toISOString(),
+    raw_payload: item,
+  };
+}
+
+function getTradeRowKey(row) {
+  return [
+    row.lawd_code || "",
+    row.apartment_name_norm || normalizeApartmentName(row.apartment_name || ""),
+    normalizeJibun(row.jibun || ""),
+    Number.isFinite(Number(row.area_m2)) ? Number(Number(row.area_m2).toFixed(2)) : "",
+    row.deal_date || "",
+    Number(row.amount_won || 0),
+  ].join("|");
+}
+
+function dedupeTradeRows(rows) {
+  const seen = new Set();
+  const deduped = [];
+  let duplicateCount = 0;
+
+  for (const row of rows) {
+    const key = getTradeRowKey(row);
+    if (seen.has(key)) {
+      duplicateCount += 1;
+      continue;
+    }
+    seen.add(key);
+    deduped.push(row);
+  }
+
+  return { rows: deduped, duplicateCount };
+}
+
+async function fetchLawdMonthItems(serviceKey, lawdCode, dealYmd) {
+  const url = buildUrl(APT_TRADE_BASE, {
+    serviceKey,
+    LAWD_CD: lawdCode,
+    DEAL_YMD: dealYmd,
+    pageNo: 1,
+    numOfRows: 999,
+  });
+
+  const payload = await fetchApi(url);
+  const { header, items } = unwrapItems(payload);
+  const resultCode = String(header?.resultCode ?? "00");
+  if (!["00", "000", "XML", "EMPTY"].includes(resultCode)) {
+    throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
+  }
+
+  return items;
+}
+
+async function fetchTradesForTargetsByLawdCode(serviceKey, targets) {
+  const months = getRecentMonths();
   const rows = [];
 
   for (const dealYmd of months) {
-    const url = buildUrl(APT_TRADE_BASE, {
-      serviceKey,
-      LAWD_CD: target.lawd_code,
-      DEAL_YMD: dealYmd,
-      pageNo: 1,
-      numOfRows: 999,
-    });
-
-    const payload = await fetchApi(url);
-    const { header, items } = unwrapItems(payload);
-    const resultCode = String(header?.resultCode ?? "00");
-    if (!["00", "000", "XML"].includes(resultCode)) {
-      throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
-    }
+    const items = await fetchLawdMonthItems(serviceKey, targets[0].lawd_code, dealYmd);
 
     for (const item of items) {
-      const amountWon = getTradeAmountWon(item);
-      if (!amountWon) continue;
-
-      const apartmentName = getTradeApartmentName(item);
-      const apartmentNameNorm = normalizeApartmentName(apartmentName);
-
-      if (
-        apartmentNameNorm !== target.apartment_name_norm &&
-        !apartmentNameNorm.includes(target.apartment_name_norm) &&
-        !target.apartment_name_norm.includes(apartmentNameNorm)
-      ) {
-        continue;
+      for (const target of targets) {
+        if (!isTradeMatchForTarget(item, target)) continue;
+        const row = buildTradeRowFromItem(target, item);
+        if (row) rows.push(row);
+        break;
       }
-
-      rows.push({
-        property_type: target.property_type,
-        city: target.city,
-        district: target.district,
-        town: target.town,
-        lawd_code: target.lawd_code,
-        apartment_name: apartmentName,
-        apartment_name_norm: apartmentNameNorm,
-        jibun: getTradeJibun(item) || target.jibun || "",
-        area_m2: parseAreaNumber(getTradeArea(item)),
-        deal_date: getTradeDate(item),
-        amount_won: amountWon,
-        price_per_m2: Math.round(amountWon / Math.max(parseAreaNumber(getTradeArea(item)) || 1, 1)),
-        source: "molit",
-        collected_at: new Date().toISOString(),
-        raw_payload: item,
-      });
     }
 
-    await sleep(REQUEST_DELAY_MS);
+    await sleep(API_MONTH_DELAY_MS);
   }
 
-  return rows;
+  return dedupeTradeRows(rows);
 }
 
-async function upsertTradeRows(rows) {
-  if (!rows.length) return { inserted: 0 };
+async function fetchExistingTradeKeys(rows) {
+  if (!rows.length) return new Set();
 
-  const data = await supabaseRequest("/apartment_trade_cache", {
-    method: "POST",
-    headers: {
-      Prefer: "resolution=merge-duplicates,return=representation",
-    },
-    body: rows,
-  });
+  const lawdCode = rows[0].lawd_code;
+  const dealDates = rows.map((row) => row.deal_date).filter(Boolean).sort();
+  const minDate = dealDates[0];
+  const maxDate = dealDates[dealDates.length - 1];
 
-  return { inserted: Array.isArray(data) ? data.length : rows.length };
+  const data = await supabaseRequest(
+    `/apartment_trade_cache?select=lawd_code,apartment_name,apartment_name_norm,jibun,area_m2,deal_date,amount_won&lawd_code=eq.${encodeURIComponent(lawdCode)}&deal_date=gte.${encodeURIComponent(minDate)}&deal_date=lte.${encodeURIComponent(maxDate)}&limit=5000`
+  );
+
+  const existingRows = Array.isArray(data) ? data : [];
+  return new Set(existingRows.map((row) => getTradeRowKey(row)));
+}
+
+async function insertTradeRows(rows) {
+  if (!rows.length) {
+    return { inserted: 0, existingDuplicateRows: 0, batchDuplicateRows: 0 };
+  }
+
+  const { rows: dedupedRows, duplicateCount } = dedupeTradeRows(rows);
+  const existingKeys = await fetchExistingTradeKeys(dedupedRows);
+  const insertableRows = [];
+  let existingDuplicateRows = 0;
+
+  for (const row of dedupedRows) {
+    const key = getTradeRowKey(row);
+    if (existingKeys.has(key)) {
+      existingDuplicateRows += 1;
+      continue;
+    }
+    insertableRows.push(row);
+  }
+
+  if (!insertableRows.length) {
+    return {
+      inserted: 0,
+      existingDuplicateRows,
+      batchDuplicateRows: duplicateCount,
+    };
+  }
+
+  try {
+    const data = await supabaseRequest("/apartment_trade_cache", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: insertableRows,
+    });
+
+    return {
+      inserted: Array.isArray(data) ? data.length : insertableRows.length,
+      existingDuplicateRows,
+      batchDuplicateRows: duplicateCount,
+    };
+  } catch (error) {
+    if (!String(error?.message || "").includes("duplicate key value violates unique constraint")) {
+      throw error;
+    }
+
+    let inserted = 0;
+    let extraExistingDuplicates = 0;
+
+    for (const row of insertableRows) {
+      try {
+        await supabaseRequest("/apartment_trade_cache", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: row,
+        });
+        inserted += 1;
+      } catch (rowError) {
+        if (String(rowError?.message || "").includes("duplicate key value violates unique constraint")) {
+          extraExistingDuplicates += 1;
+          continue;
+        }
+        throw rowError;
+      }
+    }
+
+    return {
+      inserted,
+      existingDuplicateRows: existingDuplicateRows + extraExistingDuplicates,
+      batchDuplicateRows: duplicateCount,
+    };
+  }
 }
 
 export async function GET() {
@@ -439,18 +544,30 @@ export async function POST(request) {
       );
     }
 
-    const chunkTargets = targets.slice(offset, offset + limit);
+    const firstTarget = targets[offset];
+    const chunkTargets = [];
+    if (firstTarget) {
+      for (let i = offset; i < targets.length; i += 1) {
+        const target = targets[i];
+        if (target.lawd_code !== firstTarget.lawd_code) break;
+        chunkTargets.push(target);
+      }
+    }
 
     let savedRows = 0;
     let processedTargets = 0;
+    let batchDuplicateRows = 0;
+    let existingDuplicateRows = 0;
     const errors = [];
 
-    for (const target of chunkTargets) {
+    if (chunkTargets.length) {
       try {
-        const tradeRows = await fetchTradesForTarget(serviceKey, target);
-        const result = await upsertTradeRows(tradeRows);
+        const fetched = await fetchTradesForTargetsByLawdCode(serviceKey, chunkTargets);
+        const result = await insertTradeRows(fetched.rows);
         savedRows += result.inserted;
-        processedTargets += 1;
+        processedTargets += chunkTargets.length;
+        batchDuplicateRows += fetched.duplicateCount + (result.batchDuplicateRows || 0);
+        existingDuplicateRows += result.existingDuplicateRows || 0;
       } catch (err) {
         const errorMessage =
           typeof err === "string"
@@ -461,29 +578,30 @@ export async function POST(request) {
             ? err.details
             : JSON.stringify(err);
 
+        const currentTarget = chunkTargets[0] || firstTarget;
         const errorItem = {
-          apartment: target.apartment_name,
-          district: target.district,
-          town: target.town,
-          lawd_code: target.lawd_code,
+          apartment: currentTarget?.apartment_name || "",
+          district: currentTarget?.district || "",
+          town: currentTarget?.town || "",
+          lawd_code: currentTarget?.lawd_code || "",
           message: errorMessage || "unknown error",
         };
 
         errors.push(errorItem);
         console.error("[trade-cache ingest error]", errorItem);
       }
-
-      await sleep(TARGET_DELAY_MS);
     }
 
     const nextOffset = offset + chunkTargets.length;
     const done = nextOffset >= targets.length;
     const currentTarget = chunkTargets[chunkTargets.length - 1] || null;
     const currentLabel = currentTarget
-      ? [currentTarget.city, currentTarget.district, currentTarget.town, currentTarget.apartment_name]
+      ? [currentTarget.city, currentTarget.district, currentTarget.town, `${currentTarget.apartment_name} 외 ${Math.max(chunkTargets.length - 1, 0)}개`]
           .filter(Boolean)
           .join(" ")
       : "";
+
+    await sleep(API_TARGET_DELAY_MS);
 
     return NextResponse.json({
       ok: true,
@@ -491,6 +609,9 @@ export async function POST(request) {
       processedTargets,
       totalTargets: targets.length,
       savedRows,
+      skippedRows: batchDuplicateRows + existingDuplicateRows,
+      batchDuplicateRows,
+      existingDuplicateRows,
       errorCount: errors.length,
       lastError: errors.length ? errors[errors.length - 1] : null,
       errors: errors.slice(0, 20),
