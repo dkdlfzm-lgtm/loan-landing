@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured, supabaseRest } from "../../../lib/supabase-rest";
-import fs from "fs/promises";
+import { loadPropertyMaster } from "../../lib-property-master";
 
 const REB_API_BASE = "https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do";
 const PROPERTY_STAT_ID_MAP = {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-export const maxDuration = 60;
+import { loadPropertyMaster } from "../../../lib-property-master";
 
 const APT_TRADE_BASE =
   process.env.MOLIT_APT_TRADE_BASE ||
@@ -16,7 +15,7 @@ function normalizeApartmentName(value = "") {
     .replace(/\(.*?\)/g, "")
     .replace(/아파트$/g, "")
     .replace(/오피스텔$/g, "")
-    .replace(/[·.,/\\-]/g, "")
+    .replace(/[·.,/\\\-]/g, "")
     .replace(/\s+/g, "");
 }
 
@@ -48,7 +47,7 @@ function buildUrl(base, paramsObj) {
 function xmlItemsToObjects(xml) {
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => m[1]);
   return items.map((itemXml) => {
-    const pairs = [...itemXml.matchAll(/<([^/][^>]*)>([\s\S]*?)<\/>/g)];
+    const pairs = [...itemXml.matchAll(/<([^/][^>]*)>([\s\S]*?)<\/\1>/g)];
     const obj = {};
     for (const [, key, value] of pairs) {
       obj[key] = value.replace(/<!\[CDATA\[|\]\]>/g, "").trim();
@@ -96,8 +95,8 @@ function unwrapItems(payload) {
   return { header, items, totalCount };
 }
 
-function getLastCompletedMonths(count = 1) {
-  const months = [];
+function getRecentMonths(count = 1) {
+  const list = [];
   const d = new Date();
   d.setDate(1);
   d.setMonth(d.getMonth() - 1);
@@ -105,48 +104,59 @@ function getLastCompletedMonths(count = 1) {
   for (let i = 0; i < count; i += 1) {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
-    months.push(`${year}${month}`);
+    list.push(`${year}${month}`);
     d.setMonth(d.getMonth() - 1);
   }
 
-  return months;
+  return list;
 }
 
-async function loadPropertyMasterLocal() {
+async function loadPropertyMasterLocal(requestUrl = "") {
   const fs = await import("fs/promises");
-  const candidates = [
+  const fileErrors = [];
+
+  for (const filePath of [
     `${process.cwd()}/public/property-master.json`,
     `${process.cwd()}/property-master.json`,
-  ];
-  const errors = [];
-
-  for (const filePath of candidates) {
+  ]) {
     try {
       const json = await fs.readFile(filePath, "utf-8");
       const master = JSON.parse(json);
-      return { master };
+      return { master, source: filePath };
     } catch (err) {
-      errors.push(`${filePath}: ${err?.message || err}`);
+      fileErrors.push(`${filePath}: ${err?.code || err?.message || err}`);
     }
   }
 
-  const publicUrl = process.env.NEXT_PUBLIC_SITE_URL
-    ? `${process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/property-master.json`
-    : null;
-
-  if (publicUrl) {
+  const urls = [];
+  if (requestUrl) {
     try {
-      const res = await fetch(publicUrl, { cache: "no-store" });
-      if (res.ok) {
-        return { master: await res.json() };
+      urls.push(`${new URL(requestUrl).origin}/property-master.json`);
+    } catch {}
+  }
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    urls.push(`${String(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "")}/property-master.json`);
+  }
+  if (process.env.VERCEL_URL) {
+    urls.push(`https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, "")}/property-master.json`);
+  }
+
+  const urlErrors = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        urlErrors.push(`${url}: HTTP ${res.status}`);
+        continue;
       }
-      errors.push(`${publicUrl}: HTTP ${res.status}`);
+      const master = await res.json();
+      return { master, source: url };
     } catch (err) {
-      errors.push(`${publicUrl}: ${err?.message || err}`);
+      urlErrors.push(`${url}: ${err?.message || err}`);
     }
   }
 
-  throw new Error(`property-master.json 파일을 찾지 못했습니다. ${errors.join(" | ")}`);
+  throw new Error(`property-master.json 파일을 찾지 못했습니다. ${fileErrors.concat(urlErrors).join(" | ")}`);
 }
 
 async function supabaseRequest(path, options = {}) {
@@ -249,84 +259,62 @@ function getTradeDate(item) {
   return `${year}-${month}-${day}`;
 }
 
-function toTradeRow(target, item) {
-  const amountWon = getTradeAmountWon(item);
-  if (!amountWon) return null;
+async function fetchTradesForTarget(serviceKey, target) {
+  const months = getRecentMonths(1);
+  const rows = [];
 
-  const apartmentName = getTradeApartmentName(item);
-  const apartmentNameNorm = normalizeApartmentName(apartmentName);
-
-  if (
-    apartmentNameNorm !== target.apartment_name_norm &&
-    !apartmentNameNorm.includes(target.apartment_name_norm) &&
-    !target.apartment_name_norm.includes(apartmentNameNorm)
-  ) {
-    return null;
-  }
-
-  const areaValue = parseAreaNumber(getTradeArea(item));
-  return {
-    property_type: target.property_type,
-    city: target.city,
-    district: target.district,
-    town: target.town,
-    lawd_code: target.lawd_code,
-    apartment_name: apartmentName,
-    apartment_name_norm: apartmentNameNorm,
-    jibun: getTradeJibun(item) || target.jibun || "",
-    area_m2: areaValue,
-    deal_date: getTradeDate(item),
-    amount_won: amountWon,
-    price_per_m2: Math.round(amountWon / Math.max(areaValue || 1, 1)),
-    source: "molit",
-    collected_at: new Date().toISOString(),
-    raw_payload: item,
-  };
-}
-
-async function fetchTradesByLawdCode(serviceKey, lawdCode, monthsToFetch) {
-  const allItems = [];
-  const errors = [];
-
-  for (const dealYmd of monthsToFetch) {
+  for (const dealYmd of months) {
     const url = buildUrl(APT_TRADE_BASE, {
       serviceKey,
-      LAWD_CD: lawdCode,
+      LAWD_CD: target.lawd_code,
       DEAL_YMD: dealYmd,
       pageNo: 1,
       numOfRows: 999,
     });
 
-    try {
-      const payload = await fetchApi(url);
-      const { header, items } = unwrapItems(payload);
-      const resultCode = String(header?.resultCode ?? "00");
-      if (!["00", "000", "XML"].includes(resultCode)) {
-        throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
+    const payload = await fetchApi(url);
+    const { header, items } = unwrapItems(payload);
+    const resultCode = String(header?.resultCode ?? "00");
+    if (!["00", "000", "XML"].includes(resultCode)) {
+      throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
+    }
+
+    for (const item of items) {
+      const amountWon = getTradeAmountWon(item);
+      if (!amountWon) continue;
+
+      const apartmentName = getTradeApartmentName(item);
+      const apartmentNameNorm = normalizeApartmentName(apartmentName);
+
+      if (
+        apartmentNameNorm !== target.apartment_name_norm &&
+        !apartmentNameNorm.includes(target.apartment_name_norm) &&
+        !target.apartment_name_norm.includes(apartmentNameNorm)
+      ) {
+        continue;
       }
-      allItems.push(...items);
-    } catch (err) {
-      errors.push({ lawdCode, dealYmd, message: err?.message || String(err) });
+
+      rows.push({
+        property_type: target.property_type,
+        city: target.city,
+        district: target.district,
+        town: target.town,
+        lawd_code: target.lawd_code,
+        apartment_name: apartmentName,
+        apartment_name_norm: apartmentNameNorm,
+        jibun: getTradeJibun(item) || target.jibun || "",
+        area_m2: parseAreaNumber(getTradeArea(item)),
+        deal_date: getTradeDate(item),
+        amount_won: amountWon,
+        price_per_m2: Math.round(amountWon / Math.max(parseAreaNumber(getTradeArea(item)) || 1, 1)),
+        source: "molit",
+        collected_at: new Date().toISOString(),
+        raw_payload: item,
+      });
     }
   }
 
-  return { items: allItems, errors };
-}
-
-function dedupeTradeRows(rows) {
-  const map = new Map();
-  for (const row of rows) {
-    const key = [
-      row.lawd_code,
-      row.apartment_name_norm,
-      row.jibun,
-      row.area_m2,
-      row.deal_date,
-      row.amount_won,
-    ].join("|");
-    if (!map.has(key)) map.set(key, row);
-  }
-  return Array.from(map.values());
+  return rows;
 }
 
 async function upsertTradeRows(rows) {
@@ -414,81 +402,87 @@ export async function POST(request) {
     const city = normalizeText(body?.city || "서울특별시");
     const district = normalizeText(body?.district || "");
     const town = normalizeText(body?.town || "");
-    const monthsCount = Math.max(Number(body?.monthsCount || 1), 1);
+    const fullIngest = Boolean(body?.fullIngest);
+    const offset = Math.max(Number(body?.offset || 0), 0);
+    const limit = Math.max(Number(body?.limit || 1), 1);
 
-    if (!district) {
-      return NextResponse.json(
-        { ok: false, message: "적재할 구를 선택해주세요." },
-        { status: 400 }
+    const { master } = await loadPropertyMaster(request.url);
+
+    let targets = [];
+    if (fullIngest) {
+      const rows = master?.["아파트"]?.[city] || [];
+      targets = dedupeTargets(rows.map((row) => ({ ...row, city })));
+    } else {
+      targets = dedupeTargets(
+        collectTargets(master, city, district, town).map((row) => ({ ...row, city }))
       );
     }
-
-    const { master } = await loadPropertyMasterLocal();
-    const targets = dedupeTargets(
-      collectTargets(master, city, district, town).map((row) => ({ ...row, city }))
-    );
 
     if (!targets.length) {
       return NextResponse.json(
-        { ok: false, message: "선택한 구에서 적재할 단지를 찾지 못했습니다." },
+        { ok: false, message: "적재할 단지 대상을 찾지 못했습니다." },
         { status: 400 }
       );
     }
 
-    const monthsToFetch = getLastCompletedMonths(monthsCount);
-    const targetsByLawd = new Map();
-    for (const target of targets) {
-      const list = targetsByLawd.get(target.lawd_code) || [];
-      list.push(target);
-      targetsByLawd.set(target.lawd_code, list);
-    }
+    const chunkTargets = targets.slice(offset, offset + limit);
 
     let savedRows = 0;
-    const errors = [];
-    let processedGroups = 0;
     let processedTargets = 0;
+    const errors = [];
 
-    for (const [lawdCode, groupedTargets] of targetsByLawd.entries()) {
-      const { items, errors: apiErrors } = await fetchTradesByLawdCode(serviceKey, lawdCode, monthsToFetch);
-      errors.push(
-        ...apiErrors.map((err) => ({
-          district,
-          town: groupedTargets[0]?.town || "",
-          apartment: groupedTargets[0]?.apartment_name || "",
-          lawd_code: lawdCode,
-          message: `${err.message}`,
-        }))
-      );
+    for (const target of chunkTargets) {
+      try {
+        const tradeRows = await fetchTradesForTarget(serviceKey, target);
+        const result = await upsertTradeRows(tradeRows);
+        savedRows += result.inserted;
+        processedTargets += 1;
+      } catch (err) {
+        const errorMessage =
+          typeof err === "string"
+            ? err
+            : err?.message
+            ? err.message
+            : err?.details
+            ? err.details
+            : JSON.stringify(err);
 
-      const tradeRows = [];
-      for (const item of items) {
-        for (const target of groupedTargets) {
-          const row = toTradeRow(target, item);
-          if (row) tradeRows.push(row);
-        }
+        const errorItem = {
+          apartment: target.apartment_name,
+          district: target.district,
+          town: target.town,
+          lawd_code: target.lawd_code,
+          message: errorMessage || "unknown error",
+        };
+
+        errors.push(errorItem);
+        console.error("[trade-cache ingest error]", errorItem);
       }
-
-      const dedupedRows = dedupeTradeRows(tradeRows);
-      const result = await upsertTradeRows(dedupedRows);
-      savedRows += result.inserted;
-      processedGroups += 1;
-      processedTargets += groupedTargets.length;
     }
+
+    const nextOffset = offset + chunkTargets.length;
+    const done = nextOffset >= targets.length;
+    const currentTarget = chunkTargets[chunkTargets.length - 1] || null;
+    const currentLabel = currentTarget
+      ? [currentTarget.city, currentTarget.district, currentTarget.town, currentTarget.apartment_name]
+          .filter(Boolean)
+          .join(" ")
+      : "";
 
     return NextResponse.json({
       ok: true,
-      message: `${district} 적재가 완료되었습니다.`,
-      mode: "district_manual",
-      monthsToFetch,
-      processedGroups,
+      message: done ? "실거래 캐시 전체 적재가 완료되었습니다." : "다음 청크 적재가 완료되었습니다.",
       processedTargets,
       totalTargets: targets.length,
       savedRows,
       errorCount: errors.length,
       lastError: errors.length ? errors[errors.length - 1] : null,
       errors: errors.slice(0, 20),
-      done: true,
-      currentLabel: `${city} ${district}`,
+      offset,
+      nextOffset,
+      limit,
+      done,
+      currentLabel,
     });
   } catch (error) {
     return NextResponse.json(

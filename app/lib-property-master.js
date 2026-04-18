@@ -1,5 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import bundledPropertyMaster from "../property-master.json";
 
 function unique(values = []) {
   return [...new Set(values.filter(Boolean))];
@@ -73,66 +72,16 @@ function normalizePayload(payload) {
 let memoryCache = null;
 let cacheExpiry = 0;
 
-async function loadLocalMasterFile() {
-  const localPath = path.join(process.cwd(), "public", "property-master.json");
-  const raw = await fs.readFile(localPath, "utf-8");
-  const payload = JSON.parse(raw);
-  if (!payload || typeof payload !== "object") {
-    throw new Error("property-master.json 형식이 올바르지 않습니다.");
-  }
-  return normalizePayload(payload);
-}
-
-async function loadLocalMasterViaHttp(requestUrl = "") {
-  const candidates = [];
-  if (requestUrl) {
-    try {
-      const origin = new URL(requestUrl).origin;
-      candidates.push(`${origin}/property-master.json`);
-    } catch {}
-  }
-
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    candidates.push(`${String(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "")}/property-master.json`);
-  }
-
-  if (process.env.VERCEL_URL) {
-    candidates.push(`https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, "")}/property-master.json`);
-  }
-
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) continue;
-      const payload = await res.json();
-      if (!payload || typeof payload !== "object") continue;
-      return normalizePayload(payload);
-    } catch {}
-  }
-
-  throw new Error("property-master.json 공개 URL을 불러오지 못했습니다.");
-}
-
 export async function loadPropertyMaster(requestUrl = "") {
   const now = Date.now();
   if (memoryCache && cacheExpiry > now) {
-    return { master: memoryCache, source: "local-cache" };
+    return { master: memoryCache, source: "bundled-cache" };
   }
 
-  try {
-    const local = await loadLocalMasterFile().catch(() => loadLocalMasterViaHttp(requestUrl));
-    memoryCache = local;
-    cacheExpiry = now + 1000 * 60 * 30;
-    return { master: local, source: "local" };
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      const empty = { "아파트": {}, "오피스텔": {}, "빌라(연립/다세대)": {} };
-      memoryCache = empty;
-      cacheExpiry = now + 1000 * 60 * 5;
-      return { master: empty, source: "missing" };
-    }
-    throw error;
-  }
+  const normalized = normalizePayload(bundledPropertyMaster);
+  memoryCache = normalized;
+  cacheExpiry = now + 1000 * 60 * 30;
+  return { master: normalized, source: "bundled-import" };
 }
 
 function getEntries(master, propertyType, city) {
