@@ -191,9 +191,23 @@ export default function AdminOwnerPage() {
     fetched_at: null,
   });
   const [tradeStatsError, setTradeStatsError] = useState("");
-  const [tradeErrorLog, setTradeErrorLog] = useState([]);
-  const tradeErrorSeqRef = useRef(0);
   const [tradeJobRunning, setTradeJobRunning] = useState(false);
+  const [tradeErrorLogs, setTradeErrorLogs] = useState([]);
+  const tradeRunIdRef = useRef(0);
+
+  function appendTradeLog(message) {
+    const line = `[${new Date().toLocaleTimeString("ko-KR", { hour12: false })}] ${message}`;
+    setTradeErrorLogs((prev) => [...prev, line].slice(-200));
+  }
+
+  async function parseJsonSafe(res) {
+    const raw = await res.text();
+    try {
+      return { data: raw ? JSON.parse(raw) : null, raw };
+    } catch (_error) {
+      return { data: null, raw };
+    }
+  }
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" })
@@ -262,14 +276,32 @@ export default function AdminOwnerPage() {
       setTradeStatsError("");
     } catch (error) {
       if (!silent) {
-        pushTradeErrorLog(error.message || "실거래 캐시 통계를 불러오지 못했습니다.", { scope: "loadTradeStats" });
+        setTradeStatsError(error.message || "실거래 캐시 통계를 불러오지 못했습니다.");
       }
     }
   }
 
   async function handleStartFullTradeIngest() {
-    clearTradeErrorLog();
+    setTradeStatsError("");
     setTradeJobRunning(true);
+    setTradeErrorLogs([]);
+
+    const runId = Date.now();
+    tradeRunIdRef.current = runId;
+    appendTradeLog("전체 적재 시작 버튼 클릭");
+    setTradeStats((prev) => ({
+      ...prev,
+      job: {
+        status: "starting",
+        processed_groups: 0,
+        total_groups: prev?.job?.total_groups || 0,
+        inserted_rows: 0,
+        error_count: 0,
+        current_label: "적재 준비 중...",
+        lastError: null,
+        last_error: "",
+      },
+    }));
 
     try {
       let offset = 0;
@@ -281,7 +313,9 @@ export default function AdminOwnerPage() {
       let lastError = null;
       let currentLabel = "";
 
-      while (!done) {
+      while (!done && tradeRunIdRef.current === runId) {
+        appendTradeLog(`요청 전송: offset=${offset}, limit=${limit}`);
+
         const res = await fetch("/api/admin/trade-cache", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -293,31 +327,31 @@ export default function AdminOwnerPage() {
           }),
         });
 
-        const parsed = await parseResponseSafely(res);
-        const data = parsed.data;
-
-        if (!parsed.ok || !data?.ok) {
-          throw new Error(buildVisibleError("실거래 캐시 적재 중 오류가 발생했습니다.", parsed));
+        const { data, raw } = await parseJsonSafe(res);
+        if (!res.ok || !data?.ok) {
+          const message =
+            data?.message ||
+            raw?.slice(0, 800) ||
+            `실거래 캐시 적재 중 오류가 발생했습니다. (HTTP ${res.status})`;
+          appendTradeLog(`요청 실패: HTTP ${res.status} / ${message}`);
+          throw new Error(message);
         }
+
+        appendTradeLog(
+          `요청 성공: processed=${data.processedTargets || 0}, saved=${data.savedRows || 0}, errors=${data.errorCount || 0}`
+        );
 
         totalTargets = data.totalTargets || totalTargets;
         totalSavedRows += data.savedRows || 0;
         totalErrorCount += data.errorCount || 0;
         lastError = data.lastError || lastError;
         currentLabel = data.currentLabel || currentLabel;
-
-        if (data.lastError?.message) {
-          pushTradeErrorLog(data.lastError.message, {
-            scope: "ingest",
-            label: data.currentLabel || currentLabel,
-            apartment: data.lastError.apartment || "",
-            district: data.lastError.district || "",
-            town: data.lastError.town || "",
-            lawdCode: data.lastError.lawd_code || "",
-          });
-        }
         done = Boolean(data.done);
         offset = Number(data.nextOffset || 0);
+
+        if (data.lastError?.message) {
+          appendTradeLog(`최근 오류: ${data.lastError.message}`);
+        }
 
         setTradeStats((prev) => ({
           ...prev,
@@ -336,15 +370,30 @@ export default function AdminOwnerPage() {
         await loadTradeStats({ silent: true });
 
         if (!done) {
+          appendTradeLog("다음 요청 전 대기 700ms");
           await new Promise((resolve) => setTimeout(resolve, 700));
         }
       }
 
+      appendTradeLog("전체 적재 루프 종료");
       await loadTradeStats();
     } catch (error) {
-      pushTradeErrorLog(error.message || "실거래 캐시 전체 적재에 실패했습니다.", { scope: "handleStartFullTradeIngest" });
+      const message = error?.message || "실거래 캐시 전체 적재에 실패했습니다.";
+      appendTradeLog(`실패: ${message}`);
+      setTradeStatsError(message);
+      setTradeStats((prev) => ({
+        ...prev,
+        job: {
+          ...(prev.job || {}),
+          status: "failed",
+          current_label: prev?.job?.current_label || "오류 발생",
+          last_error: message,
+        },
+      }));
     } finally {
-      setTradeJobRunning(false);
+      if (tradeRunIdRef.current === runId) {
+        setTradeJobRunning(false);
+      }
     }
   }
 
@@ -1240,6 +1289,23 @@ export default function AdminOwnerPage() {
                   </div>
                 </div>
                 {tradeStatsError ? <div className="api-status error">{tradeStatsError}</div> : null}
+                <div className="crm-panel" style={{ marginTop: 16, padding: 16, background: "#fff8f8", border: "1px solid #f3c9c9" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 10 }}>
+                    <strong style={{ color: "#b42318" }}>실거래 적재 로그</strong>
+                    <button
+                      type="button"
+                      className="nav-btn"
+                      onClick={() => navigator.clipboard?.writeText(tradeErrorLogs.join("
+"))}
+                    >
+                      로그 복사
+                    </button>
+                  </div>
+                  <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, maxHeight: 220, overflow: "auto", color: "#7a271a" }}>
+                    {tradeErrorLogs.length ? tradeErrorLogs.join("
+") : "아직 로그가 없습니다. 버튼을 누르면 여기부터 기록됩니다."}
+                  </div>
+                </div>
                 <div className="crm-muted-box" style={{ marginTop: 16 }}>
                   현재 상태: <strong>{tradeJob?.status || "idle"}</strong>
                   {" · "}

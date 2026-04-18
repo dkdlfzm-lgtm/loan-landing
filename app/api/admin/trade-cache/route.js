@@ -151,12 +151,10 @@ async function supabaseRequest(path, options = {}) {
 
   const text = await response.text();
   let data = null;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch (_error) {
-      data = { raw: text.slice(0, 1000) };
-    }
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch (_error) {
+    data = { raw: text };
   }
 
   if (!response.ok) {
@@ -357,7 +355,7 @@ export async function GET() {
     });
   } catch (error) {
     return NextResponse.json(
-      { ok: false, message: error.message || "실거래 캐시 통계를 불러오지 못했습니다." },
+      { ok: false, message: error.message || "실거래 캐시 통계를 불러오지 못했습니다.", stack: error?.stack || "" },
       { status: 500 }
     );
   }
@@ -373,7 +371,7 @@ export async function POST(request) {
       );
     }
 
-    const body = await request.json().catch(async () => ({ rawBody: await request.text().catch(() => "") }));
+    const body = await request.json().catch(() => ({}));
     const city = normalizeText(body?.city || "서울특별시");
     const district = normalizeText(body?.district || "");
     const town = normalizeText(body?.town || "");
@@ -460,14 +458,13 @@ export async function POST(request) {
       currentLabel,
     });
   } catch (error) {
-    const payload = {
-      ok: false,
-      message: error?.message || "실거래 캐시 적재에 실패했습니다.",
-      name: error?.name || "Error",
-      stack: error?.stack ? String(error.stack).split("\n").slice(0, 8).join("\n") : "",
-      timestamp: new Date().toISOString(),
-    };
-    console.error("[trade-cache POST fatal]", payload);
-    return NextResponse.json(payload, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: false,
+        message: error?.message || "실거래 캐시 적재에 실패했습니다.",
+        stack: error?.stack || "",
+      },
+      { status: 500 }
+    );
   }
 }
