@@ -56,33 +56,52 @@ function xmlItemsToObjects(xml) {
 }
 
 async function fetchApi(url) {
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
-    },
-    cache: "no-store",
-  });
+  const maxRetries = getEnvNumber("TRADE_API_MAX_RETRIES", 6);
+  const baseDelayMs = getEnvNumber("TRADE_API_RETRY_BASE_MS", 1500);
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${url}`);
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json, application/xml, text/xml;q=0.9, */*;q=0.8",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const retryAfterHeader = response.headers.get("retry-after");
+      const retryAfterSeconds = Number(retryAfterHeader);
+      const shouldRetry = response.status === 429 || response.status >= 500;
+
+      if (shouldRetry && attempt < maxRetries) {
+        const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+          ? retryAfterSeconds * 1000
+          : baseDelayMs * Math.pow(2, attempt);
+        await sleep(delayMs);
+        continue;
+      }
+
+      throw new Error(`HTTP ${response.status}: ${url}`);
+    }
+
+    const text = (await response.text()).trim();
+    if (!text) {
+      return { response: { header: { resultCode: "EMPTY" }, body: { items: [] } } };
+    }
+
+    if (text.startsWith("{") || text.startsWith("[")) {
+      return JSON.parse(text);
+    }
+
+    return {
+      response: {
+        header: { resultCode: "XML" },
+        body: { items: { item: xmlItemsToObjects(text) } },
+      },
+    };
   }
 
-  const text = (await response.text()).trim();
-  if (!text) {
-    return { response: { header: { resultCode: "EMPTY" }, body: { items: [] } } };
-  }
-
-  if (text.startsWith("{") || text.startsWith("[")) {
-    return JSON.parse(text);
-  }
-
-  return {
-    response: {
-      header: { resultCode: "XML" },
-      body: { items: { item: xmlItemsToObjects(text) } },
-    },
-  };
+  throw new Error(`실거래가 API 재시도 한도를 초과했습니다: ${url}`);
 }
 
 function unwrapItems(payload) {
@@ -107,6 +126,15 @@ function getRecentMonths(count = 24) {
   }
 
   return list;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getEnvNumber(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 async function loadPropertyMasterLocal() {
@@ -228,10 +256,12 @@ function getTradeDate(item) {
 }
 
 async function fetchTradesForTarget(serviceKey, target) {
-  const months = getRecentMonths(24);
+  const monthCount = Math.max(getEnvNumber("TRADE_CACHE_MONTHS", 24), 1);
+  const perMonthDelayMs = getEnvNumber("TRADE_API_REQUEST_DELAY_MS", 350);
+  const months = getRecentMonths(monthCount);
   const rows = [];
 
-  for (const dealYmd of months) {
+  for (const [monthIndex, dealYmd] of months.entries()) {
     const url = buildUrl(APT_TRADE_BASE, {
       serviceKey,
       LAWD_CD: target.lawd_code,
@@ -243,7 +273,7 @@ async function fetchTradesForTarget(serviceKey, target) {
     const payload = await fetchApi(url);
     const { header, items } = unwrapItems(payload);
     const resultCode = String(header?.resultCode ?? "00");
-    if (!["00", "000", "XML"].includes(resultCode)) {
+    if (!["00", "000", "XML", "EMPTY"].includes(resultCode)) {
       throw new Error(header?.resultMsg || `실거래가 API 오류 (${resultCode})`);
     }
 
@@ -262,6 +292,8 @@ async function fetchTradesForTarget(serviceKey, target) {
         continue;
       }
 
+      const areaNumber = parseAreaNumber(getTradeArea(item));
+
       rows.push({
         property_type: target.property_type,
         city: target.city,
@@ -271,154 +303,36 @@ async function fetchTradesForTarget(serviceKey, target) {
         apartment_name: apartmentName,
         apartment_name_norm: apartmentNameNorm,
         jibun: getTradeJibun(item) || target.jibun || "",
-        area_m2: parseAreaNumber(getTradeArea(item)),
+        area_m2: areaNumber,
         deal_date: getTradeDate(item),
         amount_won: amountWon,
-        price_per_m2: Math.round(amountWon / Math.max(parseAreaNumber(getTradeArea(item)) || 1, 1)),
+        price_per_m2: Math.round(amountWon / Math.max(areaNumber || 1, 1)),
         source: "molit",
         collected_at: new Date().toISOString(),
         raw_payload: item,
       });
+    }
+
+    if (monthIndex < months.length - 1 && perMonthDelayMs > 0) {
+      await sleep(perMonthDelayMs);
     }
   }
 
   return rows;
 }
 
-function buildTradeRowKey(row) {
-  return [
-    String(row.lawd_code || "").trim(),
-    String(row.apartment_name_norm || "").trim(),
-    String(row.jibun || "").trim(),
-    String(row.deal_date || "").trim(),
-    Number(row.area_m2 || 0).toFixed(2),
-    String(row.amount_won || 0),
-  ].join("|");
-}
-
-function dedupeTradeRows(rows) {
-  const map = new Map();
-
-  for (const row of rows) {
-    const key = buildTradeRowKey(row);
-    if (!map.has(key)) {
-      map.set(key, row);
-    }
-  }
-
-  return Array.from(map.values());
-}
-
-async function loadExistingTradeKeys(rows) {
-  if (!rows.length) return new Set();
-
-  const combos = new Map();
-
-  for (const row of rows) {
-    const lawdCode = String(row.lawd_code || "").trim();
-    const apartmentNameNorm = String(row.apartment_name_norm || "").trim();
-    if (!lawdCode || !apartmentNameNorm) continue;
-    combos.set(`${lawdCode}|${apartmentNameNorm}`, { lawdCode, apartmentNameNorm });
-  }
-
-  const keys = new Set();
-
-  for (const combo of combos.values()) {
-    const query =
-      "/apartment_trade_cache?select=lawd_code,apartment_name_norm,jibun,deal_date,area_m2,amount_won" +
-      `&lawd_code=eq.${encodeURIComponent(combo.lawdCode)}` +
-      `&apartment_name_norm=eq.${encodeURIComponent(combo.apartmentNameNorm)}` +
-      "&limit=5000";
-
-    const existingRows = await supabaseRequest(query);
-
-    for (const row of Array.isArray(existingRows) ? existingRows : []) {
-      keys.add(buildTradeRowKey(row));
-    }
-  }
-
-  return keys;
-}
-
-function isDuplicateConstraintError(error) {
-  const message = String(error?.message || error?.details || error || "").toLowerCase();
-  return message.includes("duplicate key value") || message.includes("unique constraint") || message.includes("23505");
-}
-
 async function upsertTradeRows(rows) {
-  if (!rows.length) {
-    return {
-      inserted: 0,
-      skipped: 0,
-      batchDuplicateRows: 0,
-      existingDuplicateRows: 0,
-    };
-  }
+  if (!rows.length) return { inserted: 0 };
 
-  const dedupedRows = dedupeTradeRows(rows);
-  const batchDuplicateRows = Math.max(rows.length - dedupedRows.length, 0);
-  const existingKeys = await loadExistingTradeKeys(dedupedRows);
-  const newRows = dedupedRows.filter((row) => !existingKeys.has(buildTradeRowKey(row)));
-  const existingDuplicateRows = dedupedRows.length - newRows.length;
+  const data = await supabaseRequest("/apartment_trade_cache", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: rows,
+  });
 
-  if (!newRows.length) {
-    return {
-      inserted: 0,
-      skipped: batchDuplicateRows + existingDuplicateRows,
-      batchDuplicateRows,
-      existingDuplicateRows,
-    };
-  }
-
-  try {
-    const data = await supabaseRequest("/apartment_trade_cache", {
-      method: "POST",
-      headers: {
-        Prefer: "return=representation",
-      },
-      body: newRows,
-    });
-
-    return {
-      inserted: Array.isArray(data) ? data.length : newRows.length,
-      skipped: batchDuplicateRows + existingDuplicateRows,
-      batchDuplicateRows,
-      existingDuplicateRows,
-    };
-  } catch (error) {
-    if (!isDuplicateConstraintError(error)) {
-      throw error;
-    }
-
-    let inserted = 0;
-    let retrySkipped = 0;
-
-    for (const row of newRows) {
-      try {
-        await supabaseRequest("/apartment_trade_cache", {
-          method: "POST",
-          headers: {
-            Prefer: "return=representation",
-          },
-          body: row,
-        });
-        inserted += 1;
-      } catch (rowError) {
-        if (isDuplicateConstraintError(rowError)) {
-          retrySkipped += 1;
-          continue;
-        }
-        throw rowError;
-      }
-    }
-
-    return {
-      inserted,
-      skipped: batchDuplicateRows + existingDuplicateRows + retrySkipped,
-      batchDuplicateRows,
-      existingDuplicateRows: existingDuplicateRows + retrySkipped,
-    };
-  }
+  return { inserted: Array.isArray(data) ? data.length : rows.length };
 }
 
 export async function GET() {
@@ -518,9 +432,6 @@ export async function POST(request) {
     const chunkTargets = targets.slice(offset, offset + limit);
 
     let savedRows = 0;
-    let skippedRows = 0;
-    let batchDuplicateRows = 0;
-    let existingDuplicateRows = 0;
     let processedTargets = 0;
     const errors = [];
 
@@ -528,10 +439,7 @@ export async function POST(request) {
       try {
         const tradeRows = await fetchTradesForTarget(serviceKey, target);
         const result = await upsertTradeRows(tradeRows);
-        savedRows += result.inserted || 0;
-        skippedRows += result.skipped || 0;
-        batchDuplicateRows += result.batchDuplicateRows || 0;
-        existingDuplicateRows += result.existingDuplicateRows || 0;
+        savedRows += result.inserted;
         processedTargets += 1;
       } catch (err) {
         const errorMessage =
@@ -571,9 +479,6 @@ export async function POST(request) {
       processedTargets,
       totalTargets: targets.length,
       savedRows,
-      skippedRows,
-      batchDuplicateRows,
-      existingDuplicateRows,
       errorCount: errors.length,
       lastError: errors.length ? errors[errors.length - 1] : null,
       errors: errors.slice(0, 20),
