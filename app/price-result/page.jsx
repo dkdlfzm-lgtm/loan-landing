@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 function formatNumber(value) {
@@ -14,7 +14,7 @@ const RATE_BY_TYPE = {
   만기일시상환: "5.4",
 };
 
-export default function PriceResultPage() {
+function PriceResultContent() {
   const searchParams = useSearchParams();
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
@@ -298,5 +298,32 @@ export default function PriceResultPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+
+function PriceResultFallback() {
+  return (
+    <div className="site-wrap">
+      <section className="result-page-section">
+        <div className="container">
+          <div className="result-page-hero motion-fade-up is-visible">
+            <div>
+              <div className="section-mini light-mini">시세조회 결과</div>
+              <h2 className="result-page-title">불러오는 중...</h2>
+              <p className="result-page-sub">조회 데이터를 준비하고 있습니다.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export default function PriceResultPage() {
+  return (
+    <Suspense fallback={<PriceResultFallback />}>
+      <PriceResultContent />
+    </Suspense>
   );
 }
