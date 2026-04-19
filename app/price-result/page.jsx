@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 function formatNumber(value) {
   if (!Number.isFinite(value)) return "0";
@@ -13,39 +14,144 @@ const RATE_BY_TYPE = {
   만기일시상환: "5.4",
 };
 
+const DEFAULT_SUMMARY = {
+  title: "조회 단지",
+  address: "주소 정보 없음",
+  area: "선택 면적",
+  tradeDate: "최근 조회 기준",
+  latestPrice: "조회 중",
+  range: "조회 중",
+  averagePrice: "조회 중",
+  estimateLimit: "상담 후 산정",
+  description: "실거래 데이터를 불러오는 중입니다.",
+  trendText: "시세 확인 중",
+};
+
+function buildConditionRows(summary) {
+  const latest = summary?.latestPrice || "조회값 없음";
+  const limit = summary?.estimateLimit || "상담 후 산정";
+  const average = summary?.averagePrice || summary?.range || "조회값 없음";
+
+  return [
+    {
+      name: "최근 실거래 기준",
+      desc: `${latest} · ${summary?.tradeDate || "최근 기준"}`,
+      badge: "실거래",
+      badgeClass: "condition-blue",
+    },
+    {
+      name: "평균 시세 참고",
+      desc: `${average} · ${summary?.trendText || "최근 흐름"}`,
+      badge: "참고형",
+      badgeClass: "condition-indigo",
+    },
+    {
+      name: "예상 가능 한도",
+      desc: `${limit} · 상담 후 세부조건 반영`,
+      badge: "상담형",
+      badgeClass: "condition-purple",
+    },
+  ];
+}
+
 export default function PriceResultPage() {
+  const searchParams = useSearchParams();
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("원리금균등");
   const [loanMonths, setLoanMonths] = useState("");
   const [pageMounted, setPageMounted] = useState(false);
   const [showQuickApply, setShowQuickApply] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [warning, setWarning] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [resultSource, setResultSource] = useState("");
+  const [summary, setSummary] = useState(DEFAULT_SUMMARY);
+
+  const city = searchParams.get("city") || "";
+  const district = searchParams.get("district") || "";
+  const town = searchParams.get("town") || "";
+  const apartment = searchParams.get("apartment") || "";
+  const area = searchParams.get("area") || "";
+  const propertyType = searchParams.get("propertyType") || "아파트";
 
   useEffect(() => {
     setPageMounted(true);
   }, []);
 
-  const params =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search)
-      : new URLSearchParams();
+  useEffect(() => {
+    let cancelled = false;
 
-  const city = params.get("city") || "경기도";
-  const district = params.get("district") || "구리시";
-  const town = params.get("town") || "인창동";
-  const apartment = params.get("apartment") || "구리 더샵 그린포레 2단지";
-  const area = params.get("area") || "84.98㎡";
+    async function fetchMarket() {
+      if (!city || !district || !town || !apartment || !area) {
+        setLoading(false);
+        setLoadError("조회 조건이 부족합니다. 시세조회 페이지에서 지역과 단지를 다시 선택해 주세요.");
+        setSummary({
+          ...DEFAULT_SUMMARY,
+          title: apartment || "조회 단지",
+          address: [city, district, town].filter(Boolean).join(" ") || "주소 정보 없음",
+          area: area || "선택 면적",
+          description: "조회 조건을 다시 선택해 주세요.",
+        });
+        return;
+      }
 
-  const priceResult = {
-    title: apartment,
-    address: `${city} ${district} ${town}`,
-    area,
-    floor: "선택 조건 기준",
-    tradeDate: "최근 조회 기준",
-    latestPrice: "9억 9,021만원",
-    range: "9억 4,500만원 ~ 10억 1,843만원",
-    estimateLimit: "최대 7억 1,295만원 가능",
-  };
+      setLoading(true);
+      setLoadError("");
+      setWarning("");
+
+      try {
+        const qs = new URLSearchParams({
+          propertyType,
+          city,
+          district,
+          town,
+          apartment,
+          area,
+        });
+        const res = await fetch(`/api/reb-market?${qs.toString()}`, { cache: "no-store" });
+        const payload = await res.json();
+
+        if (!res.ok || !payload?.ok) {
+          throw new Error(payload?.message || "시세 데이터를 불러오지 못했습니다.");
+        }
+
+        if (cancelled) return;
+
+        setSummary({
+          ...DEFAULT_SUMMARY,
+          ...payload.summary,
+          title: payload.summary?.title || apartment,
+          address:
+            payload.summary?.address || [city, district, town].filter(Boolean).join(" "),
+          area: payload.summary?.area || area,
+        });
+        setWarning(payload?.warning || "");
+        setResultSource(payload?.source || "");
+      } catch (error) {
+        if (cancelled) return;
+        setLoadError(error?.message || "시세 데이터를 불러오지 못했습니다.");
+        setSummary({
+          ...DEFAULT_SUMMARY,
+          title: apartment || "조회 단지",
+          address: [city, district, town].filter(Boolean).join(" ") || "주소 정보 없음",
+          area: area || "선택 면적",
+          latestPrice: "조회 실패",
+          range: "조회 실패",
+          averagePrice: "조회 실패",
+          description: "실거래 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          trendText: "조회 실패",
+        });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchMarket();
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyType, city, district, town, apartment, area]);
 
   const calcResult = useMemo(() => {
     const principal = Number(String(loanAmount).replace(/,/g, ""));
@@ -93,6 +199,9 @@ export default function PriceResultPage() {
     setLoanMonths((prev) => (prev && String(prev).trim() !== "" ? prev : "360"));
   }
 
+  const conditionRows = buildConditionRows(summary);
+  const heroSub = [summary.address, summary.area, "선택 조건 기준"].filter(Boolean).join(" · ");
+
   return (
     <div className="site-wrap">
       {showQuickApply && (
@@ -106,7 +215,7 @@ export default function PriceResultPage() {
               <label className="input-label">연락처</label>
               <input type="text" placeholder="연락처를 입력하세요" />
               <label className="input-label">주소 입력</label>
-              <input type="text" placeholder="주소를 입력하세요" />
+              <input type="text" placeholder="주소를 입력하세요" defaultValue={summary.address} />
               <label className="input-label">대출유형</label>
               <select defaultValue="주택담보대출">
                 <option>주택담보대출</option>
@@ -136,10 +245,8 @@ export default function PriceResultPage() {
           <div className={`result-page-hero motion-fade-up${pageMounted ? " is-visible" : ""}`}>
             <div>
               <div className="section-mini light-mini">시세조회 결과</div>
-              <h2 className="result-page-title">{priceResult.title}</h2>
-              <p className="result-page-sub">
-                {priceResult.address} · {priceResult.area} · {priceResult.floor}
-              </p>
+              <h2 className="result-page-title">{summary.title}</h2>
+              <p className="result-page-sub">{heroSub}</p>
             </div>
             <button type="button" className="white-pill-btn" onClick={() => setShowQuickApply(true)}>
               상담 신청
@@ -148,25 +255,39 @@ export default function PriceResultPage() {
 
           <div className="result-page-grid">
             <div className="result-main-card motion-fade-up is-visible delay-1">
+              {(loading || warning || loadError || resultSource) && (
+                <div className="info-card" style={{ marginBottom: 16 }}>
+                  <div className="info-label">조회 상태</div>
+                  <div className="info-sub" style={{ whiteSpace: "pre-wrap" }}>
+                    {loading
+                      ? "실거래 데이터를 조회 중입니다."
+                      : loadError
+                      ? loadError
+                      : warning || "실거래 캐시 기준으로 조회되었습니다."}
+                  </div>
+                  {resultSource ? <div className="info-sub">데이터 출처: {resultSource}</div> : null}
+                </div>
+              )}
+
               <div className="info-grid result-info-grid result-info-grid-wide">
                 <div className="info-card info-card-emphasis">
                   <div className="info-label">최근 실거래가</div>
-                  <div className="info-value">{priceResult.latestPrice}</div>
-                  <div className="info-sub">{priceResult.tradeDate}</div>
+                  <div className="info-value">{summary.latestPrice}</div>
+                  <div className="info-sub">{summary.tradeDate}</div>
                 </div>
                 <div className="info-card">
                   <div className="info-label">최근 거래 범위</div>
-                  <div className="info-value">{priceResult.range}</div>
-                  <div className="info-sub">최근 조회 기준</div>
+                  <div className="info-value">{summary.range}</div>
+                  <div className="info-sub">{summary.trendText || "최근 조회 기준"}</div>
                 </div>
                 <div className="info-card">
-                  <div className="info-label">전용면적 / 층</div>
-                  <div className="info-value">{priceResult.area}</div>
-                  <div className="info-sub">{priceResult.floor}</div>
+                  <div className="info-label">전용면적 / 평균 시세</div>
+                  <div className="info-value">{summary.area}</div>
+                  <div className="info-sub">{summary.averagePrice || "조회값 없음"}</div>
                 </div>
                 <div className="info-card">
                   <div className="info-label">예상 가능 한도</div>
-                  <div className="info-value">{priceResult.estimateLimit}</div>
+                  <div className="info-value">{summary.estimateLimit}</div>
                   <div className="info-sub">상담 후 세부조건 반영</div>
                 </div>
               </div>
@@ -176,29 +297,19 @@ export default function PriceResultPage() {
                 <h3 className="desc-title">시세 정보 기준 추천 조건</h3>
 
                 <div className="condition-list">
-                  <div className="condition-item">
-                    <div className="condition-left">
-                      <div className="condition-name">1금융</div>
-                      <div className="condition-desc">시세 80% 금리 4.5%~</div>
+                  {conditionRows.map((item) => (
+                    <div className="condition-item" key={`${item.name}-${item.badge}`}>
+                      <div className="condition-left">
+                        <div className="condition-name">{item.name}</div>
+                        <div className="condition-desc">{item.desc}</div>
+                      </div>
+                      <div className={`condition-badge ${item.badgeClass}`}>{item.badge}</div>
                     </div>
-                    <div className="condition-badge condition-blue">안정형</div>
-                  </div>
+                  ))}
+                </div>
 
-                  <div className="condition-item">
-                    <div className="condition-left">
-                      <div className="condition-name">저축은행 캐피탈</div>
-                      <div className="condition-desc">시세 90% 금리 5.9%~</div>
-                    </div>
-                    <div className="condition-badge condition-indigo">확장형</div>
-                  </div>
-
-                  <div className="condition-item">
-                    <div className="condition-left">
-                      <div className="condition-name">대부, P2P</div>
-                      <div className="condition-desc">시세 95% 금리 7.9%~</div>
-                    </div>
-                    <div className="condition-badge condition-purple">고한도형</div>
-                  </div>
+                <div className="info-sub" style={{ marginTop: 16, whiteSpace: "pre-wrap" }}>
+                  {summary.description}
                 </div>
               </div>
             </div>
@@ -211,7 +322,7 @@ export default function PriceResultPage() {
                 <form className="form-stack">
                   <input type="text" placeholder="성함" />
                   <input type="text" placeholder="연락처" />
-                  <input type="text" value={`${apartment} / ${area}`} readOnly />
+                  <input type="text" value={`${summary.title} / ${summary.area}`} readOnly />
                   <select defaultValue="주택담보대출">
                     <option>주택담보대출</option>
                     <option>전세퇴거자금</option>
@@ -219,7 +330,7 @@ export default function PriceResultPage() {
                     <option>사업자대출</option>
                     <option>기타</option>
                   </select>
-                  <textarea rows={4} placeholder="상담 내용을 입력하세요" />
+                  <textarea rows={4} placeholder="상담 내용을 입력하세요" defaultValue={`${summary.address} / ${summary.latestPrice}`} />
                   <button type="button" className="primary-btn">대출 신청 접수하기</button>
                 </form>
               </div>
