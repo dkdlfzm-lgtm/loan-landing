@@ -1273,33 +1273,6 @@ export default function AdminOwnerPage() {
               </div>
             </div>
           ) : null}
-                  {tradeJob?.months_to_fetch?.length ? (
-                    <>
-                      {" · "}
-                      조회월: <strong>{tradeJob.months_to_fetch.join(", ")}</strong>
-                    </>
-                  ) : null}
-
-                  {tradeJob?.current_label ? (
-                    <>
-                      <br />
-                      현재 작업: {tradeJob.current_label}
-                    </>
-                  ) : null}
-
-                  {tradeJob?.lastError ? (
-                    <>
-                      <br />
-                      최근 오류: {tradeJob.lastError.district} {tradeJob.lastError.town} {tradeJob.lastError.apartment} - {tradeJob.lastError.message}
-                    </>
-                  ) : tradeJob?.last_error ? (
-                    <>
-                      <br />
-                      최근 오류: {tradeJob.last_error}
-                    </>
-                  ) : null}
-                </div>
-              </section>
               <div className="owner-performance-grid">
                 <section className="crm-panel crm-panel-xl">
                   <div className="crm-panel-banner">일별 적재 건수</div>
