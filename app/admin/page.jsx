@@ -26,6 +26,12 @@ const OWNER_TABS = [
 ];
 const AUTO_REFRESH_MS = 5000;
 
+const SEOUL_DISTRICTS = [
+  "강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구",
+  "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구",
+  "용산구", "은평구", "종로구", "중구", "중랑구",
+];
+
 
 function SummaryCard({ title, value, subtitle, tone = "default" }) {
   return (
@@ -192,6 +198,8 @@ export default function AdminOwnerPage() {
     fetched_at: null,
   });
   const [tradeStatsError, setTradeStatsError] = useState("");
+  const [tradeJobRunning, setTradeJobRunning] = useState(false);
+  const [selectedTradeDistrict, setSelectedTradeDistrict] = useState("강남구");
 
   useEffect(() => {
     fetch("/api/admin/session", { cache: "no-store" })
@@ -265,6 +273,50 @@ export default function AdminOwnerPage() {
     }
   }
 
+  async function handleStartDistrictTradeIngest() {
+    setTradeStatsError("");
+    setTradeJobRunning(true);
+
+    try {
+      const res = await fetch("/api/admin/trade-cache", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city: "서울특별시",
+          district: selectedTradeDistrict,
+          monthsCount: 1,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "실거래 캐시 적재 중 오류가 발생했습니다.");
+      }
+
+      setTradeStats((prev) => ({
+        ...prev,
+        job: {
+          status: data.errorCount ? "completed_with_errors" : "completed",
+          processed_groups: data.processedGroups || 0,
+          total_groups: data.processedGroups || 0,
+          inserted_rows: data.savedRows || 0,
+          error_count: data.errorCount || 0,
+          current_label: data.currentLabel || `${selectedTradeDistrict}`,
+          lastError: data.lastError || null,
+          last_error: data.lastError?.message || "",
+          months_to_fetch: data.monthsToFetch || [],
+          mode: data.mode || "district_manual",
+        },
+      }));
+
+      await loadTradeStats();
+    } catch (error) {
+      setTradeStatsError(error.message || "실거래 캐시 적재에 실패했습니다.");
+    } finally {
+      setTradeJobRunning(false);
+    }
+  }
 
   useEffect(() => {
     if (!authenticated) return;
@@ -1138,7 +1190,7 @@ export default function AdminOwnerPage() {
               <section className="crm-panel crm-panel-xl">
                 <div className="crm-section-header">
                   <h3>실거래가 현황</h3>
-                  <span>실거래 데이터는 로컬 자동 다운로드·적재 파이프라인으로 관리하고, 관리자 페이지에서는 현황만 확인합니다.</span>
+                  <span>로컬 자동 다운로드·적재 파이프라인으로 반영된 실거래 데이터 현황입니다.</span>
                 </div>
                 <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
                   <SummaryCard title="누적 저장건" value={tradeSummary.total_rows || 0} subtitle="실거래 캐시 누적 건수" tone="new" />
@@ -1146,133 +1198,54 @@ export default function AdminOwnerPage() {
                   <SummaryCard title="이번달 적재건" value={tradeSummary.monthly_rows || 0} subtitle="이번달 저장된 건수" tone="closed" />
                   <SummaryCard title="최근 적재 시각" value={tradeSummary.latest_collected_at ? formatReviewDateTime(tradeSummary.latest_collected_at) : "-"} subtitle="마지막 저장 기준" />
                 </div>
-
                 <div className="crm-assignment-banner">
                   <div>
-                    <strong>운영 방식 변경</strong>
-                    <span>실거래 데이터는 관리자 페이지에서 직접 적재하지 않고, 로컬 자동 다운로드·적재 스크립트로 수집한 뒤 DB 현황만 이 화면에서 확인합니다.</span>
+                    <strong>운영 안내</strong>
+                    <span>실거래 데이터 수집은 로컬 다운로드·적재 파이프라인으로 운영합니다. 이 화면에서는 누적 건수와 최근 적재 현황만 확인합니다.</span>
                   </div>
-                  <a className="nav-btn crm-ghost-link" href="/price-result">
-                    시세조회 결과 페이지 보기
-                  </a>
                 </div>
-
                 {tradeStatsError ? <div className="api-status error">{tradeStatsError}</div> : null}
-
                 <div className="crm-muted-box" style={{ marginTop: 16 }}>
                   현재 상태: <strong>{tradeJob?.status || "idle"}</strong>
                   {" · "}
-                  누적 저장건수: <strong>{tradeSummary.total_rows || 0}</strong>
+                  진행률: <strong>{tradeJob?.processed_groups || 0}</strong> / <strong>{tradeJob?.total_groups || 0}</strong>
                   {" · "}
-                  최근 적재 시각: <strong>{tradeSummary.latest_collected_at ? formatReviewDateTime(tradeSummary.latest_collected_at) : "-"}</strong>
+                  저장건수: <strong>{tradeJob?.inserted_rows || 0}</strong>
+                  {" · "}
+                  오류건수: <strong>{tradeJob?.error_count || 0}</strong>
                   {tradeJob?.mode ? (
                     <>
                       {" · "}
-                      마지막 모드: <strong>{tradeJob.mode}</strong>
+                      모드: <strong>{tradeJob.mode}</strong>
                     </>
                   ) : null}
                   {tradeJob?.months_to_fetch?.length ? (
                     <>
                       {" · "}
-                      최근 조회월: <strong>{tradeJob.months_to_fetch.join(", ")}</strong>
+                      조회월: <strong>{tradeJob.months_to_fetch.join(", ")}</strong>
                     </>
                   ) : null}
+
                   {tradeJob?.current_label ? (
                     <>
                       <br />
-                      마지막 작업 대상: {tradeJob.current_label}
+                      현재 작업: {tradeJob.current_label}
                     </>
                   ) : null}
+
                   {tradeJob?.lastError ? (
                     <>
                       <br />
-                      마지막 오류: {tradeJob.lastError.district} {tradeJob.lastError.town} {tradeJob.lastError.apartment} - {tradeJob.lastError.message}
+                      최근 오류: {tradeJob.lastError.district} {tradeJob.lastError.town} {tradeJob.lastError.apartment} - {tradeJob.lastError.message}
                     </>
                   ) : tradeJob?.last_error ? (
                     <>
                       <br />
-                      마지막 오류: {tradeJob.last_error}
+                      최근 오류: {tradeJob.last_error}
                     </>
-                  ) : (
-                    <>
-                      <br />
-                      자동 적재 UI는 제거되었고, 로컬 파이프라인으로 수집한 데이터가 이 화면의 통계에 반영됩니다.
-                    </>
-                  )}
+                  ) : null}
                 </div>
               </section>
-              <div className="owner-performance-grid">
-                <section className="crm-panel crm-panel-xl">
-                  <div className="crm-panel-banner">일별 적재 건수</div>
-                  <div className="crm-table-wrap crm-table-modern-wrap">
-                    <table className="crm-table crm-table-modern">
-                      <thead>
-                        <tr>
-                          <th>일자</th>
-                          <th>저장건수</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tradeDailyRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={2} className="crm-empty-cell">
-                              아직 적재 데이터가 없습니다.
-                            </td>
-                          </tr>
-                        ) : (
-                          tradeDailyRows
-                            .slice()
-                            .reverse()
-                            .map((row) => (
-                              <tr key={row.date}>
-                                <td>
-                                  <strong>{row.date}</strong>
-                                </td>
-                                <td>{row.count}</td>
-                              </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-                <section className="crm-panel crm-panel-xl">
-                  <div className="crm-panel-banner">월별 적재 건수</div>
-                  <div className="crm-table-wrap crm-table-modern-wrap">
-                    <table className="crm-table crm-table-modern">
-                      <thead>
-                        <tr>
-                          <th>월</th>
-                          <th>저장건수</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tradeMonthlyRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={2} className="crm-empty-cell">
-                              아직 월별 데이터가 없습니다.
-                            </td>
-                          </tr>
-                        ) : (
-                          tradeMonthlyRows
-                            .slice()
-                            .reverse()
-                            .map((row) => (
-                              <tr key={row.month}>
-                                <td>
-                                  <strong>{row.month}</strong>
-                                </td>
-                                <td>{row.count}</td>
-                              </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              </div>
-            </div>
-          ) : null}
               <div className="owner-performance-grid">
                 <section className="crm-panel crm-panel-xl">
                   <div className="crm-panel-banner">일별 적재 건수</div>
