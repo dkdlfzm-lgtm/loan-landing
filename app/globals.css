@@ -138,9 +138,14 @@ textarea { resize: vertical; }
 .brand-title { font-size: 17px; font-weight: 800; color: var(--navy-900); letter-spacing: -0.03em; }
 .brand-sub { font-size: 11px; color: var(--slate-500); font-weight: 600; letter-spacing: -0.01em; }
 
-.nav { display: flex; align-items: center; gap: 4px; }
+.nav { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
 
-.nav a {
+.nav a,
+.nav-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
   padding: 8px 16px;
   font-size: 14px;
   font-weight: 700;
@@ -148,9 +153,12 @@ textarea { resize: vertical; }
   border-radius: var(--radius-full);
   transition: all var(--transition-fast);
   letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.nav a:hover { background: var(--blue-50); color: var(--blue-600); }
+.nav a:hover,
+.nav-link-btn:hover { background: var(--blue-50); color: var(--blue-600); }
 
 .nav-btn {
   display: inline-flex;
@@ -1617,7 +1625,14 @@ textarea { resize: vertical; }
   .section-title, .card-title, .result-page-title, .review-title { font-size: 26px; }
   .brand-copy { display: none; }
   .brand-logo { width: 80px; }
-  .select-grid-3, .staged-grid-bottom, .result-type-tabs, .result-form-grid-3, .result-form-grid-complex, .two-col, .calc-grid, .contact-split-grid, .contact-split-grid-soft { grid-template-columns: 1fr; }
+  .header-inner { height: auto; min-height: 68px; gap: 12px; padding: 10px 0; }
+  .nav { gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+  .nav a, .nav-link-btn { min-height: 34px; padding: 6px 10px; font-size: 13px; }
+  .nav-btn { min-height: 38px; padding: 9px 16px !important; font-size: 12px !important; }
+  .select-grid-3, .staged-grid-bottom, .result-type-tabs, .result-form-grid-3, .result-form-grid-complex, .two-col, .calc-grid, .contact-split-grid, .contact-split-grid-soft, .result-page-grid { grid-template-columns: 1fr; }
+  .info-grid { grid-template-columns: repeat(2, 1fr); }
+  .result-page-search-shell { padding: 18px; }
+  .white-pill-btn { width: 100%; margin-top: 14px; }
   .hero-card, .white-panel, .side-card, .faq-item, .review-card, .home-info-box, .result-page-search-shell { padding: 20px; }
   .info-value, .calc-main { font-size: 24px; }
   .contact-display-card { min-height: 200px; padding: 24px 20px; }
@@ -1652,6 +1667,12 @@ textarea { resize: vertical; }
   .floating-promo-card { display: none; }
   .hero-title { font-size: 28px; }
   .hero-pill { font-size: 11px; padding: 6px 14px; }
+  .header-inner { align-items: center; }
+  .nav { width: 100%; justify-content: space-between; }
+  .nav a, .nav-link-btn { flex: 0 1 auto; padding: 6px 8px; font-size: 12px; }
+  .nav-btn { width: auto; min-width: 96px; }
+  .info-grid { grid-template-columns: 1fr; }
+  .result-page-section { padding: 20px 0 56px; }
 }
 
 
@@ -2095,9 +2116,8 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 .nav-link-btn {
   background: transparent;
   border: 0;
-  padding: 0;
   margin: 0;
-  color: inherit;
   font: inherit;
   cursor: pointer;
+  appearance: none;
 }
