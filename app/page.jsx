@@ -571,14 +571,37 @@ export default function LoanLandingPage() {
     }
   };
 
-  const handleGoHome = () => {
+  const navigateToHomeSection = (hash = "") => {
+    if (typeof window === "undefined") return;
+
+    if (currentView !== "home") {
+      const target = hash ? `/${hash}` : "/";
+      window.location.href = target;
+      return;
+    }
+
     setCurrentView("home");
-    if (typeof window !== "undefined") {
+
+    if (!hash) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       if (window.location.hash) {
         history.replaceState(null, "", window.location.pathname + window.location.search);
       }
+      return;
     }
+
+    const targetId = hash.replace(/^#/, "");
+    const target = document.getElementById(targetId);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      history.replaceState(null, "", `/${hash}`);
+    } else {
+      window.location.href = `/${hash}`;
+    }
+  };
+
+  const handleGoHome = () => {
+    navigateToHomeSection();
   };
 
   return (
@@ -595,9 +618,9 @@ export default function LoanLandingPage() {
 
           <nav className="nav">
             <button type="button" className="nav-link-btn" onClick={handleGoHome}>홈</button>
-            <a href="#quick-search">시세조회</a>
-            <a href="#calculator">이율계산기</a>
-            {Boolean(siteSettings.reviews_enabled) ? <a href="#approval-cases">승인사례</a> : null}
+            <button type="button" className="nav-link-btn" onClick={() => navigateToHomeSection("#quick-search")}>시세조회</button>
+            <button type="button" className="nav-link-btn" onClick={() => navigateToHomeSection("#calculator")}>이율계산기</button>
+            {Boolean(siteSettings.reviews_enabled) ? <button type="button" className="nav-link-btn" onClick={() => navigateToHomeSection("#approval-cases")}>승인사례</button> : null}
             <button type="button" className="nav-btn" onClick={openConsultPopup}>상담 신청</button>
           </nav>
         </div>
@@ -1004,10 +1027,9 @@ export default function LoanLandingPage() {
 
               <div className="result-page-search-shell">
                 <div className="result-stat-wrap">
-                  <div className="result-stat-head">
-                    <div className="result-stat-title">시장 통계 <span>2026.03.16 기준</span></div>
-                    <a href="#">통계 더보기 〉</a>
-                  </div>
+
+
+                  <div className="result-stat-title">시장 통계</div>
 
                   <div className="result-stat-banner">
                     <span className="result-stat-icon">↗</span>
