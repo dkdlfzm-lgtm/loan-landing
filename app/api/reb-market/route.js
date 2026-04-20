@@ -76,49 +76,6 @@ function nameSimilarityScore(sourceName, targetName) {
   );
 }
 
-async function loadPropertyMasterLocal(requestUrl = "") {
-  const fileErrors = [];
-  for (const filePath of [
-    `${process.cwd()}/public/property-master.json`,
-    `${process.cwd()}/property-master.json`,
-  ]) {
-    try {
-      return JSON.parse(await fs.readFile(filePath, "utf-8"));
-    } catch (err) {
-      fileErrors.push(`${filePath}: ${err?.code || err?.message || err}`);
-    }
-  }
-
-  const urls = [];
-  if (requestUrl) {
-    try {
-      urls.push(`${new URL(requestUrl).origin}/property-master.json`);
-    } catch {}
-  }
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    urls.push(`${String(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "")}/property-master.json`);
-  }
-  if (process.env.VERCEL_URL) {
-    urls.push(`https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, "")}/property-master.json`);
-  }
-
-  const urlErrors = [];
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) {
-        urlErrors.push(`${url}: HTTP ${res.status}`);
-        continue;
-      }
-      return await res.json();
-    } catch (err) {
-      urlErrors.push(`${url}: ${err?.message || err}`);
-    }
-  }
-
-  throw new Error(`property-master.json 파일을 찾지 못했습니다. ${fileErrors.concat(urlErrors).join(" | ")}`);
-}
-
 function pickCatalogEntry(master, query) {
   const rows = master?.[query.propertyType]?.[query.city] || [];
   const byTown = rows.filter(
@@ -129,10 +86,7 @@ function pickCatalogEntry(master, query) {
   const targetArea = parseAreaNumber(query.area);
 
   const sorted = byTown
-    .map((row) => ({
-      row,
-      score: nameSimilarityScore(row.apartment, query.apartment),
-    }))
+    .map((row) => ({ row, score: nameSimilarityScore(row.apartment, query.apartment) }))
     .sort((a, b) => b.score - a.score);
 
   const candidates = sorted.filter((x) => x.score >= 68).map((x) => x.row);
@@ -142,8 +96,7 @@ function pickCatalogEntry(master, query) {
     (row) =>
       Array.isArray(row.areas) &&
       row.areas.some(
-        (area) =>
-          Math.abs(parseAreaNumber(area) - targetArea) <= toleranceForArea(targetArea)
+        (area) => Math.abs(parseAreaNumber(area) - targetArea) <= toleranceForArea(targetArea)
       )
   );
 
@@ -151,14 +104,10 @@ function pickCatalogEntry(master, query) {
 }
 
 function buildSummary(query, rows, label, options = {}) {
-  const sorted = [...rows].sort((a, b) =>
-    String(b.deal_date).localeCompare(String(a.deal_date))
-  );
+  const sorted = [...rows].sort((a, b) => String(b.deal_date).localeCompare(String(a.deal_date)));
   const latest = sorted[0];
   const amounts = sorted.map((row) => Number(row.amount_won || 0)).filter(Boolean);
-  const avg = Math.round(
-    amounts.reduce((s, v) => s + v, 0) / Math.max(amounts.length, 1)
-  );
+  const avg = Math.round(amounts.reduce((s, v) => s + v, 0) / Math.max(amounts.length, 1));
   const low = Math.min(...amounts);
   const high = Math.max(...amounts);
 
@@ -198,22 +147,20 @@ function buildEstimatedSummary(query, baseRow, estimatedWon, label, warning) {
       range: formatEok(estimatedWon),
       averagePrice: formatEok(estimatedWon),
       estimateLimit: `최대 ${formatEok(Math.round(estimatedWon * 0.72))} 가능`,
-      description:
-        "캐시에 저장된 최근 유사 실거래 데이터를 기준으로 ㎡당 가격을 환산한 추정값입니다.",
+      description: "캐시에 저장된 최근 유사 실거래 데이터를 기준으로 ㎡당 가격을 환산한 추정값입니다.",
       trendText: label,
     },
     warning,
   };
 }
 
-async function fetchCacheSummary(query) {
+async function fetchCacheSummary(query, requestUrl) {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
   }
 
-  const master = await loadPropertyMasterLocal(request.url);
+  const { master } = await loadPropertyMaster(requestUrl);
   const entry = pickCatalogEntry(master, query);
-
   if (!entry) throw new Error("단지 정보를 property-master.json에서 찾지 못했습니다.");
 
   const lawdCode = String(entry?.bjdCode || entry?.lawdCode || "").slice(0, 5);
@@ -236,9 +183,7 @@ async function fetchCacheSummary(query) {
 
   const all = Array.isArray(rows) ? rows : [];
   if (!all.length) {
-    throw new Error(
-      "캐시에 저장된 실거래 데이터가 없습니다. 로컬 다운로드·적재 파이프라인으로 실거래 데이터를 먼저 수집해 주세요."
-    );
+    throw new Error("캐시에 저장된 실거래 데이터가 없습니다. 로컬 다운로드·적재 파이프라인으로 데이터를 먼저 넣어 주세요.");
   }
 
   const enriched = all
@@ -246,19 +191,11 @@ async function fetchCacheSummary(query) {
       const area = Number(row.area_m2);
       const nameNorm = row.apartment_name_norm || normalizeApartmentName(row.apartment_name);
       const nameScore = nameSimilarityScore(row.apartment_name, query.apartment);
-      const areaDiff =
-        Number.isFinite(targetArea) && Number.isFinite(area)
-          ? Math.abs(area - targetArea)
-          : Number.POSITIVE_INFINITY;
+      const areaDiff = Number.isFinite(targetArea) && Number.isFinite(area)
+        ? Math.abs(area - targetArea)
+        : Number.POSITIVE_INFINITY;
       const jibunNorm = normalizeJibun(row.jibun);
-      return {
-        ...row,
-        area_m2_num: area,
-        nameNorm,
-        nameScore,
-        areaDiff,
-        jibunNorm,
-      };
+      return { ...row, area_m2_num: area, nameNorm, nameScore, areaDiff, jibunNorm };
     })
     .filter((row) => row.amount_won);
 
@@ -274,9 +211,7 @@ async function fetchCacheSummary(query) {
       row.areaDiff <= toleranceForArea(targetArea);
     return jibunOk && nameOk && areaOk;
   });
-  if (exact.length) {
-    return buildSummary(query, exact, "지번·단지명·면적 정확 매칭");
-  }
+  if (exact.length) return buildSummary(query, exact, "지번·단지명·면적 정확 매칭");
 
   const sameNameArea = enriched.filter((row) => {
     const areaOk =
@@ -285,24 +220,16 @@ async function fetchCacheSummary(query) {
       row.areaDiff <= toleranceForArea(targetArea);
     return row.nameScore >= 84 && areaOk;
   });
-  if (sameNameArea.length) {
-    return buildSummary(query, sameNameArea, "단지명·면적 유사 매칭");
-  }
+  if (sameNameArea.length) return buildSummary(query, sameNameArea, "단지명·면적 유사 매칭");
 
   const sameNameAnyArea = enriched
     .filter((row) => row.nameScore >= 84 && Number.isFinite(row.area_m2_num))
-    .sort(
-      (a, b) =>
-        a.areaDiff - b.areaDiff ||
-        String(b.deal_date).localeCompare(String(a.deal_date))
-    );
+    .sort((a, b) => a.areaDiff - b.areaDiff || String(b.deal_date).localeCompare(String(a.deal_date)));
   if (sameNameAnyArea.length && Number.isFinite(targetArea)) {
     const nearest = sameNameAnyArea[0];
-    const estimated =
-      nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
-        ? Math.round(Number(nearest.price_per_m2) * targetArea)
-        : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
-
+    const estimated = nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
+      ? Math.round(Number(nearest.price_per_m2) * targetArea)
+      : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
     return buildEstimatedSummary(
       query,
       nearest,
@@ -316,18 +243,12 @@ async function fetchCacheSummary(query) {
   if (sameJibun.length) {
     const withArea = sameJibun
       .filter((row) => Number.isFinite(row.area_m2_num) && row.area_m2_num > 0)
-      .sort(
-        (a, b) =>
-          a.areaDiff - b.areaDiff ||
-          String(b.deal_date).localeCompare(String(a.deal_date))
-      );
+      .sort((a, b) => a.areaDiff - b.areaDiff || String(b.deal_date).localeCompare(String(a.deal_date)));
     if (withArea.length && Number.isFinite(targetArea)) {
       const nearest = withArea[0];
-      const estimated =
-        nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
-          ? Math.round(Number(nearest.price_per_m2) * targetArea)
-          : Math.round((Number(nearest.amount_won) / nearest.area_m2_num) * targetArea);
-
+      const estimated = nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
+        ? Math.round(Number(nearest.price_per_m2) * targetArea)
+        : Math.round((Number(nearest.amount_won) / nearest.area_m2_num) * targetArea);
       return buildEstimatedSummary(
         query,
         nearest,
@@ -340,17 +261,8 @@ async function fetchCacheSummary(query) {
   }
 
   const nearby = enriched
-    .filter(
-      (row) =>
-        Number.isFinite(row.area_m2_num) &&
-        Number.isFinite(targetArea) &&
-        Math.abs(row.area_m2_num - targetArea) <= 5
-    )
-    .sort(
-      (a, b) =>
-        b.nameScore - a.nameScore ||
-        String(b.deal_date).localeCompare(String(a.deal_date))
-    )
+    .filter((row) => Number.isFinite(row.area_m2_num) && Number.isFinite(targetArea) && Math.abs(row.area_m2_num - targetArea) <= 5)
+    .sort((a, b) => b.nameScore - a.nameScore || String(b.deal_date).localeCompare(String(a.deal_date)))
     .slice(0, 20);
   if (nearby.length) {
     return buildSummary(query, nearby, "같은 법정동 유사 면적 참고", {
@@ -360,19 +272,12 @@ async function fetchCacheSummary(query) {
 
   const nearestAny = enriched
     .filter((row) => Number.isFinite(row.area_m2_num) && Number.isFinite(targetArea))
-    .sort(
-      (a, b) =>
-        a.areaDiff - b.areaDiff ||
-        b.nameScore - a.nameScore ||
-        String(b.deal_date).localeCompare(String(a.deal_date))
-    );
+    .sort((a, b) => a.areaDiff - b.areaDiff || b.nameScore - a.nameScore || String(b.deal_date).localeCompare(String(a.deal_date)));
   if (nearestAny.length) {
     const nearest = nearestAny[0];
-    const estimated =
-      nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
-        ? Math.round(Number(nearest.price_per_m2) * targetArea)
-        : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
-
+    const estimated = nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
+      ? Math.round(Number(nearest.price_per_m2) * targetArea)
+      : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
     return buildEstimatedSummary(
       query,
       nearest,
@@ -403,9 +308,7 @@ function pickLatestItem(items = []) {
 }
 
 function makeSummaryFromStat(item, query) {
-  const rawValue = Number(
-    item?.DT || item?.dt || item?.VALUE || item?.value || item?.PRICE || item?.price || 0
-  );
+  const rawValue = Number(item?.DT || item?.dt || item?.VALUE || item?.value || item?.PRICE || item?.price || 0);
   if (!rawValue) return null;
   const numericValue = rawValue < 10000 ? rawValue * 1000000 : rawValue;
   return {
@@ -417,9 +320,7 @@ function makeSummaryFromStat(item, query) {
       area: formatArea(query.area),
       tradeDate: String(item.WRTTIME_IDTFR_ID || item.wrttimeIdtfrId || "통계 기준"),
       latestPrice: formatEok(numericValue),
-      range: `${formatEok(Math.round(numericValue * 0.96))} ~ ${formatEok(
-        Math.round(numericValue * 1.04)
-      )}`,
+      range: `${formatEok(Math.round(numericValue * 0.96))} ~ ${formatEok(Math.round(numericValue * 1.04))}`,
       averagePrice: formatEok(numericValue),
       estimateLimit: `최대 ${formatEok(Math.round(numericValue * 0.72))} 가능`,
       description: "실거래 캐시가 없어서 한국부동산원 통계 참고값으로 대체합니다.",
@@ -459,17 +360,11 @@ export async function GET(request) {
   };
 
   if (!query.city || !query.district || !query.town || !query.apartment || !query.area) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "시도, 시군구, 읍면동, 아파트, 면적을 모두 선택해 주세요.",
-      },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, message: "시도, 시군구, 읍면동, 아파트, 면적을 모두 선택해 주세요." }, { status: 400 });
   }
 
   try {
-    const result = await fetchCacheSummary(query);
+    const result = await fetchCacheSummary(query, request.url);
     return NextResponse.json({ ok: true, ...result, query });
   } catch (error) {
     const stat = await fetchStatSummary(query).catch(() => null);
@@ -495,8 +390,7 @@ export async function GET(request) {
         range: "조회값 없음",
         averagePrice: "조회값 없음",
         estimateLimit: "상담 후 산정",
-        description:
-          "캐시와 통계 모두에서 값을 찾지 못했습니다. 로컬 다운로드·적재 파이프라인으로 데이터를 먼저 수집해 주세요.",
+        description: "캐시와 통계 모두에서 값을 찾지 못했습니다. 로컬 다운로드·적재 파이프라인으로 데이터를 먼저 넣어 주세요.",
         trendText: "실거래 데이터 없음",
       },
       query,
