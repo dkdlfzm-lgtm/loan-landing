@@ -1,5 +1,6 @@
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.andifinancial.com";
+
 export default function sitemap() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://example.com";
   const now = new Date();
 
   return [

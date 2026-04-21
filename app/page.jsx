@@ -234,6 +234,70 @@ export default function LoanLandingPage() {
   const apartments = catalogOptions.apartments;
   const areas = catalogOptions.areas;
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.andifinancial.com";
+  const organizationJsonLd = useMemo(
+    () => ({
+      "@context": "https://schema.org",
+      "@type": "FinancialService",
+      name: siteSettings.company_name || "엔드아이에셋대부",
+      url: siteUrl,
+      logo: displayLogoUrl || `${siteUrl}/andi-logo.png`,
+      telephone: displayPhone,
+      areaServed: "KR",
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          telephone: displayPhone,
+          contactType: "customer service",
+          availableLanguage: ["Korean"],
+        },
+      ],
+    }),
+    [displayLogoUrl, displayPhone, siteSettings.company_name, siteUrl]
+  );
+
+  const faqJsonLd = useMemo(
+    () => ({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "주택담보대출 금리비교는 왜 꼭 해야 하나요?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "금리뿐 아니라 한도, 상환 방식, 중도상환수수료, 부대비용, 실행 가능성을 함께 비교해야 실제 부담을 줄일 수 있기 때문입니다.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "주택담보대출 한도와 금리는 무엇으로 결정되나요?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "담보물의 시세와 지역, 대출 목적, 소득, 신용 상태, 기존 부채, 상환 방식 등에 따라 달라질 수 있습니다.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "고정금리와 변동금리 중 어떤 것이 유리한가요?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "향후 금리 변동 가능성, 상환 여력, 대출 유지 기간, 갈아타기 계획 등을 함께 고려해 선택하는 것이 좋습니다.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "주담대 갈아타기할 때 놓치기 쉬운 포인트는 무엇인가요?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "중도상환수수료, 부대비용, 실행 조건, 기존 대출 해지 시점과 신규 대출 실행 시점 등을 함께 확인해야 합니다.",
+          },
+        },
+      ],
+    }),
+    []
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -606,6 +670,8 @@ export default function LoanLandingPage() {
 
   return (
     <div className="site-wrap">
+      <script type="application/ld+json" suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+      <script type="application/ld+json" suppressHydrationWarning dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <header className="header">
         <div className="container header-inner">
           <button type="button" className="brand brand-logo-wrap brand-home-btn" onClick={handleGoHome} aria-label="홈으로 이동">
