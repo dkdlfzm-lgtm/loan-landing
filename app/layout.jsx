@@ -1,8 +1,30 @@
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://example.com";
+const naverVerification = process.env.NAVER_SITE_VERIFICATION || "";
+
 export const metadata = {
+  metadataBase: new URL(siteUrl),
   title: "엔드아이에셋대부 | 주택담보대출 · 대환대출 · 전세퇴거자금 상담",
-  description: "아파트 시세 확인부터 맞춤 대출 상담까지. 빠르고 안정적인 대출 컨설팅 서비스를 제공합니다.",
+  description:
+    "아파트 시세 확인부터 맞춤 대출 상담까지. 빠르고 안정적인 대출 컨설팅 서비스를 제공합니다.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "엔드아이에셋대부 | 주택담보대출 · 대환대출 · 전세퇴거자금 상담",
+    description:
+      "아파트 시세 확인부터 맞춤 대출 상담까지. 빠르고 안정적인 대출 컨설팅 서비스를 제공합니다.",
+    url: siteUrl,
+    siteName: "엔드아이에셋대부",
+    locale: "ko_KR",
+    type: "website",
+  },
+  other: naverVerification
+    ? {
+        "naver-site-verification": naverVerification,
+      }
+    : {},
 };
 
 export default function RootLayout({ children }) {
