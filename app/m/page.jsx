@@ -115,7 +115,7 @@ export default function MobileLandingPage() {
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
-    const [catalogError, setCatalogError] = useState("");
+  const [catalogError, setCatalogError] = useState("");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
