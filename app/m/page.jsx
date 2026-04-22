@@ -115,8 +115,7 @@ export default function MobileLandingPage() {
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
-  const [apartmentQuery, setApartmentQuery] = useState("");
-  const [catalogError, setCatalogError] = useState("");
+    const [catalogError, setCatalogError] = useState("");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
   const [homeInquiryStatus, setHomeInquiryStatus] = useState("");
@@ -198,7 +197,6 @@ export default function MobileLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
-          apartmentQuery,
           area: selectedArea,
         });
         const res = await fetch(`/api/property-catalog?${query.toString()}`, { cache: "no-store" });
@@ -221,7 +219,7 @@ export default function MobileLandingPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea, apartmentQuery]);
+  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
 
   useEffect(() => {
     if (casePages.length <= 1) return undefined;
@@ -421,10 +419,6 @@ export default function MobileLandingPage() {
                 <option value="">선택하세요</option>
                 {catalogOptions.towns.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
-            </label>
-            <label className={styles.field}>
-              <span>아파트명 검색</span>
-              <input value={apartmentQuery} onChange={(e) => setApartmentQuery(e.target.value)} placeholder="아파트명을 입력해주세요" />
             </label>
             <label className={styles.field}>
               <span>단지 선택</span>

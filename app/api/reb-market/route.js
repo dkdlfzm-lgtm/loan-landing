@@ -77,8 +77,46 @@ function nameSimilarityScore(sourceName, targetName) {
 }
 
 async function loadPropertyMasterLocal(requestUrl = "") {
-  const { master } = await loadPropertyMaster(requestUrl);
-  return master;
+  const fileErrors = [];
+  for (const filePath of [
+    `${process.cwd()}/public/property-master.json`,
+    `${process.cwd()}/property-master.json`,
+  ]) {
+    try {
+      return JSON.parse(await fs.readFile(filePath, "utf-8"));
+    } catch (err) {
+      fileErrors.push(`${filePath}: ${err?.code || err?.message || err}`);
+    }
+  }
+
+  const urls = [];
+  if (requestUrl) {
+    try {
+      urls.push(`${new URL(requestUrl).origin}/property-master.json`);
+    } catch {}
+  }
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    urls.push(`${String(process.env.NEXT_PUBLIC_SITE_URL).replace(/\/$/, "")}/property-master.json`);
+  }
+  if (process.env.VERCEL_URL) {
+    urls.push(`https://${String(process.env.VERCEL_URL).replace(/^https?:\/\//, "")}/property-master.json`);
+  }
+
+  const urlErrors = [];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        urlErrors.push(`${url}: HTTP ${res.status}`);
+        continue;
+      }
+      return await res.json();
+    } catch (err) {
+      urlErrors.push(`${url}: ${err?.message || err}`);
+    }
+  }
+
+  throw new Error(`property-master.json 파일을 찾지 못했습니다. ${fileErrors.concat(urlErrors).join(" | ")}`);
 }
 
 function pickCatalogEntry(master, query) {
@@ -168,41 +206,38 @@ function buildEstimatedSummary(query, baseRow, estimatedWon, label, warning) {
   };
 }
 
-async function fetchCacheSummary(request, query) {
+async function fetchCacheSummary(query, requestUrl = "") {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
   }
 
-    const master = await loadPropertyMasterLocal(request?.url || "");
+  const { master } = await loadPropertyMaster(requestUrl);
   const entry = pickCatalogEntry(master, query);
 
-  let lawdCode = String(entry?.bjdCode || entry?.lawdCode || "").slice(0, 5);
+  if (!entry) throw new Error("단지 정보를 property-master.json에서 찾지 못했습니다.");
+
+  const lawdCode = String(entry?.bjdCode || entry?.lawdCode || "").slice(0, 5);
+  if (!lawdCode) throw new Error("단지 코드 정보를 찾지 못했습니다.");
 
   const targetName = normalizeApartmentName(query.apartment);
   const targetArea = parseAreaNumber(query.area);
   const targetJibun = normalizeJibun(entry?.jibun || "");
 
-  const restQuery = {
-    select:
-      "lawd_code,city,district,town,apartment_name,apartment_name_norm,jibun,area_m2,deal_date,amount_won,price_per_m2",
-    property_type: `eq.${query.propertyType}`,
-    order: "deal_date.desc",
-    limit: "5000",
-  };
-  if (lawdCode) {
-    restQuery.lawd_code = `eq.${lawdCode}`;
-  } else {
-    restQuery.city = `eq.${query.city}`;
-    restQuery.district = `eq.${query.district}`;
-    restQuery.town = `eq.${query.town}`;
-  }
-
-  const rows = await supabaseRest("/apartment_trade_cache", { query: restQuery });
+  const rows = await supabaseRest("/apartment_trade_cache", {
+    query: {
+      select:
+        "lawd_code,district,town,apartment_name,apartment_name_norm,jibun,area_m2,deal_date,amount_won,price_per_m2",
+      property_type: `eq.${query.propertyType}`,
+      lawd_code: `eq.${lawdCode}`,
+      order: "deal_date.desc",
+      limit: "5000",
+    },
+  });
 
   const all = Array.isArray(rows) ? rows : [];
   if (!all.length) {
     throw new Error(
-      "캐시에 저장된 실거래 데이터가 없습니다. 로컬 다운로드·적재 파이프라인으로 데이터를 먼저 넣어주세요."
+      "캐시에 저장된 실거래 데이터가 없습니다. 실거래가 관리에서 전체 적재를 먼저 실행해 주세요."
     );
   }
 
@@ -434,7 +469,7 @@ export async function GET(request) {
   }
 
   try {
-    const result = await fetchCacheSummary(request, query);
+    const result = await fetchCacheSummary(query, request.url);
     return NextResponse.json({ ok: true, ...result, query });
   } catch (error) {
     const stat = await fetchStatSummary(query).catch(() => null);
@@ -461,7 +496,7 @@ export async function GET(request) {
         averagePrice: "조회값 없음",
         estimateLimit: "상담 후 산정",
         description:
-          "캐시와 통계 모두에서 값을 찾지 못했습니다. 관리자페이지에서 전체 적재를 먼저 실행해 주세요.",
+          "캐시와 통계 모두에서 값을 찾지 못했습니다. 로컬 다운로드·적재 파이프라인으로 데이터를 먼저 넣어주세요.",
         trendText: "실거래 데이터 없음",
       },
       query,
