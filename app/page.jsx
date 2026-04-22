@@ -280,6 +280,7 @@ export default function LoanLandingPage() {
           district: selectedDistrict,
           town: selectedTown,
           apartment: selectedApartment,
+          apartmentQuery,
           area: selectedArea,
         });
 
