@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { loadPropertyMaster, resolvePropertyOptions } from "../../lib-property-master";
 import { isSupabaseConfigured, supabaseRest } from "../../../lib/supabase-rest";
 
-function unique(values = []) {
+function uniq(values = []) {
   return [...new Set(values.filter(Boolean))];
 }
 
@@ -19,57 +19,45 @@ function normalizeAreaValue(area) {
 }
 
 function sortAreas(values = []) {
-  return unique(values.map(normalizeAreaValue)).sort((a, b) => {
+  return uniq(values.map(normalizeAreaValue)).sort((a, b) => {
     const an = Number(String(a).replace(/㎡/g, ""));
     const bn = Number(String(b).replace(/㎡/g, ""));
     return an - bn;
   });
 }
 
-function normalizeAptName(value = "") {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/\(.*?\)/g, "")
-    .replace(/아파트$/g, "")
-    .replace(/[·.,/\-]/g, "");
-}
+async function fetchCacheRows(query) {
+  const filters = {
+    select: "city,district,town,apartment_name,area_m2",
+    property_type: "eq.아파트",
+    limit: "50000",
+  };
+  if (query.city) filters.city = `eq.${query.city}`;
+  if (query.district) filters.district = `eq.${query.district}`;
+  if (query.town) filters.town = `eq.${query.town}`;
+  if (query.apartment) filters.apartment_name = `eq.${query.apartment}`;
 
-async function fetchCacheRows() {
-  const rows = await supabaseRest("/apartment_trade_cache", {
-    query: {
-      select: "city,district,town,apartment_name,area_m2,deal_date",
-      property_type: "eq.아파트",
-      order: "deal_date.desc",
-      limit: "50000",
-    },
-  });
+  const rows = await supabaseRest("/apartment_trade_cache", { query: filters });
   return Array.isArray(rows) ? rows : [];
 }
 
-function buildFromCache(rows, query) {
-  const cities = sortKo(unique(rows.map((row) => row.city)));
+function buildOptionsFromCache(rows, query) {
+  const cities = sortKo(uniq(rows.map((row) => row.city)));
   const city = query.city && cities.includes(query.city) ? query.city : "";
 
   const cityRows = city ? rows.filter((row) => row.city === city) : [];
-  const districts = city ? sortKo(unique(cityRows.map((row) => row.district))) : [];
+  const districts = city ? sortKo(uniq(cityRows.map((row) => row.district))) : [];
   const district = query.district && districts.includes(query.district) ? query.district : "";
 
   const districtRows = district ? cityRows.filter((row) => row.district === district) : [];
-  const towns = district ? sortKo(unique(districtRows.map((row) => row.town))) : [];
+  const towns = district ? sortKo(uniq(districtRows.map((row) => row.town))) : [];
   const town = query.town && towns.includes(query.town) ? query.town : "";
 
   const townRows = town ? districtRows.filter((row) => row.town === town) : [];
-  const apartments = town ? sortKo(unique(townRows.map((row) => row.apartment_name))) : [];
+  const apartments = town ? sortKo(uniq(townRows.map((row) => row.apartment_name))) : [];
   const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : "";
 
-  let apartmentRows = apartment ? townRows.filter((row) => row.apartment_name === apartment) : [];
-  if (apartment && apartmentRows.length === 0) {
-    const normalized = normalizeAptName(apartment);
-    apartmentRows = townRows.filter((row) => normalizeAptName(row.apartment_name) === normalized);
-  }
-
+  const apartmentRows = apartment ? townRows.filter((row) => row.apartment_name === apartment) : [];
   const areas = apartment ? sortAreas(apartmentRows.map((row) => row.area_m2)) : [];
   const area = query.area && areas.includes(query.area) ? query.area : "";
 
@@ -85,11 +73,11 @@ function buildFromCache(rows, query) {
     apartments,
     areas,
     counts: {
-      cityCount: cities.length,
-      districtCount: districts.length,
-      townCount: towns.length,
-      apartmentCount: apartments.length,
-      areaCount: areas.length,
+      cities: cities.length,
+      districts: districts.length,
+      towns: towns.length,
+      apartments: apartments.length,
+      areas: areas.length,
     },
   };
 }
@@ -108,30 +96,30 @@ export async function GET(request) {
 
   try {
     if (query.propertyType === "아파트" && isSupabaseConfigured()) {
-      const rows = await fetchCacheRows();
-      const result = buildFromCache(rows, query);
-
-      return NextResponse.json({
-        ok: true,
-        source: "apartment_trade_cache",
-        query: {
-          city: result.city,
-          district: result.district,
-          town: result.town,
-          apartment: result.apartment,
-          area: result.area,
-        },
-        options: {
-          cities: result.cities,
-          districts: result.districts,
-          towns: result.towns,
-          apartments: result.apartments,
-          areas: result.areas,
-        },
-        counts: result.counts,
-        note: "실거래 캐시 기준 목록",
-        warning: "",
-      });
+      const rows = await fetchCacheRows(query);
+      if (rows.length > 0) {
+        const result = buildOptionsFromCache(rows, query);
+        return NextResponse.json({
+          ok: true,
+          source: "apartment_trade_cache",
+          query: {
+            city: result.city,
+            district: result.district,
+            town: result.town,
+            apartment: result.apartment,
+            area: result.area,
+          },
+          options: {
+            cities: result.cities,
+            districts: result.districts,
+            towns: result.towns,
+            apartments: result.apartments,
+            areas: result.areas,
+          },
+          counts: result.counts,
+          warning: "",
+        });
+      }
     }
 
     const { master, source } = await loadPropertyMaster(request.url);
@@ -156,7 +144,6 @@ export async function GET(request) {
         areas: result.areas,
       },
       counts: result.counts,
-      note: "",
       warning: isEmptySource ? "public/property-master.json 파일이 아직 없습니다. 생성한 전국 목록 파일을 public 폴더에 넣어주세요." : "",
     });
   } catch (error) {
