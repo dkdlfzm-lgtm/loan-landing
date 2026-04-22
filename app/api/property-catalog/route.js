@@ -22,28 +22,18 @@ function sortAreas(values = []) {
   });
 }
 
-function normalizeAptName(value = "") {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/\(.*?\)/g, "")
-    .replace(/아파트$/g, "")
-    .replace(/[·.,/\-]/g, "");
-}
-
 function sortKo(values = []) {
   return [...values].sort((a, b) => String(a).localeCompare(String(b), "ko"));
 }
 
 async function fetchCacheRows(query) {
-  const common = {
+  const filters = {
     select: "city,district,town,apartment_name,area_m2",
     property_type: "eq.아파트",
-    limit: "20000",
+    order: "city.asc,district.asc,town.asc,apartment_name.asc",
+    limit: "50000",
   };
 
-  const filters = { ...common };
   if (query.city) filters.city = `eq.${query.city}`;
   if (query.district) filters.district = `eq.${query.district}`;
   if (query.town) filters.town = `eq.${query.town}`;
@@ -53,24 +43,24 @@ async function fetchCacheRows(query) {
   return Array.isArray(rows) ? rows : [];
 }
 
-function fromCacheRows(rows, query) {
-  const cities = sortKo(unique(rows.map((r) => r.city)));
+function buildOptionsFromCache(rows, query) {
+  const cities = sortKo(unique(rows.map((row) => row.city)));
   const city = query.city && cities.includes(query.city) ? query.city : "";
 
-  const cityRows = city ? rows.filter((r) => r.city === city) : [];
-  const districts = city ? sortKo(unique(cityRows.map((r) => r.district))) : [];
+  const cityRows = city ? rows.filter((row) => row.city === city) : [];
+  const districts = city ? sortKo(unique(cityRows.map((row) => row.district))) : [];
   const district = query.district && districts.includes(query.district) ? query.district : "";
 
-  const districtRows = district ? cityRows.filter((r) => r.district === district) : [];
-  const towns = district ? sortKo(unique(districtRows.map((r) => r.town))) : [];
+  const districtRows = district ? cityRows.filter((row) => row.district === district) : [];
+  const towns = district ? sortKo(unique(districtRows.map((row) => row.town))) : [];
   const town = query.town && towns.includes(query.town) ? query.town : "";
 
-  const townRows = town ? districtRows.filter((r) => r.town === town) : [];
-  const apartments = town ? sortKo(unique(townRows.map((r) => r.apartment_name))) : [];
+  const townRows = town ? districtRows.filter((row) => row.town === town) : [];
+  const apartments = town ? sortKo(unique(townRows.map((row) => row.apartment_name))) : [];
   const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : "";
 
-  const apartmentRows = apartment ? townRows.filter((r) => r.apartment_name === apartment) : [];
-  const areas = apartment ? sortAreas(apartmentRows.map((r) => r.area_m2)) : [];
+  const apartmentRows = apartment ? townRows.filter((row) => row.apartment_name === apartment) : [];
+  const areas = apartment ? sortAreas(apartmentRows.map((row) => row.area_m2)) : [];
   const area = query.area && areas.includes(query.area) ? query.area : "";
 
   return {
@@ -109,49 +99,29 @@ export async function GET(request) {
   try {
     if (query.propertyType === "아파트" && isSupabaseConfigured()) {
       const rows = await fetchCacheRows(query);
-      const normalizedQuery = { ...query };
-
-      if (normalizedQuery.town && (!normalizedQuery.city || !normalizedQuery.district)) {
-        const matchedTown = rows.find((row) => row.town === normalizedQuery.town);
-        if (matchedTown) {
-          normalizedQuery.city = normalizedQuery.city || matchedTown.city || "";
-          normalizedQuery.district = normalizedQuery.district || matchedTown.district || "";
-        }
+      if (rows.length > 0) {
+        const result = buildOptionsFromCache(rows, query);
+        return NextResponse.json({
+          ok: true,
+          source: "apartment_trade_cache",
+          query: {
+            city: result.city,
+            district: result.district,
+            town: result.town,
+            apartment: result.apartment,
+            area: result.area,
+          },
+          options: {
+            cities: result.cities,
+            districts: result.districts,
+            towns: result.towns,
+            apartments: result.apartments,
+            areas: result.areas,
+          },
+          counts: result.counts,
+          warning: "",
+        });
       }
-
-      if (normalizedQuery.apartment && (!normalizedQuery.city || !normalizedQuery.district || !normalizedQuery.town)) {
-        const matchedApartment = rows.find(
-          (row) => normalizeAptName(row.apartment_name) === normalizeAptName(normalizedQuery.apartment)
-        );
-        if (matchedApartment) {
-          normalizedQuery.city = normalizedQuery.city || matchedApartment.city || "";
-          normalizedQuery.district = normalizedQuery.district || matchedApartment.district || "";
-          normalizedQuery.town = normalizedQuery.town || matchedApartment.town || "";
-          normalizedQuery.apartment = matchedApartment.apartment_name || normalizedQuery.apartment;
-        }
-      }
-
-      const result = fromCacheRows(rows, normalizedQuery);
-      return NextResponse.json({
-        ok: true,
-        source: "apartment_trade_cache",
-        query: {
-          city: result.city,
-          district: result.district,
-          town: result.town,
-          apartment: result.apartment,
-          area: result.area,
-        },
-        options: {
-          cities: result.cities,
-          districts: result.districts,
-          towns: result.towns,
-          apartments: result.apartments,
-          areas: result.areas,
-        },
-        counts: result.counts,
-        warning: "",
-      });
     }
 
     const { master, source } = await loadPropertyMaster(request.url);
