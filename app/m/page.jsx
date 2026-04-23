@@ -12,7 +12,8 @@ const LOAN_TYPE_OPTIONS = [
   "사업자대출",
   "대환대출",
   "매매자금대출",
-  "기타"];
+  "기타",
+];
 
 const FAQ_ITEMS = [
   {
@@ -26,7 +27,8 @@ const FAQ_ITEMS = [
   {
     q: "무직자·주부·프리랜서도 상담 가능한가요?",
     a: "가능 여부는 금융사와 담보 조건에 따라 달라질 수 있어, 현재 조건을 기준으로 맞춤 상담을 받아보시는 것이 좋습니다.",
-  }];
+  },
+];
 
 
 function ensureVisitIdentity(scope = "mobile") {
@@ -334,6 +336,90 @@ export default function MobileLandingPage() {
             <h2>간단히 남기면 빠르게 연락드립니다</h2>
           </div>
           <form className={styles.formCard} onSubmit={handleHomeInquirySubmit}>
+            <label className={styles.field}>
+              <span>성함</span>
+              <input
+                value={homeInquiry.name}
+                onChange={(e) => setHomeInquiry((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="성함을 입력해주세요"
+              />
+            </label>
+            <label className={styles.field}>
+              <span>연락처</span>
+              <input
+                value={homeInquiry.phone}
+                onChange={(e) => setHomeInquiry((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="연락처를 입력해주세요"
+                inputMode="tel"
+              />
+            </label>
+            <label className={styles.field}>
+              <span>상담 유형</span>
+              <select value={homeInquiry.loanType} onChange={(e) => setHomeInquiry((prev) => ({ ...prev, loanType: e.target.value }))}>
+                {LOAN_TYPE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className={styles.field}>
+              <span>담보 주소</span>
+              <input
+                value={homeInquiry.address}
+                onChange={(e) => setHomeInquiry((prev) => ({ ...prev, address: e.target.value }))}
+                placeholder="아파트명 또는 주소를 입력해주세요"
+              />
+            </label>
+            {homeInquiryStatus ? (
+              <div className={`${styles.formStatus} ${homeInquiryStatus.includes("완료") ? styles.success : styles.error}`}>
+                {homeInquiryStatus}
+              </div>
+            ) : null}
+            <button type="submit" className={styles.submitButton} disabled={homeInquirySaving}>
+              {homeInquirySaving ? "접수 중..." : "상담 신청하기"}
+            </button>
+          </form>
+        </section>
+
+        <section ref={priceRef} id="mobile-price" className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <span>시세조회</span>
+            <h2>지역과 단지를 선택해 확인해보세요</h2>
+          </div>
+          <div className={styles.formCard}>
+            <label className={styles.field}>
+              <span>시/도</span>
+              <select value={selectedCity} onChange={(e) => {
+                setSelectedCity(e.target.value);
+                setSelectedDistrict("");
+                setSelectedTown("");
+                setSelectedApartment("");
+                setSelectedArea("");
+              }}>
+                <option value="">선택하세요</option>
+                {catalogOptions.cities.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className={styles.field}>
+              <span>시/군/구</span>
+              <select value={selectedDistrict} onChange={(e) => {
+                setSelectedDistrict(e.target.value);
+                setSelectedTown("");
+                setSelectedApartment("");
+                setSelectedArea("");
+              }}>
+                <option value="">선택하세요</option>
+                {catalogOptions.districts.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className={styles.field}>
+              <span>읍/면/동</span>
+              <select value={selectedTown} onChange={(e) => {
+                setSelectedTown(e.target.value);
+                setSelectedApartment("");
+                setSelectedArea("");
+              }}>
+                <option value="">선택하세요</option>
+                {catalogOptions.towns.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
             <label className={styles.field}>
               <span>단지 선택</span>
               <select value={selectedApartment} onChange={(e) => {
