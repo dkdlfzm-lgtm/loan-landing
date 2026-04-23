@@ -1,14 +1,103 @@
+import { NextResponse } from "next/server";
+import { isSupabaseConfigured, supabaseRest } from "../../../lib/supabase-rest";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-import { NextResponse } from "next/server";
 
 function jsonNoStore(body, init = {}) {
   const response = NextResponse.json(body, init);
   response.headers.set("Cache-Control", "no-store, max-age=0");
   return response;
 }
-import { loadPropertyMaster, resolvePropertyOptions } from "../../lib-property-master";
+
+function uniq(values = []) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function sortKo(values = []) {
+  return [...values].sort((a, b) => String(a).localeCompare(String(b), "ko"));
+}
+
+function normalizeAreaValue(area) {
+  const match = String(area ?? "").match(/\d+(?:\.\d+)?/);
+  if (!match) return "";
+  const num = Number(match[0]);
+  if (!Number.isFinite(num) || num <= 0) return "";
+  return `${Number(num.toFixed(2))}㎡`;
+}
+
+function sortAreas(values = []) {
+  return uniq(values.map(normalizeAreaValue)).sort((a, b) => {
+    const an = Number(String(a).replace(/㎡/g, ""));
+    const bn = Number(String(b).replace(/㎡/g, ""));
+    return an - bn;
+  });
+}
+
+async function fetchCacheRows(query) {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
+  }
+
+  const filters = {
+    select: "city,district,town,apartment_name,area_m2,deal_date,amount_won",
+    property_type: "eq.아파트",
+    amount_won: "gt.0",
+    order: "deal_date.desc",
+    limit: "50000",
+  };
+
+  if (query.city) filters.city = `eq.${query.city}`;
+  if (query.district) filters.district = `eq.${query.district}`;
+  if (query.town) filters.town = `eq.${query.town}`;
+  if (query.apartment) filters.apartment_name = `eq.${query.apartment}`;
+
+  const rows = await supabaseRest("/apartment_trade_cache", { query: filters });
+  return Array.isArray(rows) ? rows : [];
+}
+
+function buildOptionsFromRows(rows, query) {
+  const validRows = rows.filter((row) => row.city && row.district && row.town && row.apartment_name);
+
+  const cities = sortKo(uniq(validRows.map((row) => row.city)));
+  const city = query.city && cities.includes(query.city) ? query.city : "";
+
+  const cityRows = city ? validRows.filter((row) => row.city === city) : [];
+  const districts = city ? sortKo(uniq(cityRows.map((row) => row.district))) : [];
+  const district = query.district && districts.includes(query.district) ? query.district : "";
+
+  const districtRows = district ? cityRows.filter((row) => row.district === district) : [];
+  const towns = district ? sortKo(uniq(districtRows.map((row) => row.town))) : [];
+  const town = query.town && towns.includes(query.town) ? query.town : "";
+
+  const townRows = town ? districtRows.filter((row) => row.town === town) : [];
+  const apartments = town ? sortKo(uniq(townRows.map((row) => row.apartment_name))) : [];
+  const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : "";
+
+  const apartmentRows = apartment ? townRows.filter((row) => row.apartment_name === apartment) : [];
+  const areas = apartment ? sortAreas(apartmentRows.map((row) => row.area_m2)) : [];
+  const area = query.area && areas.includes(query.area) ? query.area : "";
+
+  return {
+    city,
+    district,
+    town,
+    apartment,
+    area,
+    cities,
+    districts,
+    towns,
+    apartments,
+    areas,
+    counts: {
+      cities: cities.length,
+      districts: districts.length,
+      towns: towns.length,
+      apartments: apartments.length,
+      areas: areas.length,
+    },
+  };
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -18,18 +107,27 @@ export async function GET(request) {
     district: searchParams.get("district") || "",
     town: searchParams.get("town") || "",
     apartment: searchParams.get("apartment") || "",
-    apartmentQuery: searchParams.get("apartmentQuery") || "",
     area: searchParams.get("area") || "",
   };
 
   try {
-    const { master, source } = await loadPropertyMaster(request.url);
-    const result = resolvePropertyOptions(master, query);
-    const isEmptySource = source === "missing";
+    if (query.propertyType !== "아파트") {
+      return jsonNoStore({
+        ok: true,
+        source: "db-only-apartment",
+        query: { city: "", district: "", town: "", apartment: "", area: "" },
+        options: { cities: [], districts: [], towns: [], apartments: [], areas: [] },
+        counts: { cities: 0, districts: 0, towns: 0, apartments: 0, areas: 0 },
+        warning: "현재 드롭다운 제한은 아파트 실거래가 기준으로만 적용됩니다.",
+      });
+    }
+
+    const rows = await fetchCacheRows(query);
+    const result = buildOptionsFromRows(rows, query);
 
     return jsonNoStore({
       ok: true,
-      source,
+      source: "apartment_trade_cache",
       query: {
         city: result.city,
         district: result.district,
@@ -45,9 +143,18 @@ export async function GET(request) {
         areas: result.areas,
       },
       counts: result.counts,
-      warning: isEmptySource ? "public/property-master.json 파일이 아직 없습니다. 생성한 전국 목록 파일을 public 폴더에 넣어주세요." : "",
+      warning:
+        result.counts.cities === 0
+          ? "DB에 저장된 실거래가 있는 아파트만 표시합니다. 현재 조건에 맞는 데이터가 없습니다."
+          : "",
     });
   } catch (error) {
-    return jsonNoStore({ ok: false, message: error?.message || "단지 목록을 불러오지 못했습니다." }, { status: 500 });
+    return jsonNoStore(
+      {
+        ok: false,
+        message: error?.message || "단지 목록을 불러오지 못했습니다.",
+      },
+      { status: 500 }
+    );
   }
 }
