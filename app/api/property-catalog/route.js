@@ -34,29 +34,38 @@ function sortAreas(values = []) {
   });
 }
 
-async function fetchPagedRows(extraFilters = {}, pageSize = 1000, maxPages = 100) {
+async function fetchCursorPagedRows(extraFilters = {}, pageSize = 1000, maxPages = 200) {
   const all = [];
+  let lastId = 0;
+  let pages = 0;
+
   for (let page = 0; page < maxPages; page += 1) {
-    const offset = page * pageSize;
-    const rows = await supabaseRest("/apartment_trade_cache", {
-      query: {
-        select: "city,district,town,apartment_name,area_m2,deal_date,amount_won",
-        property_type: "eq.아파트",
-        amount_won: "gt.0",
-        limit: String(pageSize),
-        offset: String(offset),
-        ...extraFilters,
-      },
-    });
+    const query = {
+      select: "id,city,district,town,apartment_name,area_m2,deal_date,amount_won",
+      property_type: "eq.아파트",
+      amount_won: "gt.0",
+      order: "id.asc",
+      limit: String(pageSize),
+      ...extraFilters,
+    };
 
-    const batch = Array.isArray(rows) ? rows : [];
-    all.push(...batch);
-
-    if (batch.length < pageSize) {
-      break;
+    if (lastId > 0) {
+      query.id = `gt.${lastId}`;
     }
+
+    const rows = await supabaseRest("/apartment_trade_cache", { query });
+    const batch = Array.isArray(rows) ? rows : [];
+    pages += 1;
+
+    if (!batch.length) break;
+
+    all.push(...batch);
+    lastId = Number(batch[batch.length - 1]?.id || lastId);
+
+    if (batch.length < pageSize) break;
   }
-  return all;
+
+  return { rows: all, pages, lastId };
 }
 
 async function fetchCacheRows(query) {
@@ -65,26 +74,26 @@ async function fetchCacheRows(query) {
   }
 
   if (!query.city) {
-    return fetchPagedRows({});
+    return fetchCursorPagedRows({});
   }
 
   if (!query.district) {
-    return fetchPagedRows({ city: `eq.${query.city}` });
+    return fetchCursorPagedRows({ city: `eq.${query.city}` });
   }
 
   if (!query.town) {
-    return fetchPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}` });
+    return fetchCursorPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}` });
   }
 
   if (!query.apartment) {
-    return fetchPagedRows({
+    return fetchCursorPagedRows({
       city: `eq.${query.city}`,
       district: `eq.${query.district}`,
       town: `eq.${query.town}`,
     });
   }
 
-  return fetchPagedRows({
+  return fetchCursorPagedRows({
     city: `eq.${query.city}`,
     district: `eq.${query.district}`,
     town: `eq.${query.town}`,
@@ -158,8 +167,8 @@ export async function GET(request) {
       });
     }
 
-    const rows = await fetchCacheRows(query);
-    const result = buildOptionsFromRows(rows, query);
+    const paged = await fetchCacheRows(query);
+    const result = buildOptionsFromRows(paged.rows, query);
 
     return jsonNoStore({
       ok: true,
@@ -180,7 +189,9 @@ export async function GET(request) {
       },
       counts: result.counts,
       debug: {
-        fetched_rows: rows.length,
+        fetched_rows: paged.rows.length,
+        pages: paged.pages,
+        last_id: paged.lastId,
       },
       warning:
         result.counts.cities === 0
