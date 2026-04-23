@@ -34,26 +34,62 @@ function sortAreas(values = []) {
   });
 }
 
+async function fetchPagedRows(extraFilters = {}, pageSize = 1000, maxPages = 100) {
+  const all = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const offset = page * pageSize;
+    const rows = await supabaseRest("/apartment_trade_cache", {
+      query: {
+        select: "city,district,town,apartment_name,area_m2,deal_date,amount_won",
+        property_type: "eq.아파트",
+        amount_won: "gt.0",
+        limit: String(pageSize),
+        offset: String(offset),
+        ...extraFilters,
+      },
+    });
+
+    const batch = Array.isArray(rows) ? rows : [];
+    all.push(...batch);
+
+    if (batch.length < pageSize) {
+      break;
+    }
+  }
+  return all;
+}
+
 async function fetchCacheRows(query) {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
   }
 
-  const filters = {
-    select: "city,district,town,apartment_name,area_m2,deal_date,amount_won",
-    property_type: "eq.아파트",
-    amount_won: "gt.0",
-    order: "deal_date.desc",
-    limit: "50000",
-  };
+  if (!query.city) {
+    return fetchPagedRows({});
+  }
 
-  if (query.city) filters.city = `eq.${query.city}`;
-  if (query.district) filters.district = `eq.${query.district}`;
-  if (query.town) filters.town = `eq.${query.town}`;
-  if (query.apartment) filters.apartment_name = `eq.${query.apartment}`;
+  if (!query.district) {
+    return fetchPagedRows({ city: `eq.${query.city}` });
+  }
 
-  const rows = await supabaseRest("/apartment_trade_cache", { query: filters });
-  return Array.isArray(rows) ? rows : [];
+  if (!query.town) {
+    return fetchPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}` });
+  }
+
+  if (!query.apartment) {
+    return fetchPagedRows({
+      city: `eq.${query.city}`,
+      district: `eq.${query.district}`,
+      town: `eq.${query.town}`,
+    });
+  }
+
+  return fetchPagedRows({
+    city: `eq.${query.city}`,
+    district: `eq.${query.district}`,
+    town: `eq.${query.town}`,
+    apartment_name: `eq.${query.apartment}`,
+  });
 }
 
 function buildOptionsFromRows(rows, query) {
@@ -143,6 +179,9 @@ export async function GET(request) {
         areas: result.areas,
       },
       counts: result.counts,
+      debug: {
+        fetched_rows: rows.length,
+      },
       warning:
         result.counts.cities === 0
           ? "DB에 저장된 실거래가 있는 아파트만 표시합니다. 현재 조건에 맞는 데이터가 없습니다."
