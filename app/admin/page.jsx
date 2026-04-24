@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatReviewDateTime } from "../lib-reviews";
 import { subscribeSupabaseTable } from "../../lib/realtime-browser";
+import MolitImportPanel from "./MolitImportPanel";
 
 const JOB_OPTIONS = ["", "직장인", "사업자", "법인대표", "프리랜서", "무직"];
 const STATUS_OPTIONS = [
@@ -1185,139 +1186,7 @@ export default function AdminOwnerPage() {
             </div>
           ) : null}
 
-          {activeTab === "trade" ? (
-            <div className="owner-performance-shell">
-              <section className="crm-panel crm-panel-xl">
-                <div className="crm-section-header">
-                  <h3>실거래가 현황</h3>
-                  <span>로컬 자동 다운로드·적재 파이프라인으로 반영된 실거래 데이터 현황입니다.</span>
-                </div>
-                <div className="crm-summary-grid crm-summary-grid-pro" style={{ marginBottom: 20 }}>
-                  <SummaryCard title="누적 저장건" value={tradeSummary.total_rows || 0} subtitle="실거래 캐시 누적 건수" tone="new" />
-                  <SummaryCard title="오늘 적재건" value={tradeSummary.today_rows || 0} subtitle="오늘 저장된 실거래 건수" tone="contacted" />
-                  <SummaryCard title="이번달 적재건" value={tradeSummary.monthly_rows || 0} subtitle="이번달 저장된 건수" tone="closed" />
-                  <SummaryCard title="최근 적재 시각" value={tradeSummary.latest_collected_at ? formatReviewDateTime(tradeSummary.latest_collected_at) : "-"} subtitle="마지막 저장 기준" />
-                </div>
-                <div className="crm-assignment-banner">
-                  <div>
-                    <strong>운영 안내</strong>
-                    <span>실거래 데이터 수집은 로컬 다운로드·적재 파이프라인으로 운영합니다. 이 화면에서는 누적 건수와 최근 적재 현황만 확인합니다.</span>
-                  </div>
-                </div>
-                {tradeStatsError ? <div className="api-status error">{tradeStatsError}</div> : null}
-                <div className="crm-muted-box" style={{ marginTop: 16 }}>
-                  현재 상태: <strong>{tradeJob?.status || "idle"}</strong>
-                  {" · "}
-                  진행률: <strong>{tradeJob?.processed_groups || 0}</strong> / <strong>{tradeJob?.total_groups || 0}</strong>
-                  {" · "}
-                  저장건수: <strong>{tradeJob?.inserted_rows || 0}</strong>
-                  {" · "}
-                  오류건수: <strong>{tradeJob?.error_count || 0}</strong>
-                  {tradeJob?.mode ? (
-                    <>
-                      {" · "}
-                      모드: <strong>{tradeJob.mode}</strong>
-                    </>
-                  ) : null}
-                  {tradeJob?.months_to_fetch?.length ? (
-                    <>
-                      {" · "}
-                      조회월: <strong>{tradeJob.months_to_fetch.join(", ")}</strong>
-                    </>
-                  ) : null}
-
-                  {tradeJob?.current_label ? (
-                    <>
-                      <br />
-                      현재 작업: {tradeJob.current_label}
-                    </>
-                  ) : null}
-
-                  {tradeJob?.lastError ? (
-                    <>
-                      <br />
-                      최근 오류: {tradeJob.lastError.district} {tradeJob.lastError.town} {tradeJob.lastError.apartment} - {tradeJob.lastError.message}
-                    </>
-                  ) : tradeJob?.last_error ? (
-                    <>
-                      <br />
-                      최근 오류: {tradeJob.last_error}
-                    </>
-                  ) : null}
-                </div>
-              </section>
-              <div className="owner-performance-grid">
-                <section className="crm-panel crm-panel-xl">
-                  <div className="crm-panel-banner">일별 적재 건수</div>
-                  <div className="crm-table-wrap crm-table-modern-wrap">
-                    <table className="crm-table crm-table-modern">
-                      <thead>
-                        <tr>
-                          <th>일자</th>
-                          <th>저장건수</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tradeDailyRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={2} className="crm-empty-cell">
-                              아직 적재 데이터가 없습니다.
-                            </td>
-                          </tr>
-                        ) : (
-                          tradeDailyRows
-                            .slice()
-                            .reverse()
-                            .map((row) => (
-                              <tr key={row.date}>
-                                <td>
-                                  <strong>{row.date}</strong>
-                                </td>
-                                <td>{row.count}</td>
-                              </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-                <section className="crm-panel crm-panel-xl">
-                  <div className="crm-panel-banner">월별 적재 건수</div>
-                  <div className="crm-table-wrap crm-table-modern-wrap">
-                    <table className="crm-table crm-table-modern">
-                      <thead>
-                        <tr>
-                          <th>월</th>
-                          <th>저장건수</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tradeMonthlyRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={2} className="crm-empty-cell">
-                              아직 월별 데이터가 없습니다.
-                            </td>
-                          </tr>
-                        ) : (
-                          tradeMonthlyRows
-                            .slice()
-                            .reverse()
-                            .map((row) => (
-                              <tr key={row.month}>
-                                <td>
-                                  <strong>{row.month}</strong>
-                                </td>
-                                <td>{row.count}</td>
-                              </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              </div>
-            </div>
-          ) : null}
+          {activeTab === "trade" ? <MolitImportPanel /> : null}
 
           {activeTab === "staff" ? (
             <div className="owner-staff-shell">
