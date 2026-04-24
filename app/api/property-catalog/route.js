@@ -4,178 +4,183 @@ import { isSupabaseConfigured, supabaseRest } from "../../../lib/supabase-rest";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const PROPERTY_TYPE_OR = "(property_type.eq.아파트,property_type.eq.apartment_trade)";
+const MEMORY_TTL_MS = 1000 * 60 * 30;
+const VALID_LEVELS = new Set(["city", "district", "town", "apartment", "area"]);
+const BAD_CITY_PATTERN = /[,，]/;
 
-function jsonNoStore(body, init = {}) {
+globalThis.__PROPERTY_CATALOG_FAST_CACHE__ ||= new Map();
+
+function jsonFast(body, init = {}) {
   const response = NextResponse.json(body, init);
-  response.headers.set("Cache-Control", "no-store, max-age=0");
+  response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
   return response;
 }
 
-function uniq(values = []) {
-  return [...new Set(values.filter(Boolean))];
+function cleanText(value = "") {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function encodeFilter(value) {
+  return `eq.${value}`;
 }
 
 function sortKo(values = []) {
   return [...values].sort((a, b) => String(a).localeCompare(String(b), "ko"));
 }
 
-function normalizeAreaValue(area) {
-  const match = String(area ?? "").match(/\d+(?:\.\d+)?/);
-  if (!match) return "";
-  const num = Number(match[0]);
-  if (!Number.isFinite(num) || num <= 0) return "";
-  return `${Number(num.toFixed(2))}㎡`;
+function emptyResult(query, warning = "") {
+  return {
+    ok: true,
+    source: "property_catalog_options",
+    query,
+    options: { cities: [], districts: [], towns: [], apartments: [], areas: [] },
+    counts: { cities: 0, districts: 0, towns: 0, apartments: 0, areas: 0 },
+    warning,
+  };
 }
 
-function sortAreas(values = []) {
-  return uniq(values.map(normalizeAreaValue)).sort((a, b) => {
-    const an = Number(String(a).replace(/㎡/g, ""));
-    const bn = Number(String(b).replace(/㎡/g, ""));
-    return an - bn;
-  });
-}
-
-async function fetchCursorPagedRows(extraFilters = {}, pageSize = 1000, maxPages = 300) {
-  const all = [];
-  let lastId = 0;
-  let pages = 0;
-
-  for (let page = 0; page < maxPages; page += 1) {
-    const query = {
-      select: "id,city,district,town,apartment_name,area_m2,deal_date,amount_won,property_type",
-      or: PROPERTY_TYPE_OR,
-      amount_won: "gt.0",
-      order: "id.asc",
-      limit: String(pageSize),
-      ...extraFilters,
-    };
-
-    if (lastId > 0) query.id = `gt.${lastId}`;
-
-    const rows = await supabaseRest("/apartment_trade_cache", { query });
-    const batch = Array.isArray(rows) ? rows : [];
-    pages += 1;
-    if (!batch.length) break;
-
-    all.push(...batch);
-    lastId = Number(batch[batch.length - 1]?.id || lastId);
-    if (batch.length < pageSize) break;
+function getCache(key) {
+  const item = globalThis.__PROPERTY_CATALOG_FAST_CACHE__.get(key);
+  if (!item) return null;
+  if (Date.now() - item.createdAt > MEMORY_TTL_MS) {
+    globalThis.__PROPERTY_CATALOG_FAST_CACHE__.delete(key);
+    return null;
   }
-
-  return { rows: all, pages, lastId };
+  return item.value;
 }
 
-async function fetchCacheRows(query) {
-  if (!isSupabaseConfigured()) {
-    throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
-  }
+function setCache(key, value) {
+  globalThis.__PROPERTY_CATALOG_FAST_CACHE__.set(key, { createdAt: Date.now(), value });
+}
 
-  if (!query.city) return fetchCursorPagedRows({});
-  if (!query.district) return fetchCursorPagedRows({ city: `eq.${query.city}` });
-  if (!query.town) return fetchCursorPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}` });
-  if (!query.apartment) return fetchCursorPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}`, town: `eq.${query.town}` });
+function normalizeQuery(searchParams) {
+  return {
+    propertyType: cleanText(searchParams.get("propertyType") || "아파트"),
+    city: cleanText(searchParams.get("city") || ""),
+    district: cleanText(searchParams.get("district") || ""),
+    town: cleanText(searchParams.get("town") || ""),
+    apartment: cleanText(searchParams.get("apartment") || ""),
+    area: cleanText(searchParams.get("area") || ""),
+  };
+}
 
-  return fetchCursorPagedRows({
-    city: `eq.${query.city}`,
-    district: `eq.${query.district}`,
-    town: `eq.${query.town}`,
-    apartment_name: `eq.${query.apartment}`,
+function nextLevel(query) {
+  if (!query.city) return "city";
+  if (!query.district) return "district";
+  if (!query.town) return "town";
+  if (!query.apartment) return "apartment";
+  return "area";
+}
+
+function buildParentFilters(level, query) {
+  const filters = {
+    select: "option_level,label,city,district,town,apartment,area,sort_value",
+    property_type: encodeFilter("아파트"),
+    option_level: encodeFilter(level),
+    order: level === "area" ? "sort_value.asc,label.asc" : "label.asc",
+    limit: "5000",
+  };
+
+  if (["district", "town", "apartment", "area"].includes(level)) filters.city = encodeFilter(query.city);
+  if (["town", "apartment", "area"].includes(level)) filters.district = encodeFilter(query.district);
+  if (["apartment", "area"].includes(level)) filters.town = encodeFilter(query.town);
+  if (level === "area") filters.apartment = encodeFilter(query.apartment);
+
+  return filters;
+}
+
+async function fetchOptionLabels(level, query) {
+  if (!VALID_LEVELS.has(level)) return [];
+  const rows = await supabaseRest("/property_catalog_options", {
+    query: buildParentFilters(level, query),
   });
+
+  const labels = Array.isArray(rows)
+    ? rows.map((row) => cleanText(row.label)).filter(Boolean)
+    : [];
+
+  // DB에 잘못 들어간 "충청남도, 충청북도" 같은 값은 화면에서 제외
+  if (level === "city") return sortKo([...new Set(labels.filter((v) => !BAD_CITY_PATTERN.test(v)))]);
+  return [...new Set(labels)];
 }
 
-function buildOptionsFromRows(rows, query) {
-  const validRows = rows.filter((row) => row.city && row.district && row.town && row.apartment_name && Number(row.amount_won || 0) > 0);
-
-  const cities = sortKo(uniq(validRows.map((row) => row.city)));
-  const city = query.city && cities.includes(query.city) ? query.city : "";
-
-  const cityRows = city ? validRows.filter((row) => row.city === city) : [];
-  const districts = city ? sortKo(uniq(cityRows.map((row) => row.district))) : [];
-  const district = query.district && districts.includes(query.district) ? query.district : "";
-
-  const districtRows = district ? cityRows.filter((row) => row.district === district) : [];
-  const towns = district ? sortKo(uniq(districtRows.map((row) => row.town))) : [];
-  const town = query.town && towns.includes(query.town) ? query.town : "";
-
-  const townRows = town ? districtRows.filter((row) => row.town === town) : [];
-  const apartments = town ? sortKo(uniq(townRows.map((row) => row.apartment_name))) : [];
-  const apartment = query.apartment && apartments.includes(query.apartment) ? query.apartment : "";
-
-  const apartmentRows = apartment ? townRows.filter((row) => row.apartment_name === apartment) : [];
-  const areas = apartment ? sortAreas(apartmentRows.map((row) => row.area_m2)) : [];
-  const area = query.area && areas.includes(query.area) ? query.area : "";
+function buildResponse(query, level, labels, cacheState) {
+  const options = { cities: [], districts: [], towns: [], apartments: [], areas: [] };
+  if (level === "city") options.cities = labels;
+  if (level === "district") options.districts = labels;
+  if (level === "town") options.towns = labels;
+  if (level === "apartment") options.apartments = labels;
+  if (level === "area") options.areas = labels;
 
   return {
-    city, district, town, apartment, area,
-    cities, districts, towns, apartments, areas,
-    counts: {
-      cities: cities.length,
-      districts: districts.length,
-      towns: towns.length,
-      apartments: apartments.length,
-      areas: areas.length,
+    ok: true,
+    source: "property_catalog_options",
+    cache: cacheState,
+    query: {
+      city: query.city,
+      district: query.district,
+      town: query.town,
+      apartment: query.apartment,
+      area: query.area,
     },
+    options,
+    counts: {
+      cities: options.cities.length,
+      districts: options.districts.length,
+      towns: options.towns.length,
+      apartments: options.apartments.length,
+      areas: options.areas.length,
+    },
+    debug: {
+      mode: "fast-options-table",
+      fetched_rows: labels.length,
+      level,
+      note: "원본 apartment_trade_cache 전체 스캔 없이 property_catalog_options만 조회합니다.",
+    },
+    warning: labels.length === 0
+      ? "조건에 맞는 옵션이 없습니다. /api/admin/property-catalog-options/rebuild 실행 또는 Supabase SQL 재생성을 확인하세요."
+      : "",
   };
 }
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const query = {
-    propertyType: searchParams.get("propertyType") || "아파트",
-    city: searchParams.get("city") || "",
-    district: searchParams.get("district") || "",
-    town: searchParams.get("town") || "",
-    apartment: searchParams.get("apartment") || "",
-    area: searchParams.get("area") || "",
-  };
+  const query = normalizeQuery(searchParams);
 
   try {
     if (query.propertyType !== "아파트") {
-      return jsonNoStore({
-        ok: true,
-        source: "db-only-apartment",
-        query: { city: "", district: "", town: "", apartment: "", area: "" },
-        options: { cities: [], districts: [], towns: [], apartments: [], areas: [] },
-        counts: { cities: 0, districts: 0, towns: 0, apartments: 0, areas: 0 },
-        warning: "현재 드롭다운 제한은 아파트 실거래가 기준으로만 적용됩니다.",
-      });
+      return jsonFast(emptyResult(
+        { city: "", district: "", town: "", apartment: "", area: "" },
+        "현재 드롭다운 제한은 아파트 실거래가 기준으로만 적용됩니다."
+      ));
     }
 
-    const paged = await fetchCacheRows(query);
-    const result = buildOptionsFromRows(paged.rows, query);
+    if (!isSupabaseConfigured()) {
+      return jsonFast(
+        { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." },
+        { status: 500 }
+      );
+    }
 
-    return jsonNoStore({
-      ok: true,
-      source: "apartment_trade_cache",
-      query: {
-        city: result.city,
-        district: result.district,
-        town: result.town,
-        apartment: result.apartment,
-        area: result.area,
-      },
-      options: {
-        cities: result.cities,
-        districts: result.districts,
-        towns: result.towns,
-        apartments: result.apartments,
-        areas: result.areas,
-      },
-      counts: result.counts,
-      debug: {
-        fetched_rows: paged.rows.length,
-        pages: paged.pages,
-        last_id: paged.lastId,
-        property_type_filter: "아파트 OR apartment_trade",
-      },
-      warning: result.counts.cities === 0
-        ? "DB에 저장된 실거래가 있는 아파트만 표시합니다. 현재 조건에 맞는 데이터가 없습니다."
-        : "",
-    });
+    const level = nextLevel(query);
+    const cacheKey = JSON.stringify({ level, city: query.city, district: query.district, town: query.town, apartment: query.apartment });
+    const cached = getCache(cacheKey);
+    if (cached) return jsonFast(buildResponse(query, level, cached, "hit"));
+
+    const labels = await fetchOptionLabels(level, query);
+    setCache(cacheKey, labels);
+
+    return jsonFast(buildResponse(query, level, labels, "miss"));
   } catch (error) {
-    return jsonNoStore(
-      { ok: false, message: error?.message || "단지 목록을 불러오지 못했습니다." },
+    const message = error?.message || "단지 목록을 불러오지 못했습니다.";
+    const isMissingTable = /property_catalog_options|schema cache|relation/i.test(message);
+    return jsonFast(
+      {
+        ok: false,
+        message: isMissingTable
+          ? "빠른 조회용 property_catalog_options 테이블이 아직 없습니다. supabase/fast-catalog/01_property_catalog_options.sql 파일을 Supabase SQL Editor에서 먼저 실행하세요."
+          : message,
+      },
       { status: 500 }
     );
   }
