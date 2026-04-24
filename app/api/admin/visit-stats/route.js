@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminAccessAuthenticated } from "../../../../lib/admin-auth";
 import { isSupabaseConfigured, supabaseRest } from "../../../../lib/supabase-rest";
 
 function startOfDay(date = new Date()) {
@@ -23,6 +24,7 @@ function formatMonthKey(dateLike) {
 }
 
 export async function GET() {
+  if (!(await isAdminAccessAuthenticated())) return NextResponse.json({ ok: false, message: "권한이 없습니다." }, { status: 403 });
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ ok: false, message: 'Supabase 환경변수가 설정되지 않았습니다.' }, { status: 500 });
   }

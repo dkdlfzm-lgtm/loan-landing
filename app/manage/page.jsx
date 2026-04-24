@@ -30,6 +30,7 @@ const MENUS = [
   { key: "hero", label: "메인 배너" },
   { key: "middle", label: "중간 배너" },
   { key: "notice", label: "공지·팝업" },
+  { key: "business", label: "사업자 정보" },
   { key: "reviews", label: "승인사례 관리" },
 ];
 
@@ -118,7 +119,7 @@ export default function ManagePage() {
         return;
       }
       const role = String(staffSession?.account?.role || "");
-      if (staffSession?.authenticated && ["marketing", "admin"].includes(role)) {
+      if (staffSession?.authenticated && ["marketing", "admin", "representative"].includes(role)) {
         setViewer({ type: "staff", label: staffSession.account?.display_name || staffSession.account?.username || "직원", role, roleLabel: staffSession.account?.role_label || role });
         setAccessDenied(null);
         setAuthenticated(true);
@@ -128,7 +129,7 @@ export default function ManagePage() {
         setViewer({ type: "staff", label: staffSession.account?.display_name || staffSession.account?.username || "직원", role, roleLabel: staffSession.account?.role_label || role });
         setAccessDenied({
           title: "홈페이지 관리 권한이 없는 계정입니다.",
-          description: "마케팅담당 또는 관리자 계정만 홈페이지 관리 페이지에 접속할 수 있습니다.",
+          description: "권한이 없습니다. 마케팅담당, 대표, 관리자 계정만 홈페이지 관리 페이지에 접속할 수 있습니다.",
           primaryHref: "/staff",
           primaryLabel: "직원 페이지로 이동",
           secondaryHref: "/manage-mobile",
@@ -219,12 +220,12 @@ export default function ManagePage() {
       setError(data.message || "로그인 실패");
       return;
     }
-    if (!["marketing", "admin"].includes(String(data.account?.role || ""))) {
+    if (!["marketing", "admin", "representative"].includes(String(data.account?.role || ""))) {
       await fetch("/api/staff/logout", { method: "POST" }).catch(() => null);
-      setError("마케팅담당 또는 관리자 직책만 홈페이지 관리 페이지에 접속할 수 있습니다.");
+      setError("권한이 없습니다.");
       return;
     }
-    setViewer({ type: "staff", label: data.account?.display_name || data.account?.username || "직원", roleLabel: data.account?.role_label || "마케팅담당" });
+    setViewer({ type: "staff", label: data.account?.display_name || data.account?.username || "직원", role: data.account?.role, roleLabel: data.account?.role_label || "마케팅담당" });
     setAuthenticated(true);
   }
 
@@ -381,7 +382,7 @@ export default function ManagePage() {
   if (!authenticated && accessDenied) return <AccessDeniedView {...accessDenied} onLogout={handleLogout} />;
   if (!authenticated) return <ManagerLogin adminPassword={adminPassword} setAdminPassword={setAdminPassword} loginForm={loginForm} setLoginForm={setLoginForm} error={error} onAdminSubmit={handleAdminLogin} onStaffSubmit={handleStaffLogin} />;
 
-  const canOpenAdmin = viewer?.type === "admin" || String(viewer?.role || "") === "admin";
+  const canOpenAdmin = viewer?.type === "admin" || ["admin", "representative"].includes(String(viewer?.role || ""));
 
   return (
     <div className="site-wrap admin-wrap">
@@ -585,6 +586,76 @@ export default function ManagePage() {
                       </div>
                       <div className="field"><label>팝업 설명 문구</label><textarea rows={4} value={siteSettings.popup_description || ""} onChange={(e) => updateField("popup_description", e.target.value)} /></div>
                       <div className="field"><label>팝업 버튼 링크</label><input value={siteSettings.popup_button_url || ""} onChange={(e) => updateField("popup_button_url", e.target.value)} placeholder="#contact 또는 https://..." /></div>
+                    </section>
+                  ) : null}
+
+                  {activeMenu === "business" ? (
+                    <section className="manage-section-block">
+                      <div className="manage-section-head">
+                        <div>
+                          <div className="section-mini">사업자 정보 / 하단 고지</div>
+                          <h2 className="manage-section-title">홈페이지 하단 사업자 정보</h2>
+                          <p className="card-desc">PC와 모바일 홈페이지 맨 아래에 노출되는 사업자 정보와 법정 안내 문구를 수정합니다.</p>
+                        </div>
+                      </div>
+
+                      <div className="two-col compact-two-col">
+                        <div className="field">
+                          <label>대표자 성명</label>
+                          <input value={siteSettings.representative_name || ""} onChange={(e) => updateField("representative_name", e.target.value)} placeholder="예: 최종원" />
+                        </div>
+                        <div className="field">
+                          <label>사업자등록번호</label>
+                          <input value={siteSettings.business_registration_number || ""} onChange={(e) => updateField("business_registration_number", e.target.value)} placeholder="예: 739-08-03168" />
+                        </div>
+                      </div>
+
+                      <div className="two-col compact-two-col">
+                        <div className="field">
+                          <label>대부중개업 등록번호</label>
+                          <input value={siteSettings.brokerage_registration_number || ""} onChange={(e) => updateField("brokerage_registration_number", e.target.value)} placeholder="예: 2025-서울서초-0084" />
+                        </div>
+                        <div className="field">
+                          <label>대부업 등록번호</label>
+                          <input value={siteSettings.lending_registration_number || ""} onChange={(e) => updateField("lending_registration_number", e.target.value)} placeholder="예: 2025-서울서초-0083(대부업)" />
+                        </div>
+                      </div>
+
+                      <div className="field">
+                        <label>사업자 주소</label>
+                        <input value={siteSettings.company_address || ""} onChange={(e) => updateField("company_address", e.target.value)} placeholder="사업자주소 입력" />
+                      </div>
+
+                      <div className="field">
+                        <label>등록기관</label>
+                        <input value={siteSettings.registration_agency || ""} onChange={(e) => updateField("registration_agency", e.target.value)} placeholder="예: 서초구청 일자리경제과 (02-2155-8752)" />
+                      </div>
+
+                      <div className="field">
+                        <label>하단 안내문 1</label>
+                        <textarea rows={2} value={siteSettings.footer_legal_line_1 || ""} onChange={(e) => updateField("footer_legal_line_1", e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>하단 안내문 2</label>
+                        <textarea rows={2} value={siteSettings.footer_legal_line_2 || ""} onChange={(e) => updateField("footer_legal_line_2", e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>하단 안내문 3</label>
+                        <textarea rows={2} value={siteSettings.footer_legal_line_3 || ""} onChange={(e) => updateField("footer_legal_line_3", e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>하단 안내문 4</label>
+                        <textarea rows={2} value={siteSettings.footer_legal_line_4 || ""} onChange={(e) => updateField("footer_legal_line_4", e.target.value)} />
+                      </div>
+                      <div className="field">
+                        <label>하단 안내문 5</label>
+                        <textarea rows={2} value={siteSettings.footer_legal_line_5 || ""} onChange={(e) => updateField("footer_legal_line_5", e.target.value)} />
+                      </div>
+
+                      <div className="field">
+                        <label>저작권 문구</label>
+                        <input value={siteSettings.footer_copyright || ""} onChange={(e) => updateField("footer_copyright", e.target.value)} placeholder="© 엔드아이에셋대부. All Rights Reserved." />
+                      </div>
                     </section>
                   ) : null}
 

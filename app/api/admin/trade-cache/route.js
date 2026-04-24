@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAdminAccessAuthenticated } from "../../../../lib/admin-auth";
 import { loadPropertyMaster } from "../../../lib-property-master";
 
 const APT_TRADE_BASE =
@@ -332,6 +333,7 @@ async function upsertTradeRows(rows) {
 }
 
 export async function GET() {
+  if (!(await isAdminAccessAuthenticated())) return NextResponse.json({ ok: false, message: "권한이 없습니다." }, { status: 403 });
   try {
     const allRows = await supabaseRequest(
       "/apartment_trade_cache?select=deal_date,collected_at&order=deal_date.desc&limit=5000"

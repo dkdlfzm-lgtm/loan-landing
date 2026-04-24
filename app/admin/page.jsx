@@ -18,6 +18,17 @@ const STATUS_OPTIONS = [
   { value: "승인", label: "승인" },
 ];
 
+const STAFF_ROLE_OPTIONS = [
+  { value: "cs", label: "CS담당", desc: "직원페이지 전용" },
+  { value: "marketing", label: "마케팅담당", desc: "PC·모바일 홈페이지관리 전용" },
+  { value: "representative", label: "대표", desc: "전체 페이지 접근 가능" },
+  { value: "admin", label: "관리자", desc: "전체 페이지 접근 가능" },
+];
+
+function getRoleLabel(role) {
+  return STAFF_ROLE_OPTIONS.find((item) => item.value === String(role || "cs"))?.label || "CS담당";
+}
+
 const OWNER_TABS = [
   { key: "customers", label: "고객 배정" },
   { key: "performance", label: "실적 관리" },
@@ -64,31 +75,61 @@ function statusClassName(value) {
   return map[value] || "crm-status-default";
 }
 
-function OwnerLogin({ password, setPassword, error, onSubmit }) {
+function OwnerLogin({ password, setPassword, loginForm, setLoginForm, error, onAdminSubmit, onStaffSubmit }) {
   return (
     <div className="site-wrap admin-wrap">
       <main className="section reviews-main-section">
         <div className="container admin-login-shell">
-          <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onSubmit}>
-            <div className="section-mini">사장님 · 관리자 전용</div>
-            <h1 className="section-title reviews-page-title">경영 관리 로그인</h1>
-            <p className="card-desc">
-              신규 접수 확인, 담당자 배정, 직원 계정 운영을 관리하는 전용 화면입니다.
-            </p>
-            <div className="field">
-              <label>관리자 비밀번호</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="관리자 비밀번호 입력"
-              />
-            </div>
-            {error ? <div className="api-status error">{error}</div> : null}
-            <button type="submit" className="primary-btn">
-              로그인
-            </button>
-          </form>
+          <div className="manage-login-grid">
+            <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onAdminSubmit}>
+              <div className="section-mini">사장님 · 관리자 전용</div>
+              <h1 className="section-title reviews-page-title">경영 관리 로그인</h1>
+              <p className="card-desc">
+                기존 관리자 비밀번호로 전체 고객, 담당자, 직원 계정을 관리합니다.
+              </p>
+              <div className="field">
+                <label>관리자 비밀번호</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="관리자 비밀번호 입력"
+                />
+              </div>
+              <button type="submit" className="primary-btn">
+                관리자 비밀번호로 로그인
+              </button>
+            </form>
+
+            <form className="review-write-card admin-login-card admin-login-card-pro" onSubmit={onStaffSubmit}>
+              <div className="section-mini">직원 계정 권한 로그인</div>
+              <h2 className="section-title reviews-page-title">대표 · 관리자 계정 로그인</h2>
+              <p className="card-desc">
+                직원 계정 중 직책이 대표 또는 관리자인 계정만 관리자페이지에 접속할 수 있습니다.
+              </p>
+              <div className="field">
+                <label>직원 아이디</label>
+                <input
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm((prev) => ({ ...prev, username: e.target.value }))}
+                  placeholder="직원 아이디"
+                />
+              </div>
+              <div className="field">
+                <label>직원 비밀번호</label>
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="직원 비밀번호"
+                />
+              </div>
+              <button type="submit" className="primary-btn">
+                직원 계정으로 로그인
+              </button>
+            </form>
+          </div>
+          {error ? <div className="api-status error" style={{ marginTop: 16 }}>{error}</div> : null}
         </div>
       </main>
     </div>
@@ -143,6 +184,7 @@ function groupCounts(items, getKey) {
 export default function AdminOwnerPage() {
   const [authenticated, setAuthenticated] = useState(null);
   const [password, setPassword] = useState("");
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("customers");
   const [inquiries, setInquiries] = useState([]);
@@ -155,6 +197,7 @@ export default function AdminOwnerPage() {
     password: "",
     display_name: "",
     staff_member_id: "",
+    role: "cs",
   });
   const [staffMessage, setStaffMessage] = useState(null);
   const [accountMessage, setAccountMessage] = useState(null);
@@ -364,8 +407,35 @@ export default function AdminOwnerPage() {
     setAuthenticated(true);
   }
 
+  async function handleStaffOwnerLogin(e) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch("/api/staff/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(loginForm),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      setError(data.message || "로그인 실패");
+      return;
+    }
+
+    if (!["admin", "representative"].includes(String(data.account?.role || ""))) {
+      await fetch("/api/staff/logout", { method: "POST" }).catch(() => null);
+      setError("권한이 없습니다.");
+      return;
+    }
+
+    setAuthenticated(true);
+  }
+
   async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
+    await Promise.all([
+      fetch("/api/admin/logout", { method: "POST" }).catch(() => null),
+      fetch("/api/staff/logout", { method: "POST" }).catch(() => null),
+    ]);
     setAuthenticated(false);
   }
 
@@ -416,6 +486,7 @@ export default function AdminOwnerPage() {
       password: newAccount.password,
       display_name: newAccount.display_name,
       staff_member_id: newAccount.staff_member_id || null,
+      role: newAccount.role || "cs",
     };
     const res = await fetch("/api/admin/staff-accounts", {
       method: "POST",
@@ -427,10 +498,10 @@ export default function AdminOwnerPage() {
       return setAccountMessage({ type: "error", text: data.message || "직원 계정 생성 실패" });
     }
     setAccounts((prev) => [data.account, ...prev]);
-    setNewAccount({ username: "", password: "", display_name: "", staff_member_id: "" });
+    setNewAccount({ username: "", password: "", display_name: "", staff_member_id: "", role: "cs" });
     setAccountMessage({
       type: "success",
-      text: "직원 계정이 생성되었습니다. 이제 해당 계정으로 직원 페이지 로그인 가능합니다.",
+      text: "직원 계정이 생성되었습니다. 직책 권한에 따라 접속 가능한 페이지가 자동 제한됩니다.",
     });
   }
 
@@ -470,7 +541,7 @@ export default function AdminOwnerPage() {
   );
 
   const activeAccountOptions = useMemo(
-    () => accounts.filter((item) => item.status === "active"),
+    () => accounts.filter((item) => item.status === "active" && ["cs", "admin", "representative"].includes(String(item.role || "cs"))),
     [accounts]
   );
 
@@ -685,8 +756,11 @@ export default function AdminOwnerPage() {
       <OwnerLogin
         password={password}
         setPassword={setPassword}
+        loginForm={loginForm}
+        setLoginForm={setLoginForm}
         error={error}
-        onSubmit={handleLogin}
+        onAdminSubmit={handleLogin}
+        onStaffSubmit={handleStaffOwnerLogin}
       />
     );
   }
@@ -805,14 +879,14 @@ export default function AdminOwnerPage() {
                       <tbody>
                         {loading ? (
                           <tr>
-                            <td colSpan={6} className="crm-empty-cell">
+                            <td colSpan={7} className="crm-empty-cell">
                               불러오는 중...
                             </td>
                           </tr>
                         ) : null}
                         {!loading && filteredInquiries.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="crm-empty-cell">
+                            <td colSpan={7} className="crm-empty-cell">
                               검색 결과가 없습니다.
                             </td>
                           </tr>
@@ -1029,7 +1103,7 @@ export default function AdminOwnerPage() {
                     <tbody>
                       {performanceRows.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="crm-empty-cell">
+                          <td colSpan={7} className="crm-empty-cell">
                             조건에 맞는 실적이 없습니다.
                           </td>
                         </tr>
@@ -1259,7 +1333,7 @@ export default function AdminOwnerPage() {
               <section className="crm-panel crm-panel-xl">
                 <div className="crm-section-header">
                   <h3>직원 로그인 계정 관리</h3>
-                  <span>관리자 페이지에서 만든 계정으로만 직원 페이지에 로그인할 수 있습니다.</span>
+                  <span>직책에 따라 접속 가능한 페이지가 자동 제한됩니다. 권한 없는 페이지 접속 시 “권한이 없습니다.”가 표시됩니다.</span>
                 </div>
                 <form className="crm-account-form" onSubmit={addStaffAccount}>
                   <input value={newAccount.username} onChange={(e) => setNewAccount((p) => ({ ...p, username: e.target.value }))} placeholder="로그인 아이디" />
@@ -1285,6 +1359,16 @@ export default function AdminOwnerPage() {
                       </option>
                     ))}
                   </select>
+                  <select
+                    value={newAccount.role}
+                    onChange={(e) => setNewAccount((p) => ({ ...p, role: e.target.value }))}
+                  >
+                    {STAFF_ROLE_OPTIONS.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label} · {role.desc}
+                      </option>
+                    ))}
+                  </select>
                   <button type="submit" className="primary-btn">
                     직원 계정 생성
                   </button>
@@ -1297,6 +1381,7 @@ export default function AdminOwnerPage() {
                         <th>표시 이름</th>
                         <th>로그인 아이디</th>
                         <th>연결 담당자</th>
+                        <th>직책</th>
                         <th>상태</th>
                         <th>비밀번호 재설정</th>
                         <th>관리</th>
@@ -1305,7 +1390,7 @@ export default function AdminOwnerPage() {
                     <tbody>
                       {accounts.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="crm-empty-cell">
+                          <td colSpan={7} className="crm-empty-cell">
                             등록된 직원 계정이 없습니다.
                           </td>
                         </tr>
@@ -1319,6 +1404,17 @@ export default function AdminOwnerPage() {
                               </td>
                               <td>{item.username}</td>
                               <td>{linked?.name || "-"}</td>
+                              <td>
+                                <select
+                                  value={item.role || "cs"}
+                                  onChange={(e) => patchAccount(item.id, { role: e.target.value })}
+                                  className="crm-mini-select"
+                                >
+                                  {STAFF_ROLE_OPTIONS.map((role) => (
+                                    <option key={role.value} value={role.value}>{role.label}</option>
+                                  ))}
+                                </select>
+                              </td>
                               <td>
                                 <span className={`crm-status-chip ${statusClassName(item.status)}`}>
                                   {item.status === "active" ? "사용중" : "중지"}

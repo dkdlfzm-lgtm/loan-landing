@@ -42,12 +42,12 @@ function assigneeClassName(value) {
   return value && value !== "미배정" ? "assigned" : "unassigned";
 }
 function canOpenStaffPage(account) {
-  return ["admin", "cs", "worker"].includes(String(account?.role || ""));
+  return ["admin", "representative", "cs"].includes(String(account?.role || ""));
 }
 
 function roleLabel(role) {
   const map = { admin: "관리자", cs: "CS담당", worker: "실무자", marketing: "마케팅담당" };
-  return map[String(role || "")] || "실무자";
+  return map[String(role || "")] || "CS담당";
 }
 
 function AccessDeniedView({ account, onLogout }) {
@@ -117,9 +117,9 @@ function Sidebar({ activeTab, setActiveTab, handleLogout, account }) {
           </button>
         ))}
       </nav>
-      {String(account?.role || "") === "admin" ? <a className="nav-btn crm-ghost-link" href="/admin">관리자 페이지 열기</a> : null}
-      {String(account?.role || "") === "admin" ? <a className="nav-btn crm-ghost-link" href="/manage">PC 홈페이지 관리</a> : null}
-      {String(account?.role || "") === "admin" ? <a className="nav-btn crm-ghost-link" href="/manage-mobile">모바일 홈페이지 관리</a> : null}
+      {["admin", "representative"].includes(String(account?.role || "")) ? <a className="nav-btn crm-ghost-link" href="/admin">관리자 페이지 열기</a> : null}
+      {["admin", "representative"].includes(String(account?.role || "")) ? <a className="nav-btn crm-ghost-link" href="/manage">PC 홈페이지 관리</a> : null}
+      {["admin", "representative"].includes(String(account?.role || "")) ? <a className="nav-btn crm-ghost-link" href="/manage-mobile">모바일 홈페이지 관리</a> : null}
       <button type="button" className="nav-btn admin-logout-btn crm-sidebar-logout" onClick={handleLogout}>로그아웃</button>
     </aside>
   );

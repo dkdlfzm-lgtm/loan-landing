@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { isAdminAuthenticated } from "../../../../lib/admin-auth";
+import { isAdminAccessAuthenticated } from "../../../../lib/admin-auth";
 import { isSupabaseConfigured, supabaseRest } from "../../../../lib/supabase-rest";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: '관리자 인증이 필요합니다.' }, { status: 401 });
+  if (!(await isAdminAccessAuthenticated())) return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: 'Supabase 환경변수가 설정되지 않았습니다.' }, { status: 500 });
   try {
     const assignees = await supabaseRest('/staff_members', { query: { select: 'id,name,status,note,created_at', order: 'created_at.desc', limit: 200 } });
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ ok: false, message: '관리자 인증이 필요합니다.' }, { status: 401 });
+  if (!(await isAdminAccessAuthenticated())) return NextResponse.json({ ok: false, message: '권한이 없습니다.' }, { status: 403 });
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, message: 'Supabase 환경변수가 설정되지 않았습니다.' }, { status: 500 });
   try {
     const body = await request.json();

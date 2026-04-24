@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
-import { isAdminAuthenticated } from "../../../../lib/admin-auth";
+import { getAdminAccessSession, getSiteManageAccessSession } from "../../../../lib/admin-auth";
 
 export async function GET() {
-  return NextResponse.json({ ok: true, authenticated: await isAdminAuthenticated() });
+  const adminAccess = await getAdminAccessSession();
+  const siteAccess = adminAccess.authenticated ? adminAccess : await getSiteManageAccessSession();
+
+  return NextResponse.json({
+    ok: true,
+    authenticated: Boolean(adminAccess.authenticated),
+    siteManageAuthenticated: Boolean(siteAccess.authenticated),
+    viewer: adminAccess.authenticated ? adminAccess : null,
+    siteViewer: siteAccess.authenticated ? siteAccess : null,
+  });
 }
