@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabaseRest } from "../../../lib/supabase-rest";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const PROPERTY_TYPE_OR = "(property_type.eq.아파트,property_type.eq.apartment_trade)";
 const REB_API_BASE = "https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do";
 const PROPERTY_STAT_ID_MAP = {
   아파트: process.env.REB_APT_STATBL_ID,
@@ -44,11 +45,9 @@ function formatArea(value) {
 function formatEok(value) {
   const safe = Math.round(Number(value) || 0);
   if (safe <= 0) return "조회값 없음";
-
   const eok = Math.floor(safe / 100000000);
   const rest = safe % 100000000;
   const man = Math.round(rest / 10000);
-
   if (eok <= 0) return `${man.toLocaleString("ko-KR")}만원`;
   if (man <= 0) return `${eok}억`;
   return `${eok}억 ${man.toLocaleString("ko-KR")}만원`;
@@ -65,35 +64,23 @@ function toleranceForArea(areaNumber) {
 function nameSimilarityScore(sourceName, targetName) {
   const a = normalizeApartmentName(sourceName);
   const b = normalizeApartmentName(targetName);
-
   if (!a || !b) return 0;
   if (a === b) return 100;
   if (a.includes(b) || b.includes(a)) return 92;
-
   let common = 0;
   for (const ch of new Set(a.split(""))) {
     if (b.includes(ch)) common += 1;
   }
-
-  return Math.round(
-    (common / Math.max(new Set(a.split("")).size, new Set(b.split("")).size, 1)) * 100
-  );
+  return Math.round((common / Math.max(new Set(a.split("")).size, new Set(b.split("")).size, 1)) * 100);
 }
 
 function buildSummary(query, rows, label, options = {}) {
-  const sorted = [...rows].sort((a, b) =>
-    String(b.deal_date).localeCompare(String(a.deal_date))
-  );
+  const sorted = [...rows].sort((a, b) => String(b.deal_date).localeCompare(String(a.deal_date)));
   const latest = sorted[0];
   const amounts = sorted.map((row) => Number(row.amount_won || 0)).filter(Boolean);
+  if (!amounts.length) throw new Error("실거래 금액 데이터가 없습니다.");
 
-  if (!amounts.length) {
-    throw new Error("실거래 금액 데이터가 없습니다.");
-  }
-
-  const avg = Math.round(
-    amounts.reduce((s, v) => s + v, 0) / Math.max(amounts.length, 1)
-  );
+  const avg = Math.round(amounts.reduce((s, v) => s + v, 0) / Math.max(amounts.length, 1));
   const low = Math.min(...amounts);
   const high = Math.max(...amounts);
 
@@ -108,12 +95,8 @@ function buildSummary(query, rows, label, options = {}) {
       latestPrice: formatEok(latest?.amount_won || 0),
       range: `${formatEok(low)} ~ ${formatEok(high)}`,
       averagePrice: formatEok(avg),
-      estimateLimit: latest?.amount_won
-        ? `최대 ${formatEok(Math.round(Number(latest.amount_won) * 0.72))} 가능`
-        : "상담 후 산정",
-      description:
-        options.description ||
-        `캐시에 저장된 최근 ${sorted.length}건의 실거래 데이터를 기준으로 계산한 결과입니다.`,
+      estimateLimit: latest?.amount_won ? `최대 ${formatEok(Math.round(Number(latest.amount_won) * 0.72))} 가능` : "상담 후 산정",
+      description: options.description || `캐시에 저장된 최근 ${sorted.length}건의 실거래 데이터를 기준으로 계산한 결과입니다.`,
       trendText: label,
     },
     ...(options.warning ? { warning: options.warning } : {}),
@@ -133,8 +116,7 @@ function buildEstimatedSummary(query, baseRow, estimatedWon, label, warning) {
       range: formatEok(estimatedWon),
       averagePrice: formatEok(estimatedWon),
       estimateLimit: `최대 ${formatEok(Math.round(estimatedWon * 0.72))} 가능`,
-      description:
-        "캐시에 저장된 최근 유사 실거래 데이터를 기준으로 ㎡당 가격을 환산한 추정값입니다.",
+      description: "캐시에 저장된 최근 유사 실거래 데이터를 기준으로 ㎡당 가격을 환산한 추정값입니다.",
       trendText: label,
     },
     warning,
@@ -142,15 +124,12 @@ function buildEstimatedSummary(query, baseRow, estimatedWon, label, warning) {
 }
 
 async function fetchTradeRows(query) {
-  if (!isSupabaseConfigured()) {
-    throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
-  }
+  if (!isSupabaseConfigured()) throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
 
   const rows = await supabaseRest("/apartment_trade_cache", {
     query: {
-      select:
-        "city,district,town,lawd_code,apartment_name,apartment_name_norm,jibun,area_m2,deal_date,amount_won,price_per_m2",
-      property_type: `eq.${query.propertyType}`,
+      select: "city,district,town,lawd_code,apartment_name,apartment_name_norm,jibun,area_m2,deal_date,amount_won,price_per_m2,property_type",
+      or: PROPERTY_TYPE_OR,
       city: `eq.${query.city}`,
       district: `eq.${query.district}`,
       town: `eq.${query.town}`,
@@ -160,9 +139,7 @@ async function fetchTradeRows(query) {
   });
 
   const all = Array.isArray(rows) ? rows : [];
-  if (!all.length) {
-    throw new Error("해당 지역의 실거래 캐시 데이터가 없습니다.");
-  }
+  if (!all.length) throw new Error("해당 지역의 실거래 캐시 데이터가 없습니다.");
 
   return all
     .map((row) => {
@@ -170,13 +147,9 @@ async function fetchTradeRows(query) {
       const targetArea = parseAreaNumber(query.area);
       return {
         ...row,
-        apartment_name_norm:
-          row.apartment_name_norm || normalizeApartmentName(row.apartment_name),
+        apartment_name_norm: row.apartment_name_norm || normalizeApartmentName(row.apartment_name),
         area_m2_num: area,
-        areaDiff:
-          Number.isFinite(targetArea) && Number.isFinite(area)
-            ? Math.abs(area - targetArea)
-            : Number.POSITIVE_INFINITY,
+        areaDiff: Number.isFinite(targetArea) && Number.isFinite(area) ? Math.abs(area - targetArea) : Number.POSITIVE_INFINITY,
         nameScore: nameSimilarityScore(row.apartment_name, query.apartment),
       };
     })
@@ -189,40 +162,25 @@ async function fetchCacheSummary(query) {
   const all = await fetchTradeRows(query);
 
   const exact = all.filter((row) => {
-    const areaOk =
-      !Number.isFinite(targetArea) ||
-      !Number.isFinite(row.area_m2_num) ||
-      row.areaDiff <= toleranceForArea(targetArea);
+    const areaOk = !Number.isFinite(targetArea) || !Number.isFinite(row.area_m2_num) || row.areaDiff <= toleranceForArea(targetArea);
     return row.apartment_name_norm === targetNameNorm && areaOk;
   });
-  if (exact.length) {
-    return buildSummary(query, exact, "동일 단지·유사 면적 실거래");
-  }
+  if (exact.length) return buildSummary(query, exact, "동일 단지·유사 면적 실거래");
 
   const sameNameArea = all.filter((row) => {
-    const areaOk =
-      !Number.isFinite(targetArea) ||
-      !Number.isFinite(row.area_m2_num) ||
-      row.areaDiff <= toleranceForArea(targetArea);
+    const areaOk = !Number.isFinite(targetArea) || !Number.isFinite(row.area_m2_num) || row.areaDiff <= toleranceForArea(targetArea);
     return row.nameScore >= 86 && areaOk;
   });
-  if (sameNameArea.length) {
-    return buildSummary(query, sameNameArea, "단지명 유사·면적 근접 실거래");
-  }
+  if (sameNameArea.length) return buildSummary(query, sameNameArea, "단지명 유사·면적 근접 실거래");
 
   const sameNameAnyArea = all
     .filter((row) => row.nameScore >= 86 && Number.isFinite(row.area_m2_num))
-    .sort(
-      (a, b) =>
-        a.areaDiff - b.areaDiff ||
-        String(b.deal_date).localeCompare(String(a.deal_date))
-    );
+    .sort((a, b) => a.areaDiff - b.areaDiff || String(b.deal_date).localeCompare(String(a.deal_date)));
   if (sameNameAnyArea.length && Number.isFinite(targetArea)) {
     const nearest = sameNameAnyArea[0];
-    const estimated =
-      nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
-        ? Math.round(Number(nearest.price_per_m2) * targetArea)
-        : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
+    const estimated = nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
+      ? Math.round(Number(nearest.price_per_m2) * targetArea)
+      : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
 
     return buildEstimatedSummary(
       query,
@@ -234,19 +192,9 @@ async function fetchCacheSummary(query) {
   }
 
   const sameTownNearArea = all
-    .filter(
-      (row) =>
-        Number.isFinite(targetArea) &&
-        Number.isFinite(row.area_m2_num) &&
-        Math.abs(row.area_m2_num - targetArea) <= 5
-    )
-    .sort(
-      (a, b) =>
-        b.nameScore - a.nameScore ||
-        String(b.deal_date).localeCompare(String(a.deal_date))
-    )
-    .slice(0, 20);
-
+    .filter((row) => Number.isFinite(targetArea) && Number.isFinite(row.area_m2_num) && Math.abs(row.area_m2_num - targetArea) <= 8)
+    .sort((a, b) => b.nameScore - a.nameScore || String(b.deal_date).localeCompare(String(a.deal_date)))
+    .slice(0, 30);
   if (sameTownNearArea.length) {
     return buildSummary(query, sameTownNearArea, "같은 동 유사 면적 참고", {
       warning: "동일 단지 매칭 데이터가 부족해 같은 동의 유사 면적 거래를 참고값으로 표시했습니다.",
@@ -255,19 +203,13 @@ async function fetchCacheSummary(query) {
 
   const nearestAny = all
     .filter((row) => Number.isFinite(row.area_m2_num) && Number.isFinite(targetArea))
-    .sort(
-      (a, b) =>
-        a.areaDiff - b.areaDiff ||
-        b.nameScore - a.nameScore ||
-        String(b.deal_date).localeCompare(String(a.deal_date))
-    );
+    .sort((a, b) => a.areaDiff - b.areaDiff || b.nameScore - a.nameScore || String(b.deal_date).localeCompare(String(a.deal_date)));
 
   if (nearestAny.length) {
     const nearest = nearestAny[0];
-    const estimated =
-      nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
-        ? Math.round(Number(nearest.price_per_m2) * targetArea)
-        : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
+    const estimated = nearest.price_per_m2 && Number(nearest.price_per_m2) > 0
+      ? Math.round(Number(nearest.price_per_m2) * targetArea)
+      : Math.round((Number(nearest.amount_won) / Math.max(nearest.area_m2_num, 1)) * targetArea);
 
     return buildEstimatedSummary(
       query,
@@ -292,18 +234,13 @@ function normalizeItems(payload) {
 function pickLatestItem(items = []) {
   if (!items.length) return null;
   return [...items].sort((a, b) =>
-    String(b.WRTTIME_IDTFR_ID || b.wrttimeIdtfrId || "").localeCompare(
-      String(a.WRTTIME_IDTFR_ID || a.wrttimeIdtfrId || "")
-    )
+    String(b.WRTTIME_IDTFR_ID || b.wrttimeIdtfrId || "").localeCompare(String(a.WRTTIME_IDTFR_ID || a.wrttimeIdtfrId || ""))
   )[0];
 }
 
 function makeSummaryFromStat(item, query) {
-  const rawValue = Number(
-    item?.DT || item?.dt || item?.VALUE || item?.value || item?.PRICE || item?.price || 0
-  );
+  const rawValue = Number(item?.DT || item?.dt || item?.VALUE || item?.value || item?.PRICE || item?.price || 0);
   if (!rawValue) return null;
-
   const numericValue = rawValue < 10000 ? rawValue * 1000000 : rawValue;
   return {
     source: "reb-openapi",
@@ -314,9 +251,7 @@ function makeSummaryFromStat(item, query) {
       area: formatArea(query.area),
       tradeDate: String(item.WRTTIME_IDTFR_ID || item.wrttimeIdtfrId || "통계 기준"),
       latestPrice: formatEok(numericValue),
-      range: `${formatEok(Math.round(numericValue * 0.96))} ~ ${formatEok(
-        Math.round(numericValue * 1.04)
-      )}`,
+      range: `${formatEok(Math.round(numericValue * 0.96))} ~ ${formatEok(Math.round(numericValue * 1.04))}`,
       averagePrice: formatEok(numericValue),
       estimateLimit: `최대 ${formatEok(Math.round(numericValue * 0.72))} 가능`,
       description: "실거래 캐시가 없어서 한국부동산원 통계 참고값으로 대체합니다.",
@@ -356,13 +291,7 @@ export async function GET(request) {
   };
 
   if (!query.city || !query.district || !query.town || !query.apartment || !query.area) {
-    return jsonNoStore(
-      {
-        ok: false,
-        message: "시도, 시군구, 읍면동, 아파트, 면적을 모두 선택해 주세요.",
-      },
-      { status: 400 }
-    );
+    return jsonNoStore({ ok: false, message: "시도, 시군구, 읍면동, 아파트, 면적을 모두 선택해 주세요." }, { status: 400 });
   }
 
   try {
@@ -392,8 +321,7 @@ export async function GET(request) {
         range: "조회값 없음",
         averagePrice: "조회값 없음",
         estimateLimit: "상담 후 산정",
-        description:
-          "DB 실거래 및 통계 참고값 모두 찾지 못했습니다. 같은 동 유사 단지 데이터가 적거나, 아직 적재되지 않은 단지일 수 있습니다.",
+        description: "DB 실거래 및 통계 참고값 모두 찾지 못했습니다. 같은 동 유사 단지 데이터가 적거나, 아직 적재되지 않은 단지일 수 있습니다.",
         trendText: "실거래 데이터 없음",
       },
       query,

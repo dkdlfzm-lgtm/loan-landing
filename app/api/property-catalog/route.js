@@ -4,6 +4,8 @@ import { isSupabaseConfigured, supabaseRest } from "../../../lib/supabase-rest";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const PROPERTY_TYPE_OR = "(property_type.eq.아파트,property_type.eq.apartment_trade)";
+
 function jsonNoStore(body, init = {}) {
   const response = NextResponse.json(body, init);
   response.headers.set("Cache-Control", "no-store, max-age=0");
@@ -34,34 +36,30 @@ function sortAreas(values = []) {
   });
 }
 
-async function fetchCursorPagedRows(extraFilters = {}, pageSize = 1000, maxPages = 200) {
+async function fetchCursorPagedRows(extraFilters = {}, pageSize = 1000, maxPages = 300) {
   const all = [];
   let lastId = 0;
   let pages = 0;
 
   for (let page = 0; page < maxPages; page += 1) {
     const query = {
-      select: "id,city,district,town,apartment_name,area_m2,deal_date,amount_won",
-      property_type: "eq.아파트",
+      select: "id,city,district,town,apartment_name,area_m2,deal_date,amount_won,property_type",
+      or: PROPERTY_TYPE_OR,
       amount_won: "gt.0",
       order: "id.asc",
       limit: String(pageSize),
       ...extraFilters,
     };
 
-    if (lastId > 0) {
-      query.id = `gt.${lastId}`;
-    }
+    if (lastId > 0) query.id = `gt.${lastId}`;
 
     const rows = await supabaseRest("/apartment_trade_cache", { query });
     const batch = Array.isArray(rows) ? rows : [];
     pages += 1;
-
     if (!batch.length) break;
 
     all.push(...batch);
     lastId = Number(batch[batch.length - 1]?.id || lastId);
-
     if (batch.length < pageSize) break;
   }
 
@@ -73,25 +71,10 @@ async function fetchCacheRows(query) {
     throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
   }
 
-  if (!query.city) {
-    return fetchCursorPagedRows({});
-  }
-
-  if (!query.district) {
-    return fetchCursorPagedRows({ city: `eq.${query.city}` });
-  }
-
-  if (!query.town) {
-    return fetchCursorPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}` });
-  }
-
-  if (!query.apartment) {
-    return fetchCursorPagedRows({
-      city: `eq.${query.city}`,
-      district: `eq.${query.district}`,
-      town: `eq.${query.town}`,
-    });
-  }
+  if (!query.city) return fetchCursorPagedRows({});
+  if (!query.district) return fetchCursorPagedRows({ city: `eq.${query.city}` });
+  if (!query.town) return fetchCursorPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}` });
+  if (!query.apartment) return fetchCursorPagedRows({ city: `eq.${query.city}`, district: `eq.${query.district}`, town: `eq.${query.town}` });
 
   return fetchCursorPagedRows({
     city: `eq.${query.city}`,
@@ -102,7 +85,7 @@ async function fetchCacheRows(query) {
 }
 
 function buildOptionsFromRows(rows, query) {
-  const validRows = rows.filter((row) => row.city && row.district && row.town && row.apartment_name);
+  const validRows = rows.filter((row) => row.city && row.district && row.town && row.apartment_name && Number(row.amount_won || 0) > 0);
 
   const cities = sortKo(uniq(validRows.map((row) => row.city)));
   const city = query.city && cities.includes(query.city) ? query.city : "";
@@ -124,16 +107,8 @@ function buildOptionsFromRows(rows, query) {
   const area = query.area && areas.includes(query.area) ? query.area : "";
 
   return {
-    city,
-    district,
-    town,
-    apartment,
-    area,
-    cities,
-    districts,
-    towns,
-    apartments,
-    areas,
+    city, district, town, apartment, area,
+    cities, districts, towns, apartments, areas,
     counts: {
       cities: cities.length,
       districts: districts.length,
@@ -192,18 +167,15 @@ export async function GET(request) {
         fetched_rows: paged.rows.length,
         pages: paged.pages,
         last_id: paged.lastId,
+        property_type_filter: "아파트 OR apartment_trade",
       },
-      warning:
-        result.counts.cities === 0
-          ? "DB에 저장된 실거래가 있는 아파트만 표시합니다. 현재 조건에 맞는 데이터가 없습니다."
-          : "",
+      warning: result.counts.cities === 0
+        ? "DB에 저장된 실거래가 있는 아파트만 표시합니다. 현재 조건에 맞는 데이터가 없습니다."
+        : "",
     });
   } catch (error) {
     return jsonNoStore(
-      {
-        ok: false,
-        message: error?.message || "단지 목록을 불러오지 못했습니다.",
-      },
+      { ok: false, message: error?.message || "단지 목록을 불러오지 못했습니다." },
       { status: 500 }
     );
   }
