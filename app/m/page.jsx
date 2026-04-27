@@ -138,6 +138,9 @@ export default function MobileLandingPage() {
   const [selectedTown, setSelectedTown] = useState("");
   const [selectedApartment, setSelectedApartment] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketError, setMarketError] = useState("");
+  const [marketResult, setMarketResult] = useState(null);
   const [catalogError, setCatalogError] = useState("");
   const [homeInquiry, setHomeInquiry] = useState({ name: "", phone: "", address: "", loanType: LOAN_TYPE_OPTIONS[0] });
   const [homeInquirySaving, setHomeInquirySaving] = useState(false);
@@ -153,6 +156,8 @@ export default function MobileLandingPage() {
   const displayLogoUrl = siteSettings.logo_url || DEFAULT_SITE_SETTINGS.logo_url;
   const heroBadge = siteSettings.hero_badge || DEFAULT_SITE_SETTINGS.hero_badge;
   const heroTitle = siteSettings.hero_title || DEFAULT_SITE_SETTINGS.hero_title;
+  const marketSummary = marketResult?.summary || null;
+  const canSearchMarket = Boolean(selectedCity && selectedDistrict && selectedTown && selectedApartment && selectedArea);
 
   const [approvalCases, setApprovalCases] = useState([]);
   const casePages = useMemo(() => chunkArray(approvalCases, 3), [approvalCases]);
@@ -246,6 +251,11 @@ export default function MobileLandingPage() {
   }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
 
   useEffect(() => {
+    setMarketResult(null);
+    setMarketError("");
+  }, [selectedCity, selectedDistrict, selectedTown, selectedApartment, selectedArea]);
+
+  useEffect(() => {
     if (casePages.length <= 1) return undefined;
     const timer = window.setInterval(() => {
       setCasePageIndex((prev) => (prev + 1) % casePages.length);
@@ -292,6 +302,39 @@ export default function MobileLandingPage() {
       setHomeInquiryStatus(error?.message || "상담 신청 중 오류가 발생했습니다.");
     } finally {
       setHomeInquirySaving(false);
+    }
+  }
+
+  async function handleMobileMarketSearch() {
+    if (!canSearchMarket) {
+      setMarketError("시/도, 시/군/구, 읍/면/동, 단지, 면적을 모두 선택해 주세요.");
+      return;
+    }
+
+    setMarketLoading(true);
+    setMarketError("");
+    setMarketResult(null);
+
+    try {
+      const query = new URLSearchParams({
+        propertyType: "아파트",
+        city: selectedCity,
+        district: selectedDistrict,
+        town: selectedTown,
+        apartment: selectedApartment,
+        area: selectedArea,
+      });
+
+      const res = await fetch(`/api/reb-market?${query.toString()}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || data?.ok === false) {
+        throw new Error(data?.message || "시세 정보를 불러오지 못했습니다.");
+      }
+      setMarketResult(data);
+    } catch (error) {
+      setMarketError(error?.message || "시세 정보를 불러오지 못했습니다.");
+    } finally {
+      setMarketLoading(false);
     }
   }
 
@@ -467,6 +510,50 @@ export default function MobileLandingPage() {
             </label>
             {catalogLoading ? <div className={styles.inlineNote}>단지 정보를 불러오는 중입니다.</div> : null}
             {catalogError ? <div className={`${styles.formStatus} ${styles.error}`}>{catalogError}</div> : null}
+
+            <button
+              type="button"
+              className={styles.submitButton}
+              onClick={handleMobileMarketSearch}
+              disabled={marketLoading || !canSearchMarket}
+            >
+              {marketLoading ? "시세 조회 중..." : "시세 조회하기"}
+            </button>
+
+            {!canSearchMarket ? (
+              <div className={styles.inlineNote}>지역, 단지, 면적을 모두 선택하면 시세조회 버튼을 누를 수 있습니다.</div>
+            ) : null}
+            {marketError ? <div className={`${styles.formStatus} ${styles.error}`}>{marketError}</div> : null}
+            {marketSummary ? (
+              <div className={styles.marketResultCard}>
+                <div className={styles.marketResultTop}>
+                  <span>시세조회 결과</span>
+                  <strong>{marketSummary.title || selectedApartment}</strong>
+                  <p>{marketSummary.address || [selectedCity, selectedDistrict, selectedTown].filter(Boolean).join(" ")} · {marketSummary.area || selectedArea}</p>
+                </div>
+                {marketResult?.warning ? <div className={styles.marketWarning}>{marketResult.warning}</div> : null}
+                <div className={styles.marketResultGrid}>
+                  <div>
+                    <span>최근 기준가</span>
+                    <strong>{marketSummary.latestPrice || "조회값 없음"}</strong>
+                  </div>
+                  <div>
+                    <span>평균가</span>
+                    <strong>{marketSummary.averagePrice || "조회값 없음"}</strong>
+                  </div>
+                  <div>
+                    <span>거래 범위</span>
+                    <strong>{marketSummary.range || "조회값 없음"}</strong>
+                  </div>
+                  <div>
+                    <span>예상 한도</span>
+                    <strong>{marketSummary.estimateLimit || "상담 후 산정"}</strong>
+                  </div>
+                </div>
+                <p className={styles.marketDescription}>{marketSummary.description}</p>
+                <a className={styles.marketConsultButton} href={`tel:${sanitizePhone(displayPhone)}`}>상담 바로 연결</a>
+              </div>
+            ) : null}
           </div>
         </section>
 
