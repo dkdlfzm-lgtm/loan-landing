@@ -35,7 +35,7 @@ const statSlides = [
 ];
 
 
-function useScrollReveal() {
+function useScrollReveal(refreshKey = 0) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -60,7 +60,7 @@ function useScrollReveal() {
     });
 
     return () => observer.disconnect();
-  }, []);
+  }, [refreshKey]);
 }
 
 function startOfTomorrow() {
@@ -159,7 +159,6 @@ function mergeCatalogOptions(prev, incoming = {}, level = "city") {
 
 
 export default function LoanLandingPage() {
-  useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [repaymentType, setRepaymentType] = useState("");
@@ -168,6 +167,7 @@ export default function LoanLandingPage() {
   const [propertyType, setPropertyType] = useState("아파트");
   const [tradeTypes, setTradeTypes] = useState({ sale: true, jeonse: true, monthly: true });
   const [currentView, setCurrentView] = useState("home");
+  useScrollReveal(currentView);
   const [activeSlide, setActiveSlide] = useState(0);
   const [approvalSlide, setApprovalSlide] = useState(0);
   const [approvalDirection, setApprovalDirection] = useState("next");
@@ -598,10 +598,13 @@ export default function LoanLandingPage() {
   const handleGoHome = () => {
     setCurrentView("home");
     if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
       if (window.location.hash) {
         history.replaceState(null, "", window.location.pathname + window.location.search);
       }
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        document.querySelectorAll("[data-reveal]").forEach((node) => node.classList.add("is-visible"));
+      });
     }
   };
 
@@ -1374,25 +1377,29 @@ export default function LoanLandingPage() {
         <section className="legal-section">
           <div className="container">
             <div className="legal-lines">
-              <div>이자율 : 연6% ~ 연20%이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용없음)</div>
-              <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
-              <div>과도한 빚, 고통의 시작입니다. 대출시 귀하의 신용등급이 하락할 수 있습니다.</div>
-              <div>이 사이트에서 광고되는 상품들의 상환 기간은 모두 60일 이상이며 (최저 2개월, 최대 5년), 최대 연 이자율은 20%입니다.</div>
-              <div>대부이자율 (연 이자율) 및 연체이자율은 연 20%를 초과할 수 없습니다. (조기상환 조건없음)</div>
+              {[
+                siteSettings.footer_legal_line_1,
+                siteSettings.footer_legal_line_2,
+                siteSettings.footer_legal_line_3,
+                siteSettings.footer_legal_line_4,
+                siteSettings.footer_legal_line_5,
+              ].filter(Boolean).map((line, index) => (
+                <div key={`footer-legal-${index}`}>{line}</div>
+              ))}
             </div>
 
             <div className="legal-meta">
-              <span>상호 : 엔드아이에셋대부</span>
-              <span>대표자(성명) : 최종원</span>
-              <span>대표전화 : 070-8018-7437</span>
-              <span>사업자등록번호 : 739-08-03168</span>
-              <span>대부중개업 등록번호 : 2025-서울서초-0084</span>
-              <span>대부업 등록번호 : 2025-서울서초-0083(대부업)</span>
-              <span>사업자주소 : 서울특별시 서초구 서초중앙로 114, 일광빌딩 지하2층 B204호</span>
-              <span>등록기관 : 서초구청 일자리경제과 (02-2155-8752)</span>
+              <span>상호 : {siteSettings.company_name || "엔드아이에셋대부"}</span>
+              <span>대표자(성명) : {siteSettings.representative_name || "최종원"}</span>
+              <span>대표전화 : {displayPhone}</span>
+              <span>사업자등록번호 : {siteSettings.business_registration_number || "739-08-03168"}</span>
+              <span>대부중개업 등록번호 : {siteSettings.brokerage_registration_number || "2025-서울서초-0084"}</span>
+              <span>대부업 등록번호 : {siteSettings.lending_registration_number || "2025-서울서초-0083(대부업)"}</span>
+              <span>사업자주소 : {siteSettings.company_address || "서울특별시 서초구 서초중앙로 114, 일광빌딩 지하2층 B204호"}</span>
+              <span>등록기관 : {siteSettings.registration_agency || "서초구청 일자리경제과 (02-2155-8752)"}</span>
             </div>
 
-            <div className="legal-copy">© 엔드아이에셋대부. All Rights Reserved.</div>
+            <div className="legal-copy">{siteSettings.footer_copyright || "© 엔드아이에셋대부. All Rights Reserved."}</div>
           </div>
         </section>
       </main>
