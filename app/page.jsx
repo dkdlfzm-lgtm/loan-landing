@@ -135,6 +135,29 @@ function formatNumber(value) {
   return Math.round(value).toLocaleString("ko-KR");
 }
 
+
+function inferCatalogLevel(query) {
+  if (!query.city) return "city";
+  if (!query.district) return "district";
+  if (!query.town) return "town";
+  if (!query.apartment) return "apartment";
+  return "area";
+}
+
+function mergeCatalogOptions(prev, incoming = {}, level = "city") {
+  const safePrev = prev || { cities: [], districts: [], towns: [], apartments: [], areas: [] };
+  const safeIncoming = incoming || {};
+
+  return {
+    cities: level === "city" ? (safeIncoming.cities || []) : (safePrev.cities || []),
+    districts: level === "district" ? (safeIncoming.districts || []) : (level === "city" ? [] : (safePrev.districts || [])),
+    towns: level === "town" ? (safeIncoming.towns || []) : (["city", "district"].includes(level) ? [] : (safePrev.towns || [])),
+    apartments: level === "apartment" ? (safeIncoming.apartments || []) : (["city", "district", "town"].includes(level) ? [] : (safePrev.apartments || [])),
+    areas: level === "area" ? (safeIncoming.areas || []) : [],
+  };
+}
+
+
 export default function LoanLandingPage() {
   useScrollReveal();
   const [loanAmount, setLoanAmount] = useState("");
@@ -292,14 +315,15 @@ export default function LoanLandingPage() {
         }
 
         if (cancelled) return;
-        setCatalogOptions(data.options);
+        const requestedLevel = data?.debug?.level || inferCatalogLevel({
+          city: selectedCity,
+          district: selectedDistrict,
+          town: selectedTown,
+          apartment: selectedApartment,
+        });
+        setCatalogOptions((prev) => mergeCatalogOptions(prev, data.options, requestedLevel));
         setCatalogSource(data.source || "");
         setCatalogNote(data.note || "");
-        setSelectedCity(data.query.city || "");
-        setSelectedDistrict(data.query.district || "");
-        setSelectedTown(data.query.town || "");
-        setSelectedApartment(data.query.apartment || "");
-        setSelectedArea(data.query.area || "");
       } catch (error) {
         if (!cancelled) {
           setMarketError(error?.message || "단지 목록을 불러오지 못했습니다.");
@@ -751,21 +775,21 @@ export default function LoanLandingPage() {
                       </div>
                     </div>
                     <div className="select-grid select-grid-3">
-                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }}>
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); setCatalogOptions((prev) => ({ ...prev, districts: [], towns: [], apartments: [], areas: [] })); }}>
                         <option value="">광역시/도</option>
                         {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
 
-                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }} disabled={!selectedCity}>
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); setCatalogOptions((prev) => ({ ...prev, towns: [], apartments: [], areas: [] })); }} disabled={!selectedCity}>
                         <option value="">시/군/구</option>
                         {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
 
-                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); }} disabled={!selectedDistrict}>
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setApartmentQuery(""); setSelectedArea(""); setSelectedUnit(""); setCatalogOptions((prev) => ({ ...prev, apartments: [], areas: [] })); }} disabled={!selectedDistrict}>
                         <option value="">읍/면/동</option>
                         {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
@@ -774,7 +798,7 @@ export default function LoanLandingPage() {
                     </div>
 
                     <div className="select-grid select-grid-3 staged-grid-bottom">
-                      <select value={selectedApartment} onChange={(e) => { setSelectedApartment(e.target.value); setApartmentQuery(e.target.value); setSelectedArea(""); }} disabled={!selectedTown}>
+                      <select value={selectedApartment} onChange={(e) => { setSelectedApartment(e.target.value); setApartmentQuery(e.target.value); setSelectedArea(""); setCatalogOptions((prev) => ({ ...prev, areas: [] })); }} disabled={!selectedTown}>
                         <option value="">아파트</option>
                         {apartments.map((name) => (
                           <option key={name} value={name}>{name}</option>
@@ -1066,19 +1090,19 @@ export default function LoanLandingPage() {
                   <div className="result-search-row">
                     <div className="result-search-label">지역 선택</div>
                     <div className="result-form-grid result-form-grid-3">
-                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                      <select value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setSelectedDistrict(""); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); setCatalogOptions((prev) => ({ ...prev, districts: [], towns: [], apartments: [], areas: [] })); }}>
                         <option value="">광역시/도</option>
                         {cities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
                       </select>
-                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); }}>
+                      <select value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedTown(""); setSelectedApartment(""); setSelectedArea(""); setCatalogOptions((prev) => ({ ...prev, towns: [], apartments: [], areas: [] })); }}>
                         <option value="">시/군/구</option>
                         {districts.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
-                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); }}>
+                      <select value={selectedTown} onChange={(e) => { setSelectedTown(e.target.value); setSelectedApartment(""); setSelectedArea(""); setCatalogOptions((prev) => ({ ...prev, apartments: [], areas: [] })); }}>
                         <option value="">읍/면/동</option>
                         {towns.map((town) => (
                           <option key={town} value={town}>{town}</option>
@@ -1111,6 +1135,8 @@ export default function LoanLandingPage() {
                                 onClick={() => {
                                   setSelectedApartment(name);
                                   setApartmentQuery(name);
+                                  setSelectedArea("");
+                                  setCatalogOptions((prev) => ({ ...prev, areas: [] }));
                                   setShowApartmentList(false);
                                 }}
                               >
@@ -1348,29 +1374,25 @@ export default function LoanLandingPage() {
         <section className="legal-section">
           <div className="container">
             <div className="legal-lines">
-              {[
-                siteSettings.footer_legal_line_1,
-                siteSettings.footer_legal_line_2,
-                siteSettings.footer_legal_line_3,
-                siteSettings.footer_legal_line_4,
-                siteSettings.footer_legal_line_5,
-              ].filter(Boolean).map((line, index) => (
-                <div key={`footer-legal-${index}`}>{line}</div>
-              ))}
+              <div>이자율 : 연6% ~ 연20%이내 (연체이자율 연 7% ~ 20% 이내, 취급수수료 및 기타 부대비용없음)</div>
+              <div>중개수수료를 요구하거나 받는 것은 불법입니다.</div>
+              <div>과도한 빚, 고통의 시작입니다. 대출시 귀하의 신용등급이 하락할 수 있습니다.</div>
+              <div>이 사이트에서 광고되는 상품들의 상환 기간은 모두 60일 이상이며 (최저 2개월, 최대 5년), 최대 연 이자율은 20%입니다.</div>
+              <div>대부이자율 (연 이자율) 및 연체이자율은 연 20%를 초과할 수 없습니다. (조기상환 조건없음)</div>
             </div>
 
             <div className="legal-meta">
-              <span>상호 : {siteSettings.company_name || "엔드아이에셋대부"}</span>
-              <span>대표자(성명) : {siteSettings.representative_name || "최종원"}</span>
-              <span>대표전화 : {displayPhone}</span>
-              <span>사업자등록번호 : {siteSettings.business_registration_number || "739-08-03168"}</span>
-              <span>대부중개업 등록번호 : {siteSettings.brokerage_registration_number || "2025-서울서초-0084"}</span>
-              <span>대부업 등록번호 : {siteSettings.lending_registration_number || "2025-서울서초-0083(대부업)"}</span>
-              <span>사업자주소 : {siteSettings.company_address || "서울특별시 서초구 서초중앙로 114, 일광빌딩 지하2층 B204호"}</span>
-              <span>등록기관 : {siteSettings.registration_agency || "서초구청 일자리경제과 (02-2155-8752)"}</span>
+              <span>상호 : 엔드아이에셋대부</span>
+              <span>대표자(성명) : 최종원</span>
+              <span>대표전화 : 070-8018-7437</span>
+              <span>사업자등록번호 : 739-08-03168</span>
+              <span>대부중개업 등록번호 : 2025-서울서초-0084</span>
+              <span>대부업 등록번호 : 2025-서울서초-0083(대부업)</span>
+              <span>사업자주소 : 서울특별시 서초구 서초중앙로 114, 일광빌딩 지하2층 B204호</span>
+              <span>등록기관 : 서초구청 일자리경제과 (02-2155-8752)</span>
             </div>
 
-            <div className="legal-copy">{siteSettings.footer_copyright || "© 엔드아이에셋대부. All Rights Reserved."}</div>
+            <div className="legal-copy">© 엔드아이에셋대부. All Rights Reserved.</div>
           </div>
         </section>
       </main>
