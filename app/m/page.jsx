@@ -551,7 +551,13 @@ export default function MobileLandingPage() {
                   </div>
                 </div>
                 <p className={styles.marketDescription}>{marketSummary.description}</p>
-                <a className={styles.marketConsultButton} href={`tel:${sanitizePhone(displayPhone)}`}>상담 바로 연결</a>
+                <button
+                  type="button"
+                  className={styles.marketConsultButton}
+                  onClick={() => moveTo(consultRef)}
+                >
+                  상담 신청 화면으로 이동
+                </button>
               </div>
             ) : null}
           </div>
